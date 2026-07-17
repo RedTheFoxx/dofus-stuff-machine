@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title | default('STUFF-MACHINE') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
+</head>
+<body>
+  <div class="viewport">
+    <div class="terminal" id="terminal"
+         data-cols="{{ cols }}"
+         data-body-page="{{ body_page }}"
+         data-body-total="{{ body_total_pages }}"
+         data-nav-base="{{ nav_base | default('') }}"
+         data-f7-url="{{ f7_url | default('') }}"
+         data-f8-url="{{ f8_url | default('') }}"
+         data-f3-url="{{ url_for('terminal.quit_screen') }}"
+         data-f12-url="{{ url_for('terminal.menu') }}"
+         data-mode="{{ mode | default('') }}"
+         {% if stuff_payload is defined and stuff_payload is not none %}data-stuff-payload="{{ stuff_payload | tojson }}"{% endif %}>
+      <div class="screen-frame">
+        {# Ligne 1 : header #}
+        <div class="row header" id="header-row">{{ header }}</div>
+        {# Ligne 2 : séparateur #}
+        <div class="row sep meta">{{ separator }}</div>
+        {# Ligne 3 : vide / marge #}
+        <div class="row blank">&nbsp;</div>
+
+        {# Lignes 4-21 : corps #}
+        <div class="body" id="body">
+          {% for line in body_lines %}
+          <div class="row">{{ line }}</div>
+          {% endfor %}
+        </div>
+
+        {# Ligne 22-23 : statut + saisie #}
+        <div class="row status {{ status_kind }}">{% if status %}{{ status }}{% else %}&nbsp;{% endif %}</div>
+
+        {% if input_label is not none %}
+        <form class="input-row" id="main-form" method="{{ form_method }}" action="{{ form_action }}" autocomplete="off">
+          <label class="input-label meta">{% if input_label %}{{ input_label }} : {% endif %}[</label>
+          <input class="field"
+                 type="text"
+                 name="{{ input_name }}"
+                 id="main-input"
+                 value="{{ input_value }}"
+                 maxlength="{{ input_maxlength }}"
+                 spellcheck="false"
+                 autofocus>
+          <span class="input-label meta">]</span>
+        </form>
+        {% else %}
+        <div class="row blank">&nbsp;</div>
+        {% endif %}
+
+        {# Ligne 24 : F-keys #}
+        <div class="row fkeys" id="fkey-bar">
+          {% for key, label in fkeys %}
+          <span class="fkey"><span class="fkey-key meta">{{ key }}</span><span class="fkey-eq meta">=</span><span class="fkey-label">{{ label }}</span></span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
+</body>
+</html>

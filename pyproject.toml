@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dofus-stuff-machine"
+version = "0.2.0"
+description = "Outils Dofus : base locale Dofusdude, CLI et interface terminal web"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "ortools>=9.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+dofus-stuff = "dofus_stuff.cli:main"
+dofus-stuff-web = "dofus_stuff.web.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dofus_stuff*"]
+
+[tool.setuptools.package-data]
+dofus_stuff = [
+    "web/templates/*.html",
+    "web/static/css/*.css",
+    "web/static/js/*.js",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

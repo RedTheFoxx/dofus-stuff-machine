@@ -1,0 +1,175 @@
+/* Terminal AS/400 — grille 100x24, palette stricte */
+
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+  --active: #ffff00;
+  --alert: #ff0000;
+  --meta: #808080;
+  --passive: #404040;
+  --cols: 100;
+  --rows: 24;
+  --char-w: 1ch;
+  --line-h: 1.15;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Courier New", Courier, "IBM Plex Mono", monospace;
+  font-variant-ligatures: none;
+  font-smooth: never;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeLegibility;
+}
+
+.viewport {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.terminal {
+  /* Largeur = 100ch ; hauteur = 24 lignes. Le padding est hors contenu
+     (content-box) pour ne pas coller les F-keys au bord. */
+  --term-w: calc(var(--cols) * 1ch);
+  --term-h: calc(var(--rows) * 1em * var(--line-h));
+  box-sizing: content-box;
+  width: var(--term-w);
+  height: var(--term-h);
+  transform-origin: center center;
+  background: var(--bg);
+  border: 1px solid var(--passive);
+  padding: 0.5ch 0.5ch 1.25ch 0.5ch;
+  overflow: hidden;
+}
+
+.screen-frame {
+  width: calc(var(--cols) * 1ch);
+  height: calc(var(--rows) * 1em * var(--line-h));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.row {
+  font-size: 1rem;
+  line-height: var(--line-h);
+  height: calc(1em * var(--line-h));
+  white-space: pre;
+  overflow: hidden;
+  width: 100%;
+  font-family: inherit;
+}
+
+.row.meta,
+.meta {
+  color: var(--meta);
+}
+
+.row.header {
+  color: var(--fg);
+}
+
+.row.sep {
+  color: var(--meta);
+}
+
+.row.status {
+  color: var(--fg);
+  min-height: calc(1em * var(--line-h));
+}
+
+.row.status.error {
+  color: var(--alert);
+}
+
+.row.status.info {
+  color: var(--fg);
+}
+
+.body {
+  flex: 0 0 auto;
+  height: calc(18 * 1em * var(--line-h));
+  overflow: hidden;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  height: calc(1em * var(--line-h));
+  line-height: var(--line-h);
+  font-family: inherit;
+  font-size: 1rem;
+  white-space: pre;
+}
+
+.input-label {
+  color: var(--meta);
+  flex: 0 0 auto;
+}
+
+.field {
+  background: var(--bg);
+  border: none;
+  outline: none;
+  color: var(--active);
+  caret-color: var(--active);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: var(--line-h);
+  height: calc(1em * var(--line-h));
+  padding: 0;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 2ch;
+  text-transform: none;
+}
+
+.field:focus {
+  color: var(--active);
+  background: var(--bg);
+}
+
+.fkeys {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3ch;
+  color: var(--fg);
+  overflow: hidden;
+}
+
+.fkey-key,
+.fkey-eq {
+  color: var(--meta);
+}
+
+.fkey-label {
+  color: var(--fg);
+}
+
+/* Empêche le scroll et la sélection « moderne » intrusive */
+body {
+  user-select: none;
+}
+
+.field {
+  user-select: text;
+}
