@@ -31,6 +31,15 @@ class CpSatResult:
     status_name: str
 
 
+def cpsat_available() -> bool:
+    """True si ortools est importable (sinon le solveur retourne None)."""
+    try:
+        from ortools.sat.python import cp_model  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def _scaled_item_contrib(item: dict[str, Any], profile: CharacterProfile) -> int:
     stats = effects_to_stats(item.get("effects"), mode=profile.jet_mode)
     if profile.solver_spec is not None:
@@ -125,11 +134,16 @@ def solve_cpsat(
     time_limit_s: float = 5.0,
     hint_build: Build | None = None,
     stop_when_satisfied: bool = False,
+    seed: int | None = None,
 ) -> CpSatResult | None:
     """
     Résout le MIP stuff sur le pool.
 
     Retourne None si ortools n'est pas installé ou si aucun candidat.
+
+    Quand `seed` est fourni, le solveur tourne avec un seul worker :
+    c'est plus lent mais reproductible (CP-SAT multi-worker n'est pas
+    déterministe).
     """
     try:
         from ortools.sat.python import cp_model
@@ -276,7 +290,7 @@ def solve_cpsat(
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = float(time_limit_s)
-    solver.parameters.num_search_workers = 4
+    solver.parameters.num_search_workers = 1 if seed is not None else 4
     if stop_when_satisfied:
         solver.parameters.stop_after_first_solution = True
     status = solver.Solve(model)

@@ -17,7 +17,7 @@ from dofus_stuff.optimize.candidates import (
     base_objective_score,
     build_candidate_pool,
 )
-from dofus_stuff.optimize.cpsat import solve_cpsat
+from dofus_stuff.optimize.cpsat import cpsat_available, solve_cpsat
 from dofus_stuff.optimize.greedy import greedy_build, local_search
 from dofus_stuff.optimize.score import Compatibility, compute_compatibility
 
@@ -68,6 +68,7 @@ class OptimizeResult:
     ub0: float
     pool_stats: dict[str, Any] = field(default_factory=dict)
     cpsat_status: str | None = None
+    cpsat_available: bool | None = None
 
 
 def _repair_invalid_conditions(
@@ -197,6 +198,7 @@ def optimize_stuff(
     optimal = False
     best_bound: float | None = None
     cpsat_status: str | None = None
+    ortools_ok: bool | None = None
 
     already_satisfied = (
         stop_when
@@ -206,13 +208,17 @@ def optimize_stuff(
     )
 
     if resolved_cpsat and not already_satisfied:
+        ortools_ok = cpsat_available()
+        if not ortools_ok:
+            cpsat_status = "UNAVAILABLE"
         cpsat = solve_cpsat(
             pool,
             profile,
             time_limit_s=resolved_time,
             hint_build=greedy,
             stop_when_satisfied=stop_when,
-        )
+            seed=seed,
+        ) if ortools_ok else None
         if cpsat is not None:
             cpsat_status = cpsat.status_name
             best_bound = cpsat.best_bound
@@ -275,6 +281,8 @@ def optimize_stuff(
         "slot_errors": slot_errors,
         "forced": sorted(pool.forced_build.ankama_ids()),
     }
+    if cpsat_status == "UNAVAILABLE":
+        pool_stats["cpsat_unavailable"] = True
 
     return OptimizeResult(
         build=best_build,
@@ -285,6 +293,7 @@ def optimize_stuff(
         ub0=ub0,
         pool_stats=pool_stats,
         cpsat_status=cpsat_status,
+        cpsat_available=ortools_ok,
     )
 
 
@@ -304,6 +313,11 @@ def format_optimize_result(result: OptimizeResult, profile: CharacterProfile) ->
         f"Méthode : {result.method}"
         + (f" ({result.cpsat_status})" if result.cpsat_status else "")
     )
+    if result.cpsat_status == "UNAVAILABLE":
+        lines.append(
+            "Attention : ortools indisponible, résultat = greedy seul "
+            "(optimalité non garantie)"
+        )
     lines.append(
         f"Score : {result.evaluation.score:.1f}  |  "
         f"Compatibilité : {result.compatibility.percent:.1f}% "

@@ -160,14 +160,68 @@ def _shared_pool_upper_bound(
     profile: CharacterProfile,
     cardinality: int,
 ) -> float:
-    """Somme des `cardinality` meilleurs scores distincts d'un pool partagé."""
+    """Somme des `cardinality` meilleurs scores distincts d'un pool partagé.
+
+    Déduplique par ankama_id : un même item ne peut pas occuper deux slots,
+    donc il ne doit pas être compté deux fois dans la borne.
+    """
     if cardinality <= 0 or not pool:
         return 0.0
-    scores = sorted(
-        (_item_objective_score(it, profile) for it in pool),
-        reverse=True,
-    )
+    best_by_id: dict[int, float] = {}
+    for item in pool:
+        aid = item.get("ankama_id")
+        if not isinstance(aid, int):
+            continue
+        score = _item_objective_score(item, profile)
+        if score > best_by_id.get(aid, float("-inf")):
+            best_by_id[aid] = score
+    scores = sorted(best_by_id.values(), reverse=True)
     return float(sum(scores[:cardinality]))
+
+
+def _dedup_best_per_slot(
+    best_by_slot: dict[str, tuple[dict[str, Any], float]],
+    by_slot: dict[str, list[dict[str, Any]]],
+    profile: CharacterProfile,
+    *,
+    max_iterations: int = 4,
+) -> float:
+    """Somme des meilleurs scores par slot indépendant, sans double compte.
+
+    Un même ankama_id ne peut pas être équipé deux fois : en cas de conflit,
+    l'occurrence la moins contributive est remplacée par le meilleur item
+    suivant du slot. Reste une borne supérieure valide (on ne retire que des
+    doubles comptes avérés).
+    """
+    for _ in range(max_iterations):
+        owners: dict[int, list[str]] = {}
+        for slot, (item, _score) in best_by_slot.items():
+            aid = item.get("ankama_id")
+            if isinstance(aid, int):
+                owners.setdefault(aid, []).append(slot)
+        conflicts = {aid: s for aid, s in owners.items() if len(s) > 1}
+        if not conflicts:
+            break
+        for aid, slots in conflicts.items():
+            # Garder le slot où la contribution est la plus élevée.
+            keeper = max(slots, key=lambda s: best_by_slot[s][1])
+            for slot in slots:
+                if slot == keeper:
+                    continue
+                replacement: tuple[dict[str, Any], float] | None = None
+                for candidate in by_slot.get(slot) or []:
+                    cid = candidate.get("ankama_id")
+                    if not isinstance(cid, int) or cid == aid:
+                        continue
+                    score = _item_objective_score(candidate, profile)
+                    if replacement is None or score > replacement[1]:
+                        replacement = (candidate, score)
+                if replacement is not None:
+                    best_by_slot[slot] = replacement
+                else:
+                    # Pas d'alternative : ce slot ne contribue plus.
+                    del best_by_slot[slot]
+    return float(sum(score for _item, score in best_by_slot.values()))
 
 
 def _resolve_forced_build(
@@ -351,12 +405,14 @@ def build_candidate_pool(
         ub_items += _shared_pool_upper_bound(dofus_pool, profile, len(dofus_present))
         accounted.update(dofus_present)
 
+    best_by_slot: dict[str, tuple[dict[str, Any], float]] = {}
     for instance in slot_instances:
         if instance in accounted:
             continue
         pool = by_slot.get(instance) or []
         if pool:
-            ub_items += _item_objective_score(pool[0], profile)
+            best_by_slot[instance] = (pool[0], _item_objective_score(pool[0], profile))
+    ub_items += _dedup_best_per_slot(best_by_slot, by_slot, profile)
 
     ub_sets = _optimistic_set_upper_bound(list(selected.values()), sets_by_id, profile)
 

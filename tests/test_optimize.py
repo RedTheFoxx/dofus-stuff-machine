@@ -309,3 +309,84 @@ def test_plausible_filter_rejects_mj_ring():
     }
     assert _is_plausible_equipment(bad) is False
     assert _is_plausible_equipment(good) is True
+
+
+def test_optimize_score_quality_mini(mini_catalog: Catalog):
+    """Le score final doit être proche de l'optimal connu du mini catalogue."""
+    profile = CharacterProfile(
+        level=120,
+        objective=Objective.maximize("Intelligence"),
+        base_stats=Stats({"Intelligence": 200}),
+        scrolls=Stats({"Intelligence": 100}),
+    )
+    result = optimize_stuff(
+        mini_catalog,
+        profile,
+        top_k=10,
+        time_limit_s=2.0,
+        use_cpsat=True,
+    )
+    # Optimal du mini catalogue : 8 meilleurs items + bonus set 50 + base 300.
+    optimal_attendu = 535.0
+    assert result.evaluation.score >= 0.95 * optimal_attendu
+
+
+def test_ub0_is_valid_upper_bound(mini_catalog: Catalog):
+    """UB0 ne doit jamais descendre sous le score final (borne supérieure valide)."""
+    profile = CharacterProfile(
+        level=120,
+        objective=Objective.maximize("Intelligence"),
+        base_stats=Stats({"Intelligence": 200}),
+        scrolls=Stats({"Intelligence": 100}),
+    )
+    result = optimize_stuff(
+        mini_catalog,
+        profile,
+        top_k=10,
+        time_limit_s=2.0,
+        use_cpsat=True,
+    )
+    assert result.ub0 >= result.evaluation.score - 1e-6
+
+
+def test_cpsat_unavailable_flag(mini_catalog: Catalog, monkeypatch):
+    """Sans ortools, le fallback greedy doit être signalé explicitement."""
+    import dofus_stuff.optimize.api as api_module
+
+    monkeypatch.setattr(api_module, "cpsat_available", lambda: False)
+    monkeypatch.setattr(api_module, "solve_cpsat", lambda *a, **k: None)
+
+    profile = CharacterProfile(
+        level=120,
+        objective=Objective.maximize("Intelligence"),
+        base_stats=Stats({"Intelligence": 200}),
+        scrolls=Stats({"Intelligence": 100}),
+    )
+    result = optimize_stuff(
+        mini_catalog,
+        profile,
+        top_k=10,
+        time_limit_s=2.0,
+        use_cpsat=True,
+    )
+    assert result.cpsat_status == "UNAVAILABLE"
+    assert result.cpsat_available is False
+    assert result.method.startswith("greedy")
+    assert result.pool_stats.get("cpsat_unavailable") is True
+
+
+def test_seed_determinism(mini_catalog: Catalog):
+    """Deux runs avec le même seed doivent produire le même build."""
+    from dofus_stuff.model.solver_spec import SolverSpec, StatGoal
+
+    spec = SolverSpec(
+        level=120,
+        goals={"Intelligence": StatGoal(base=200, scroll=100, weight=1.0)},
+        top_k=10,
+        time_limit_s=2.0,
+        seed=42,
+    )
+    first = optimize_stuff(mini_catalog, spec=spec)
+    second = optimize_stuff(mini_catalog, spec=spec)
+    assert first.build.ankama_ids() == second.build.ankama_ids()
+    assert first.evaluation.score == pytest.approx(second.evaluation.score)
