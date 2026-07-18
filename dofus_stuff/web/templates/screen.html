@@ -18,7 +18,7 @@
          data-f3-url="{{ url_for('terminal.quit_screen') }}"
          data-f12-url="{{ url_for('terminal.menu') }}"
          data-mode="{{ mode | default('') }}"
-         {% if stuff_payload is defined and stuff_payload is not none %}data-stuff-payload="{{ stuff_payload | tojson }}"{% endif %}>
+         {% if stuff_payload is defined and stuff_payload is not none %}data-stuff-payload='{{ stuff_payload | tojson }}'{% endif %}>
       <div class="screen-frame">
         {# Ligne 1 : header #}
         <div class="row header" id="header-row">{{ header }}</div>

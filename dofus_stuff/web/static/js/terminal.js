@@ -288,6 +288,10 @@
       summary: buildSummary(lines),
       lines: lines,
     };
+    if (payload.slots && typeof payload.slots === "object") {
+      entry.slots = payload.slots;
+      entry.level = payload.level || 200;
+    }
     stuffs.push(entry);
     try {
       writeSaves(stuffs);
@@ -379,9 +383,39 @@
     terminal.setAttribute("data-body-page", String(page));
     terminal.setAttribute("data-body-total", String(total));
     setStatus(
-      "PAGE " + page + "/" + total + " — BACK LISTE | F12 MENU",
+      "PAGE " + page + "/" + total + " — BACK LISTE | DB DOFUSBOOK | F12 MENU",
       "info"
     );
+  }
+
+  function openSaveDofusbook() {
+    var stuffs = loadSaves();
+    var entry = stuffs[savesState.index];
+    if (!entry || !entry.slots) {
+      setStatus("AUCUN SLOT SAUVEGARDE — RE-SAUVEGARDER DEPUIS UN RESULTAT", "error");
+      return;
+    }
+    setStatus("OUVERTURE DOFUSBOOK…", "info");
+    fetch("/optimize/dofusbook-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slots: entry.slots, level: entry.level || 200 }),
+    })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("http " + resp.status);
+        return resp.json();
+      })
+      .then(function (data) {
+        if (data && data.url) {
+          window.open(data.url, "_blank");
+          setStatus("DOFUSBOOK OUVERT", "info");
+        } else {
+          setStatus("URL INDISPONIBLE", "error");
+        }
+      })
+      .catch(function () {
+        setStatus("ECHEC GENERATION URL DOFUSBOOK", "error");
+      });
   }
 
   function handleSavesCmd(raw) {
@@ -400,7 +434,11 @@
         renderSavesList();
         return;
       }
-      setStatus("BACK POUR LA LISTE | F12 MENU", "error");
+      if (upper === "DB") {
+        openSaveDofusbook();
+        return;
+      }
+      setStatus("BACK LISTE | DB DOFUSBOOK | F12 MENU", "error");
       return;
     }
 

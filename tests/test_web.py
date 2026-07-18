@@ -375,6 +375,27 @@ def test_optimize_result_cmd_id(client):
     assert "/item" in (rv.headers.get("Location") or "")
 
 
+def test_optimize_result_payload_parseable(client):
+    """Le data-stuff-payload doit être un JSON récupérable via getAttribute."""
+    import html as html_module
+    import json
+    import re
+
+    lines = [
+        'Stuff avec "guillemets" et accent «è»',
+        "Symboles < > & pour vérifier l'échappement",
+    ]
+    with client.session_transaction() as sess:
+        sess["optimize_result_lines"] = lines
+    rv = client.get("/optimize/result")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    match = re.search(r"data-stuff-payload='([^']*)'", body)
+    assert match is not None, "payload introuvable ou attribut mal délimité"
+    payload = json.loads(html_module.unescape(match.group(1)))
+    assert payload["lines"] == lines
+
+
 def test_wizard_exposes_step_nav_urls(client):
     client.post("/", data={"selection": "7"}, follow_redirects=True)
     rv = client.get("/optimize/wizard/options")
@@ -384,3 +405,142 @@ def test_wizard_exposes_step_nav_urls(client):
     assert "/optimize/wizard/slots" in body
     assert "data-f8-url=" in body
     assert "/optimize/wizard/caracs" in body
+
+
+def test_optimize_result_edit_returns_to_recap(client):
+    """EDIT renvoie au recap sans réinitialiser le spec."""
+    from dofus_stuff.web.optimize_wizard import SESSION_WIZARD
+
+    with client.session_transaction() as sess:
+        sess["optimize_result_lines"] = ["Niveau 50", "Score : 1"]
+        sess[SESSION_WIZARD] = {"level": 50, "goals": {}}
+
+    rv = client.post("/optimize/result", data={"cmd": "EDIT"}, follow_redirects=False)
+    assert rv.status_code in (301, 302)
+    assert "/optimize/wizard/recap" in (rv.headers.get("Location") or "")
+    # Le spec n'a pas été réinitialisé par l'EDIT.
+    with client.session_transaction() as sess:
+        assert sess.get(SESSION_WIZARD, {}).get("level") == 50
+
+
+def test_build_dofusbook_url_encodes_slots():
+    import base64
+
+    import msgpack
+
+    from dofus_stuff.web.dofusbook_export import build_dofusbook_url
+
+    url = build_dofusbook_url(
+        {
+            "hat": {"ankama_id": 44},
+            "cape": {"ankama_id": 50},
+            "ring_a": {"ankama_id": 100},
+            "ring_b": {"ankama_id": 101},
+            "weapon": {"ankama_id": 7},
+            "pet": {"ankama_id": 999},
+        },
+        level=200,
+    )
+    assert "stuff=" in url
+    token = url.split("stuff=", 1)[1]
+    data = msgpack.unpackb(base64.b64decode(token), raw=False)
+    caracs, points, level, flags, counts, ids = data
+    assert level == 200
+    assert flags == 0
+    # Groupes: cape, coiffe, ceinture, bottes, amulette, anneaux, dofus,
+    # bouclier, arme, familier (ca puis ch dans le schéma Dofusbook)
+    assert counts == [1, 1, 0, 0, 0, 2, 0, 0, 1, 1]
+    assert ids == [50, 44, 100, 101, 7, 999]
+
+
+def test_optimize_result_db_opens_browser(client):
+    with client.session_transaction() as sess:
+        sess["optimize_result_lines"] = ["Niveau 50", "Score : 1"]
+        sess["optimize_result_build"] = {
+            "slots": {"hat": 44, "weapon": 7},
+            "level": 50,
+        }
+    with patch("dofus_stuff.web.routes.webbrowser.open_new_tab") as open_mock:
+        rv = client.post("/optimize/result", data={"cmd": "DB"}, follow_redirects=False)
+    assert rv.status_code in (301, 302)
+    open_mock.assert_called_once()
+    url = open_mock.call_args[0][0]
+    assert "dofusbook.net" in url
+    assert "stuff=" in url
+
+
+def test_dofusbook_url_route_from_saved_slots(client):
+    """La route JSON génère une URL Dofusbook depuis des slots sauvegardés."""
+    rv = client.post(
+        "/optimize/dofusbook-url",
+        json={"slots": {"hat": 44, "ring_a": 100, "ring_b": 101}, "level": 199},
+    )
+    assert rv.status_code == 200
+    data = rv.get_json()
+    assert "dofusbook.net" in data["url"]
+    assert "stuff=" in data["url"]
+
+    # Décodage pour vérifier le contenu
+    import base64
+
+    import msgpack
+
+    token = data["url"].split("stuff=", 1)[1]
+    payload = msgpack.unpackb(base64.b64decode(token), raw=False)
+    assert payload[2] == 199
+    # hat est le groupe 1 (ch), anneaux le groupe 5
+    assert payload[4] == [0, 1, 0, 0, 0, 2, 0, 0, 0, 0]
+    assert payload[5] == [44, 100, 101]
+
+
+def test_dofusbook_url_route_requires_slots(client):
+    rv = client.post("/optimize/dofusbook-url", json={})
+    assert rv.status_code == 400
+
+
+def test_build_dofusbook_url_124test_hat_cape_order():
+    """Régression : cape (groupe 0) avant chapeau (groupe 1), sinon Dofusbook
+    rejette les deux items pour type incompatible."""
+    import base64
+
+    import msgpack
+
+    from dofus_stuff.web.dofusbook_export import build_dofusbook_url
+
+    slots = {
+        "amulet": 8453,
+        "belt": 14582,
+        "boots": 2530,
+        "cape": 8452,
+        "dofus_1": 13344,
+        "dofus_2": 13767,
+        "dofus_3": 16247,
+        "dofus_4": 12715,
+        "dofus_5": 13766,
+        "dofus_6": 16246,
+        "hat": 14583,
+        "pet": 33036,
+        "ring_a": 2469,
+        "ring_b": 27532,
+        "shield": 18683,
+        "weapon": 23314,
+    }
+    url = build_dofusbook_url(slots, 124)
+    token = url.split("stuff=", 1)[1]
+    data = msgpack.unpackb(base64.b64decode(token), raw=False)
+    counts, ids = data[4], data[5]
+    assert data[2] == 124
+    assert counts == [1, 1, 1, 1, 1, 2, 6, 1, 1, 1]
+    # Ordre plat : cape, hat, belt, boots, amulet, rings, dofus×6, shield, weapon, pet
+    assert ids[0] == 8452  # cape
+    assert ids[1] == 14583  # hat
+    assert ids[2] == 14582  # belt
+    assert ids[3] == 2530  # boots
+    assert ids[4] == 8453  # amulet
+    assert ids[5:7] == [2469, 27532]  # rings
+    assert ids[7:13] == [13344, 13767, 16247, 12715, 13766, 16246]  # dofus
+    assert ids[13] == 18683  # shield
+    assert ids[14] == 23314  # weapon
+    assert ids[15] == 33036  # pet
+    assert 8452 in ids and 14583 in ids
+

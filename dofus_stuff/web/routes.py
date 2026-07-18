@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import webbrowser
 from typing import Any
 
 from flask import (
@@ -10,6 +11,7 @@ from flask import (
     current_app,
     flash,
     get_flashed_messages,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -23,6 +25,7 @@ from dofus_stuff.database import Database
 from dofus_stuff.optimize.api import format_optimize_result_lines, optimize_stuff
 from dofus_stuff.sync import ensure_up_to_date
 from dofus_stuff.web import get_catalog, reload_catalog
+from dofus_stuff.web.dofusbook_export import build_dofusbook_url
 from dofus_stuff.web.optimize_wizard import (
     SESSION_WIZARD_EDIT,
     STEP_TITLES,
@@ -100,6 +103,7 @@ def _screen(
     f8_url: str | None = None,
     mode: str = "",
     stuff_payload: Any = None,
+    enter_hint: str = "",
     extra: dict[str, Any] | None = None,
 ) -> str:
     flash_status, flash_kind = _status_from_flashes()
@@ -124,15 +128,19 @@ def _screen(
 
     keys = list(fkeys or DEFAULT_FKEYS)
     if total > 1 or f7_url or f8_url:
-        key_ids = {k for k, _ in keys}
-        if "F7" not in key_ids:
-            keys.insert(0, ("F7", "Precedent"))
-        if "F8" not in key_ids:
-            keys.insert(1, ("F8", "Suivant"))
+        f7_label = "Precedent" if f7_url else "Page prec"
+        f8_label = "Suivant" if f8_url else "Page suiv"
+        tail = [k for k in keys if k[0] in ("F3", "F12")]
+        keys = [("F7", f7_label), ("F8", f8_label)] + tail
 
-    if total > 1 and not status:
-        status = f"PAGE {page}/{total}"
-        status_kind = "info"
+    indicators: list[str] = []
+    if total > 1:
+        indicators.append(f"PAGE {page}/{total}")
+    if input_label is not None:
+        indicators.append(f"ENTREE={enter_hint}" if enter_hint else "ENTREE=VALIDER")
+    if status:
+        indicators.insert(0, status)
+    status = " — ".join(indicators) if indicators else ""
 
     header = header_line(pgm, title, _clock())
     body = pad_lines(lines, BODY_LINES, COLS)
@@ -305,7 +313,7 @@ def search() -> Any:
         status=status,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.search", q=query, page=page),
         form_method="get",
         input_label=None,
@@ -354,7 +362,7 @@ def item_form() -> Any:
         body_lines=slice_lines,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.item_form", id=ankama_id, page=page),
         form_method="get",
         input_label=None,
@@ -418,7 +426,7 @@ def list_items() -> Any:
         body_lines=lines,
         body_page=page,
         body_total_pages=total_pages,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.list_items", page=page, size=size),
         form_method="post",
         input_label="ANKAMA_ID",
@@ -485,7 +493,7 @@ def self_test() -> str:
         status_kind=kind,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.self_test", page=page),
@@ -562,7 +570,7 @@ def db_status() -> str:
         body_lines=slice_lines,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.db_menu"),
@@ -674,10 +682,21 @@ def db_clear_run() -> Any:
 
 
 SESSION_OPTIMIZE_RESULT = "optimize_result_lines"
+SESSION_OPTIMIZE_BUILD = "optimize_result_build"
 
 
 def _store_optimize_result(lines: list[str]) -> None:
     session[SESSION_OPTIMIZE_RESULT] = lines
+
+
+def _store_optimize_build(result, level: int) -> None:
+    """Persiste slot_instance -> ankama_id (+ niveau) pour l'export Dofusbook."""
+    slots = {
+        slot: item["ankama_id"]
+        for slot, item in result.build.slots.items()
+        if isinstance(item.get("ankama_id"), int)
+    }
+    session[SESSION_OPTIMIZE_BUILD] = {"slots": slots, "level": int(level)}
 
 
 def _run_optimize_and_redirect(req) -> Any:
@@ -693,6 +712,7 @@ def _run_optimize_and_redirect(req) -> Any:
     )
     lines = format_optimize_result_lines(result, req.profile)
     _store_optimize_result(lines)
+    _store_optimize_build(result, req.profile.level)
     flash("CALCUL TERMINE", "info")
     return redirect(url_for("terminal.optimize_result"))
 
@@ -705,12 +725,7 @@ def optimize_entry() -> Any:
 
 
 def _wizard_fkeys(step: str) -> list[tuple[str, str]]:
-    keys = [("F12", "Retour")]
-    if prev_step(step):
-        keys.insert(0, ("F7", "Precedent"))
-    if next_step(step):
-        keys.insert(len(keys) - 1 if keys else 0, ("F8", "Suivant"))
-    return keys
+    return [("F12", "Retour")]
 
 
 def _wizard_step_urls(step: str) -> tuple[str | None, str | None]:
@@ -865,6 +880,7 @@ def optimize_wizard(step: str) -> Any:
             nav_base=nav_base,
             f7_url=f7_url,
             f8_url=f8_url,
+            enter_hint="SUIVANT" if next_step(step) else "",
         )
 
     return _screen(
@@ -880,6 +896,7 @@ def optimize_wizard(step: str) -> Any:
         nav_base=nav_base,
         f7_url=f7_url,
         f8_url=f8_url,
+        enter_hint="SUIVANT" if next_step(step) else "",
     )
 
 
@@ -982,9 +999,9 @@ def saves() -> Any:
         input_label="",
         input_name="cmd",
         input_maxlength=40,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.saves"),
-        status="N OUVRIR | DEL N | PURGE OUI | F12 RETOUR",
+        status="N OUVRIR | DEL N | PURGE OUI",
         mode="saves",
     )
 
@@ -996,6 +1013,12 @@ def optimize_result() -> Any:
         raw = (
             request.form.get("cmd") or request.form.get("ankama_id") or ""
         ).strip()
+        upper = raw.casefold()
+        if upper in {"edit", "relancer", "relance"}:
+            # Conserver le spec courant et rouvrir le wizard au récapitulatif.
+            return redirect(url_for("terminal.optimize_wizard", step="recap"))
+        if upper == "db":
+            return _open_dofusbook()
         if raw.isdigit():
             return redirect(url_for("terminal.item_form", id=raw))
         flash("ID ANKAMA INVALIDE — OU SAVE [NOM] POUR SAUVEGARDER", "error")
@@ -1006,9 +1029,52 @@ def optimize_result() -> Any:
         flash("AUCUN RESULTAT — LANCER UN CALCUL D'ABORD", "error")
         return redirect(url_for("terminal.menu"))
 
+    return _result_screen(lines)
+
+
+def _open_dofusbook() -> Any:
+    build = session.get(SESSION_OPTIMIZE_BUILD)
+    if not isinstance(build, dict) or not build.get("slots"):
+        flash("AUCUN STUFF A EXPORTER — LANCER UN CALCUL D'ABORD", "error")
+        return redirect(url_for("terminal.optimize_result"))
+    url = build_dofusbook_url(build["slots"], int(build.get("level", 200)))
+    try:
+        webbrowser.open_new_tab(url)
+        flash("DOFUSBOOK OUVERT DANS LE NAVIGATEUR", "info")
+    except Exception:
+        flash(url[:COLS], "info")
+    return redirect(url_for("terminal.optimize_result"))
+
+
+@bp.post("/optimize/dofusbook-url")
+def dofusbook_url() -> Any:
+    """Retourne l'URL Dofusbook pour des slots postés en JSON.
+
+    Corps attendu : {"slots": {slot_instance: ankama_id}, "level": int}.
+    Utilisé par l'écran des sauvegardes (localStorage) pour ouvrir Dofusbook
+    sans repasser par une session serveur.
+    """
+    data = request.get_json(silent=True) or {}
+    slots = data.get("slots")
+    if not isinstance(slots, dict) or not slots:
+        return jsonify({"error": "slots manquants"}), 400
+    try:
+        level = int(data.get("level", 200))
+    except (TypeError, ValueError):
+        level = 200
+    url = build_dofusbook_url(slots, level)
+    return jsonify({"url": url})
+
+
+def _result_screen(lines: list[str]) -> Any:
     wrapped = wrap_lines(lines, COLS)
     page = max(1, int(request.args.get("page", 1)))
     slice_lines, page, total = paginate(wrapped, page=page, page_size=BODY_LINES)
+    payload: dict[str, Any] = {"lines": list(lines)}
+    build = session.get(SESSION_OPTIMIZE_BUILD)
+    if isinstance(build, dict) and build.get("slots"):
+        payload["slots"] = build["slots"]
+        payload["level"] = build.get("level", 200)
     return _screen(
         pgm="OPT-03",
         title="** RESULTAT OPTIMISATION **",
@@ -1018,10 +1084,10 @@ def optimize_result() -> Any:
         input_maxlength=40,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F7", "Precedent"), ("F8", "Suivant"), ("F12", "Retour")],
+        fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.optimize_result"),
-        status=f"PAGE {page}/{total} — ID DETAIL | SAVE [NOM] | F12 RETOUR",
+        status="ID DETAIL | SAVE [NOM] | EDIT | DB",
         nav_base=url_for("terminal.optimize_result"),
         mode="result",
-        stuff_payload={"lines": list(lines)},
+        stuff_payload=payload,
     )

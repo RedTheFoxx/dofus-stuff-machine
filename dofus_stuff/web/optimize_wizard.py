@@ -191,8 +191,7 @@ def body_slots(spec: SolverSpec) -> list[str]:
         label = TYPE_FILTER_LABELS.get(key, key.upper())
         lines.append(f"F{i}. [{_on_off(flag)}] {label}")
     lines.append("")
-    lines.append("ENTREE=SUIVANT  N=TOGGLE SLOT  FN=TOGGLE FILTRE")
-    lines.append("F7=ECRAN PREC  F8=ECRAN SUIV (OU PAGE)")
+    lines.append("N=TOGGLE SLOT  FN=TOGGLE FILTRE")
     return lines
 
 
@@ -212,8 +211,7 @@ def body_options(spec: SolverSpec) -> list[str]:
         f"10. ALLOW DOMMAGES = {_on_off(spec.allow_damages_for_elemental).strip()}",
         f"11. ALLOW DOM CRIT = {_on_off(spec.allow_crit_damages_for_elemental).strip()}",
         "",
-        "ENTREE=SUIVANT  N=CHOISIR OPTION",
-        "F7=ECRAN PREC  F8=ECRAN SUIV",
+        "N=CHOISIR OPTION",
     ]
 
 
@@ -235,7 +233,7 @@ def body_stat_list(
         goal = spec.goals.get(name, StatGoal())
         lines.append(f"{i:2d}. {_goal_line(name, goal, with_exo=with_exo)}")
     lines.append("")
-    lines.append("ENTREE=SUIVANT  N=EDIT  F7/F8=PAGE PUIS ECRAN")
+    lines.append("N=EDIT")
     return lines, page, total_pages
 
 
@@ -258,9 +256,6 @@ def body_items(spec: SolverSpec) -> list[str]:
     )
     if len(forced) > 8:
         lines.append(f"  … +{len(forced) - 8}")
-    lines.append("")
-    lines.append("ENTREE=SUIVANT")
-    lines.append("F7=ECRAN PREC  F8=ECRAN SUIV")
     return lines
 
 
@@ -277,8 +272,7 @@ def body_recap(spec: SolverSpec) -> list[str]:
         f"POWER={spec.allow_power_for_caracs} DMG={spec.allow_damages_for_elemental} "
         f"CRIT={spec.allow_crit_damages_for_elemental}",
         "",
-        "GO = LANCER  RESET = REINITIALISER",
-        "1-8 = RETOUR ECRAN  F7=ECRAN PREC",
+        "GO = LANCER  RESET = REINITIALISER  1-8 = RETOUR ECRAN",
     ]
     return lines
 
