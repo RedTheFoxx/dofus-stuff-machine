@@ -26,16 +26,23 @@ python -m dofus_stuff.web
 
 ### Menu principal
 
-Tapez `7` puis **Entrée** pour ouvrir l’optimisation.
+Tapez `3` puis **Entrée** pour ouvrir l’optimisation.
 
 ```
-7. OPTIMISATION DE STUFF
-8. STUFFS SAUVEGARDES
+1. RECHERCHE D'OBJETS
+2. LISTE DES EQUIPEMENTS
+3. OPTIMISATION DE STUFF
+
+4. SYSTEME
 ```
 
 Vous arrivez **directement** dans le wizard (premier écran : slots et filtres).
 
-L’option **8** rouvre les stuffs que vous avez choisis de sauvegarder dans ce navigateur (voir section 7).
+Les stuffs sauvegardés dans ce navigateur s’ouvrent avec la commande `SAVES`, depuis le
+récapitulatif du wizard ou l’écran de résultat (voir section 7).
+
+L’option **4. SYSTEME** regroupe le reste : détail d’un équipement par ID, version locale,
+self-test et gestion de la base.
 
 ---
 
@@ -57,7 +64,7 @@ L’écran est pensé comme un ancien terminal :
 | **Entrée** | Valide la saisie. Sur la plupart des écrans, **Entrée à vide** = passer à l’écran suivant |
 | **F7** | Écran / page **précédent** |
 | **F8** | Écran / page **suivant** |
-| **F12** | Retour au **menu principal** |
+| **F12** | Retour à l’écran **parent** (menu principal la plupart du temps) |
 | **PageUp / PageDown** | Même idée que F7/F8 pour feuilleter |
 
 Si un écran est trop long pour tenir d’un coup, le statut affiche `PAGE X/Y` : utilisez **F8** pour voir la suite.
@@ -197,6 +204,7 @@ Vérifiez le résumé (niveau, poids, cibles, bans…).
 |--------|--------|
 | `GO` (ou Entrée vide) | **Lance** le calcul |
 | `RESET` | Remet le wizard à zéro |
+| `SAVES` | Ouvre les **stuffs sauvegardés** |
 | `1` … `8` | Retour rapide à l’écran correspondant |
 
 Le calcul peut prendre quelques secondes. Ensuite s’affiche le **résultat**.
@@ -217,11 +225,13 @@ L’écran résultat montre notamment :
 - **F8** : page suivante (souvent nécessaire pour voir tous les dofus / la fin des stats).  
 - Tapez un **ID** (ex. `7252`) puis Entrée pour ouvrir le **détail** de l’objet.  
 - Tapez **`SAVE`** (ou `SAVE mon label`) pour **garder ce stuff** dans le navigateur — ce n’est pas obligatoire.  
+- Tapez **`SAVES`** pour ouvrir la liste des stuffs déjà sauvegardés.  
 - **F12** : retour au menu (sans sauvegarder si vous n’avez pas tapé `SAVE`).
 
-### Stuffs sauvegardés (menu 8)
+### Stuffs sauvegardés (commande `SAVES`)
 
 Les sauvegardes restent **dans ce navigateur uniquement** (localStorage), jusqu’à 20 entrées.
+On y accède avec `SAVES` depuis le récapitulatif du wizard ou l’écran de résultat.
 
 Sur l’écran **STUFFS SAUVEGARDES** :
 
@@ -239,7 +249,7 @@ Sur l’écran **STUFFS SAUVEGARDES** :
 
 Objectif : perso **niveau 123**, build **Intelligence**, base 200 + parchemins 100 déjà inclus dans la base.
 
-1. Menu → `7`  
+1. Menu → `3`  
 2. **Slots** : laissez les défauts (Entrée vide / F8).  
 3. **Options** :  
    - `1` puis `123` (niveau)  
@@ -309,6 +319,6 @@ Interprétation : base 6 PA, exo 0, **cible 11**, poids élevé → le solveur p
 ## 12. Aller plus loin
 
 - La **CLI** permet les mêmes idées en ligne de commande (`python fetcher.py --offline optimize …`) : utile pour automatiser.  
-- Les données viennent de la **base locale** (menu 6 / sync) : gardez-la à jour pour des objets récents.
+- Les données viennent de la **base locale** (menu `4. SYSTEME` → `4. GESTION DE LA BASE` / sync) : gardez-la à jour pour des objets récents.
 
 Si vous débutez vraiment : faites d’abord l’exemple de la section 8, regardez le résultat avec F8, ouvrez un item par son ID, puis recommencez en ajoutant une cible PA. C’est le meilleur moyen de comprendre le wizard.

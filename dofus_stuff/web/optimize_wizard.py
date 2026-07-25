@@ -273,6 +273,7 @@ def body_recap(spec: SolverSpec) -> list[str]:
         f"CRIT={spec.allow_crit_damages_for_elemental}",
         "",
         "GO = LANCER  RESET = REINITIALISER  1-8 = RETOUR ECRAN",
+        "SAVES = STUFFS SAUVEGARDES",
     ]
     return lines
 

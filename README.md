@@ -41,7 +41,7 @@ python fetcher.py --offline optimize --level 200 --max intelligence \
 python fetcher.py --offline optimize
 ```
 
-Dans l’interface web (`python -m dofus_stuff.web`) : menu **7. OPTIMISATION DE STUFF**
+Dans l’interface web (`python -m dofus_stuff.web`) : menu **3. OPTIMISATION DE STUFF**
 ouvre directement le **wizard Stuffer** (slots, filtres, cibles/poids, items, options).
 
 **Guide débutant détaillé :** [GUIDE_WIZARD.md](GUIDE_WIZARD.md)
@@ -76,6 +76,10 @@ python -m dofus_stuff.web
 ```
 
 Par défaut : mode offline (base locale uniquement), écoute sur `http://127.0.0.1:5000`.
+
+Le menu principal se limite à **1. Recherche d'objets**, **2. Liste des équipements** et
+**3. Optimisation de stuff**. L'entrée **4. Système** regroupe le détail d'un équipement par ID,
+la version locale, le self-test et la gestion de la base.
 
 | Variable / option | Description |
 |-------------------|-------------|

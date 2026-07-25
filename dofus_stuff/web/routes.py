@@ -101,6 +101,7 @@ def _screen(
     nav_base: str | None = None,
     f7_url: str | None = None,
     f8_url: str | None = None,
+    back_url: str | None = None,
     mode: str = "",
     stuff_payload: Any = None,
     enter_hint: str = "",
@@ -167,6 +168,7 @@ def _screen(
         nav_base=resolved_nav or "",
         f7_url=f7_url or "",
         f8_url=f8_url or "",
+        back_url=back_url or url_for("terminal.menu"),
         mode=mode,
         stuff_payload=stuff_payload,
         pgm=pgm,
@@ -179,13 +181,10 @@ def _screen(
 def menu() -> str:
     body = [
         "1. RECHERCHE D'OBJETS",
-        "2. DETAIL EQUIPEMENT (PAR ID)",
-        "3. LISTE DES EQUIPEMENTS",
-        "4. VERSION LOCALE",
-        "5. SELF-TEST",
-        "6. GESTION DE LA BASE",
-        "7. OPTIMISATION DE STUFF",
-        "8. STUFFS SAUVEGARDES",
+        "2. LISTE DES EQUIPEMENTS",
+        "3. OPTIMISATION DE STUFF",
+        "",
+        "4. SYSTEME",
         "",
         "SELECTIONNEZ UNE OPTION ET APPUYEZ SUR ENTREE :",
     ]
@@ -204,23 +203,54 @@ def menu() -> str:
 @bp.post("/")
 def menu_post() -> Any:
     choice = (request.form.get("selection") or "").strip()
-    if choice == "7":
+    if choice == "3":
         reset_wizard(session)
         return redirect(url_for("terminal.optimize_wizard", step="slots"))
-    if choice == "8":
-        return redirect(url_for("terminal.saves"))
     routes = {
         "1": "terminal.search",
-        "2": "terminal.item_form",
-        "3": "terminal.list_items",
-        "4": "terminal.version",
-        "5": "terminal.self_test",
-        "6": "terminal.db_menu",
+        "2": "terminal.list_items",
+        "4": "terminal.system_menu",
     }
     if choice in routes:
         return redirect(url_for(routes[choice]))
-    flash("OPTION INVALIDE — SAISIR 1 A 8", "error")
+    flash("OPTION INVALIDE — SAISIR 1 A 4", "error")
     return redirect(url_for("terminal.menu"))
+
+
+@bp.get("/system")
+def system_menu() -> str:
+    body = [
+        "1. DETAIL EQUIPEMENT (PAR ID)",
+        "2. VERSION LOCALE",
+        "3. SELF-TEST",
+        "4. GESTION DE LA BASE",
+        "",
+        "SELECTIONNEZ UNE OPTION ET APPUYEZ SUR ENTREE :",
+    ]
+    return _screen(
+        pgm="SYS-01",
+        title="** SYSTEME **",
+        body_lines=body,
+        input_label="",
+        input_name="selection",
+        input_maxlength=1,
+        form_action=url_for("terminal.system_menu_post"),
+    )
+
+
+@bp.post("/system")
+def system_menu_post() -> Any:
+    choice = (request.form.get("selection") or "").strip()
+    routes = {
+        "1": "terminal.item_form",
+        "2": "terminal.version",
+        "3": "terminal.self_test",
+        "4": "terminal.db_menu",
+    }
+    if choice in routes:
+        return redirect(url_for(routes[choice]))
+    flash("OPTION INVALIDE — SAISIR 1 A 4", "error")
+    return redirect(url_for("terminal.system_menu"))
 
 
 @bp.get("/quit")
@@ -243,6 +273,9 @@ def quit_screen() -> str:
 
 @bp.route("/search", methods=["GET", "POST"])
 def search() -> Any:
+    if request.method == "POST" and "ankama_id" in request.form:
+        return _open_detail_from_results()
+
     if request.method == "GET" and "q" not in request.args:
         return _screen(
             pgm="SRC-01",
@@ -300,7 +333,7 @@ def search() -> Any:
                 )
             )
         lines.append("")
-        lines.append("POUR VOIR UN DETAIL : OPTION 2 DU MENU (ID ANKAMA).")
+        lines.append("SAISIR UN ID ANKAMA POUR AFFICHER LE DETAIL.")
 
     slice_lines, page, total = paginate(lines, page=page, page_size=BODY_LINES)
     status = ""
@@ -315,10 +348,30 @@ def search() -> Any:
         body_total_pages=total,
         fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.search", q=query, page=page),
-        form_method="get",
-        input_label=None,
+        form_method="post",
+        input_label="ANKAMA_ID",
+        input_name="ankama_id",
+        input_maxlength=12,
         extra={"nav_base": url_for("terminal.search", q=query)},
     )
+
+
+def _open_detail_from_results() -> Any:
+    """Ouvre le détail d'un item depuis l'écran de résultats de recherche."""
+    query = (request.args.get("q") or "").strip()
+    page = max(1, int(request.args.get("page", 1)))
+    back = url_for("terminal.search", q=query, page=page)
+
+    raw = (request.form.get("ankama_id") or "").strip()
+    if not raw:
+        flash("SAISIE REQUISE", "error")
+        return redirect(back)
+    try:
+        ankama_id = int(raw)
+    except ValueError:
+        flash("ID INVALIDE — ENTIER ATTENDU", "error")
+        return redirect(back)
+    return redirect(url_for("terminal.item_form", id=ankama_id))
 
 
 @bp.route("/item", methods=["GET", "POST"])
@@ -336,6 +389,7 @@ def item_form() -> Any:
             input_name="ankama_id",
             input_maxlength=12,
             form_action=url_for("terminal.item_form"),
+            back_url=url_for("terminal.system_menu"),
         )
 
     raw = (request.form.get("ankama_id") or request.args.get("id") or "").strip()
@@ -460,7 +514,8 @@ def version() -> str:
         fkeys=[("F12", "Retour")],
         input_label=None,
         form_method="get",
-        form_action=url_for("terminal.menu"),
+        form_action=url_for("terminal.system_menu"),
+        back_url=url_for("terminal.system_menu"),
     )
 
 
@@ -497,6 +552,7 @@ def self_test() -> str:
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.self_test", page=page),
+        back_url=url_for("terminal.system_menu"),
         extra={"nav_base": url_for("terminal.self_test")},
     )
 
@@ -518,6 +574,7 @@ def db_menu() -> str:
         input_name="selection",
         input_maxlength=1,
         form_action=url_for("terminal.db_menu_post"),
+        back_url=url_for("terminal.system_menu"),
     )
 
 
@@ -574,6 +631,7 @@ def db_status() -> str:
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.db_menu"),
+        back_url=url_for("terminal.db_menu"),
         extra={"nav_base": url_for("terminal.db_status")},
     )
 
@@ -593,6 +651,7 @@ def db_sync_confirm() -> str:
         input_name="confirm",
         input_maxlength=1,
         form_action=url_for("terminal.db_sync_run"),
+        back_url=url_for("terminal.db_menu"),
     )
 
 
@@ -646,6 +705,7 @@ def db_clear_confirm() -> str:
         input_name="confirm",
         input_maxlength=1,
         form_action=url_for("terminal.db_clear_run"),
+        back_url=url_for("terminal.db_menu"),
         status="OPERATION DESTRUCTIVE",
         status_kind="error",
     )
@@ -831,13 +891,15 @@ def optimize_wizard(step: str) -> Any:
                     reset_wizard(session)
                     flash("WIZARD REINITIALISE", "info")
                     return redirect(url_for("terminal.optimize_wizard", step="slots"))
+                if upper == "saves":
+                    return redirect(url_for("terminal.saves"))
                 if raw.isdigit():
                     n = int(raw)
                     if 1 <= n <= len(WIZARD_STEPS) - 1:
                         return redirect(
                             url_for("terminal.optimize_wizard", step=WIZARD_STEPS[n - 1])
                         )
-                raise ValueError("GO | RESET | 1-8")
+                raise ValueError("GO | RESET | SAVES | 1-8")
         except ValueError as exc:
             flash(str(exc).upper()[:COLS], "error")
             return redirect(url_for("terminal.optimize_wizard", step=step, page=page))
@@ -1019,6 +1081,8 @@ def optimize_result() -> Any:
             return redirect(url_for("terminal.optimize_wizard", step="recap"))
         if upper == "db":
             return _open_dofusbook()
+        if upper == "saves":
+            return redirect(url_for("terminal.saves"))
         if raw.isdigit():
             return redirect(url_for("terminal.item_form", id=raw))
         flash("ID ANKAMA INVALIDE — OU SAVE [NOM] POUR SAUVEGARDER", "error")
@@ -1086,7 +1150,7 @@ def _result_screen(lines: list[str]) -> Any:
         body_total_pages=total,
         fkeys=[("F12", "Retour")],
         form_action=url_for("terminal.optimize_result"),
-        status="ID DETAIL | SAVE [NOM] | EDIT | DB",
+        status="ID DETAIL | SAVE [NOM] | SAVES | EDIT | DB",
         nav_base=url_for("terminal.optimize_result"),
         mode="result",
         stuff_payload=payload,

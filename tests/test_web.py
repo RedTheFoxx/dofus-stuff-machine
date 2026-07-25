@@ -12,29 +12,94 @@ def test_menu_get(client):
     assert rv.status_code == 200
     assert b"MENU PRINCIPAL" in rv.data
     assert b"1. RECHERCHE" in rv.data
-    assert b"8. STUFFS SAUVEGARDES" in rv.data
+    assert b"2. LISTE DES EQUIPEMENTS" in rv.data
+    assert b"3. OPTIMISATION DE STUFF" in rv.data
+    assert b"4. SYSTEME" in rv.data
     assert b"F3" in rv.data
 
 
+def test_menu_hides_secondary_entries(client):
+    """L'accueil ne garde que recherche / listing / optimiseur / systeme."""
+    rv = client.get("/")
+    body = rv.data.decode()
+    assert "STUFFS SAUVEGARDES" not in body
+    assert "SELF-TEST" not in body
+    assert "GESTION DE LA BASE" not in body
+    assert "VERSION LOCALE" not in body
+
+
 def test_menu_post_valid(client):
-    rv = client.post("/", data={"selection": "4"}, follow_redirects=True)
+    rv = client.post("/", data={"selection": "2"}, follow_redirects=True)
     assert rv.status_code == 200
-    assert b"VERSION DOFUS" in rv.data
-    assert b"9.9.9.9" in rv.data
+    assert b"LISTE DES EQUIPEMENTS" in rv.data
 
 
 def test_menu_post_invalid(client):
     rv = client.post("/", data={"selection": "9"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"OPTION INVALIDE" in rv.data
-    assert b"1 A 8" in rv.data
+    assert b"1 A 4" in rv.data
     assert b"error" in rv.data
 
 
-def test_menu_option_8_saves(client):
-    rv = client.post("/", data={"selection": "8"}, follow_redirects=True)
+def test_menu_option_4_system(client):
+    rv = client.post("/", data={"selection": "4"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"SYS-01" in rv.data
+    assert b"DETAIL EQUIPEMENT" in rv.data
+    assert b"VERSION LOCALE" in rv.data
+    assert b"SELF-TEST" in rv.data
+    assert b"GESTION DE LA BASE" in rv.data
+
+
+def test_system_menu_routes(client):
+    for choice, marker in (
+        (b"1", b"DETAIL EQUIPEMENT"),
+        (b"2", b"VERSION DOFUS"),
+        (b"3", b"RESULTATS SELF-TEST"),
+        (b"4", b"GESTION DE LA BASE"),
+    ):
+        rv = client.post(
+            "/system",
+            data={"selection": choice.decode()},
+            follow_redirects=True,
+        )
+        assert rv.status_code == 200
+        assert marker in rv.data
+
+
+def test_system_menu_invalid(client):
+    rv = client.post("/system", data={"selection": "9"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"OPTION INVALIDE" in rv.data
+    assert b"SYSTEME" in rv.data
+
+
+def test_system_screens_return_to_system(client):
+    """F12 depuis un ecran systeme remonte a SYS-01, pas a l'accueil."""
+    for path in ("/version", "/self-test", "/db"):
+        rv = client.get(path)
+        assert rv.status_code == 200
+        assert b'data-f12-url="/system"' in rv.data
+
+
+def test_saves_reachable_from_result(client):
+    with client.session_transaction() as sess:
+        sess["optimize_result_lines"] = ["Niveau 50", "Score : 1"]
+    rv = client.post("/optimize/result", data={"cmd": "SAVES"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"STUFFS SAUVEGARDES" in rv.data
+    assert b'data-mode="saves"' in rv.data
+
+
+def test_saves_reachable_from_wizard_recap(client):
+    client.post("/", data={"selection": "3"}, follow_redirects=True)
+    rv = client.post(
+        "/optimize/wizard/recap",
+        data={"cmd": "SAVES"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
     assert b'data-mode="saves"' in rv.data
 
 
@@ -67,6 +132,32 @@ def test_search_with_limit(client):
     rv = client.post("/search", data={"query": "Cape|1"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"LIMITE : 1" in rv.data
+
+
+def test_search_results_open_item_detail(client):
+    rv = client.get("/search?q=Cape")
+    assert rv.status_code == 200
+    assert b"ANKAMA_ID" in rv.data
+    assert b"SAISIR UN ID ANKAMA" in rv.data
+
+    rv = client.post(
+        "/search?q=Cape",
+        data={"ankama_id": "44"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert b"ITEM #44" in rv.data
+
+
+def test_search_results_invalid_item_id(client):
+    rv = client.post(
+        "/search?q=Cape",
+        data={"ankama_id": "abc"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert b"INVALIDE" in rv.data
+    assert b"RESULTATS DE RECHERCHE" in rv.data
 
 
 def test_item_detail(client):
@@ -260,8 +351,8 @@ def _fake_optimize_result():
     )
 
 
-def test_menu_option_7_optimize(client):
-    rv = client.post("/", data={"selection": "7"}, follow_redirects=True)
+def test_menu_option_3_optimize(client):
+    rv = client.post("/", data={"selection": "3"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"WIZARD" in rv.data
     assert b"SLOTS" in rv.data
@@ -279,7 +370,7 @@ def test_optimize_wizard_go_mocked(client):
         "dofus_stuff.web.routes.optimize_stuff",
         return_value=_fake_optimize_result(),
     ):
-        client.post("/", data={"selection": "7"}, follow_redirects=True)
+        client.post("/", data={"selection": "3"}, follow_redirects=True)
         with client.session_transaction() as sess:
             from dofus_stuff.web.optimize_wizard import SESSION_WIZARD
             from dofus_stuff.model.solver_spec import SolverSpec, StatGoal
@@ -397,7 +488,7 @@ def test_optimize_result_payload_parseable(client):
 
 
 def test_wizard_exposes_step_nav_urls(client):
-    client.post("/", data={"selection": "7"}, follow_redirects=True)
+    client.post("/", data={"selection": "3"}, follow_redirects=True)
     rv = client.get("/optimize/wizard/options")
     assert rv.status_code == 200
     body = rv.data.decode()
