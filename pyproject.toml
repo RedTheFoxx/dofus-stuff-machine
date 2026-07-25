@@ -37,3 +37,8 @@ dofus_stuff = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+filterwarnings = [
+    # ortools 9.15 utilise `~True` / `~False` dans sat/python/cp_model.py : le
+    # warning est émis à la compilation du .pyc, donc au premier import seulement.
+    "ignore:Bitwise inversion '~' on bool is deprecated:DeprecationWarning",
+]
