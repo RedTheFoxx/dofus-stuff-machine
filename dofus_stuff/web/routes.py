@@ -67,6 +67,9 @@ DEFAULT_FKEYS = [
     ("ESC", "Retour"),
 ]
 
+# Colonnes réservées à droite du corps pour le panneau image (écran ITM-02).
+ITEM_IMAGE_COLS = 18
+
 
 def _clock() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
@@ -105,6 +108,8 @@ def _screen(
     mode: str = "",
     stuff_payload: Any = None,
     enter_hint: str = "",
+    item_image: str | None = None,
+    item_image_alt: str = "",
     extra: dict[str, Any] | None = None,
 ) -> str:
     flash_status, flash_kind = _status_from_flashes()
@@ -171,6 +176,8 @@ def _screen(
         back_url=back_url or url_for("terminal.menu"),
         mode=mode,
         stuff_payload=stuff_payload,
+        item_image=item_image,
+        item_image_alt=item_image_alt,
         pgm=pgm,
         title=title,
         **extra_kwargs,
@@ -374,6 +381,15 @@ def _open_detail_from_results() -> Any:
     return redirect(url_for("terminal.item_form", id=ankama_id))
 
 
+def _item_image_url(item: dict[str, Any]) -> str | None:
+    """URL de l'illustration Dofusdude (sd en priorité, icon en repli)."""
+    image_urls = item.get("image_urls")
+    if not isinstance(image_urls, dict):
+        return None
+    url = image_urls.get("sd") or image_urls.get("icon")
+    return str(url) if isinstance(url, str) and url else None
+
+
 @bp.route("/item", methods=["GET", "POST"])
 def item_form() -> Any:
     if request.method == "GET" and "id" not in request.args:
@@ -407,8 +423,11 @@ def item_form() -> Any:
         flash(str(exc).upper(), "error")
         return redirect(url_for("terminal.item_form"))
 
+    image_url = _item_image_url(item)
+    # Le panneau image occupe la marge droite : le texte wrappe plus court.
+    width = COLS - ITEM_IMAGE_COLS if image_url else COLS
     text = format_item_summary(item, detailed=True, catalog=catalog)
-    lines = wrap_lines(text.splitlines(), COLS)
+    lines = wrap_lines(text.splitlines(), width)
     slice_lines, page, total = paginate(lines, page=page, page_size=BODY_LINES)
     return _screen(
         pgm="ITM-02",
@@ -420,6 +439,8 @@ def item_form() -> Any:
         form_action=url_for("terminal.item_form", id=ankama_id, page=page),
         form_method="get",
         input_label=None,
+        item_image=image_url,
+        item_image_alt=str(item.get("name") or f"Item #{ankama_id}"),
         extra={"nav_base": url_for("terminal.item_form", id=ankama_id)},
     )
 

@@ -62,6 +62,7 @@ body {
 }
 
 .screen-frame {
+  position: relative;
   width: calc(var(--cols) * 1ch);
   height: calc(var(--rows) * 1em * var(--line-h));
   display: flex;
@@ -119,6 +120,34 @@ body {
   font-family: inherit;
   font-size: 1rem;
   white-space: pre;
+}
+
+/* Illustration d'un objet (écran détail ITM-02) : panneau ancré à droite
+   du corps, bordure et label dans la palette du terminal. */
+.item-visual {
+  position: absolute;
+  /* Ligne 4 : juste sous header + séparateur + ligne vide */
+  top: calc(3 * 1em * var(--line-h));
+  right: 0;
+  width: 18ch;
+  text-align: center;
+}
+
+.item-visual-title {
+  color: var(--meta);
+}
+
+.item-visual-img {
+  display: block;
+  /* 8em = 128px à la taille de base : résolution native du visuel « sd » */
+  width: 8em;
+  height: 8em;
+  margin: 0 auto;
+  padding: 0.25em;
+  box-sizing: border-box;
+  object-fit: contain;
+  background: var(--bg);
+  border: 1px solid var(--passive);
 }
 
 .input-label {

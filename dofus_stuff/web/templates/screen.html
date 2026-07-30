@@ -34,6 +34,17 @@
           {% endfor %}
         </div>
 
+        {% if item_image %}
+        {# Illustration de l'objet, ancrée en haut à droite du corps #}
+        <div class="item-visual" id="item-visual">
+          <div class="row item-visual-title meta">[ APERCU ]</div>
+          <img class="item-visual-img"
+               src="{{ item_image }}"
+               alt="{{ item_image_alt }}"
+               draggable="false">
+        </div>
+        {% endif %}
+
         {# Ligne 22-23 : statut + saisie #}
         <div class="row status {{ status_kind }}">{% if status %}{{ status }}{% else %}&nbsp;{% endif %}</div>
 

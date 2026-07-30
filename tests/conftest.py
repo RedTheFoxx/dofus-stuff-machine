@@ -25,6 +25,10 @@ def _sample_items() -> dict[tuple[str, int], dict]:
                     "quantity": 3,
                 }
             ],
+            "image_urls": {
+                "icon": "https://api.dofusdu.de/dofus3/v1/img/item/6007-64.png",
+                "sd": "https://api.dofusdu.de/dofus3/v1/img/item/6007-128.png",
+            },
         },
         ("equipment", 100): {
             "ankama_id": 100,

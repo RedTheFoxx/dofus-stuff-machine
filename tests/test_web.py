@@ -183,6 +183,25 @@ def test_item_long_description_wraps(client, catalog):
     assert "Description : Une description volontairement tres longue…" not in body
 
 
+def test_item_detail_shows_image(client):
+    """Le détail d'un objet avec image_urls affiche le panneau aperçu."""
+    rv = client.get("/item?id=44")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    assert 'id="item-visual"' in body
+    assert "item-visual-img" in body
+    assert "https://api.dofusdu.de/dofus3/v1/img/item/6007-128.png" in body
+
+
+def test_item_detail_without_image_has_no_panel(client):
+    """Un objet sans image_urls n'affiche pas le panneau aperçu."""
+    rv = client.get("/item?id=101")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    assert "item-visual" not in body
+    assert "<img" not in body
+
+
 def test_item_not_found(client):
     rv = client.post("/item", data={"ankama_id": "99999"}, follow_redirects=True)
     assert rv.status_code == 200
@@ -202,6 +221,15 @@ def test_list_page(client):
     assert b"PAGE 1" in rv.data
     assert b"ANKAMA_ID" in rv.data
     assert b"SAISIR UN ID ANKAMA" in rv.data
+
+
+def test_list_page_has_no_images(client):
+    """La liste des équipements reste 100% texte : pas d'aperçu image."""
+    rv = client.get("/list?page=1&size=2")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    assert "item-visual" not in body
+    assert "<img" not in body
 
 
 def test_list_pagination(client):

@@ -87,6 +87,20 @@
     });
   }
 
+  // Masque le panneau aperçu si l'illustration est indisponible (hors ligne).
+  var itemImg = document.querySelector(".item-visual-img");
+  if (itemImg) {
+    var hideItemVisual = function () {
+      var panel = document.getElementById("item-visual");
+      if (panel) panel.style.display = "none";
+    };
+    if (itemImg.complete && itemImg.naturalWidth === 0) {
+      hideItemVisual();
+    } else {
+      itemImg.addEventListener("error", hideItemVisual);
+    }
+  }
+
   function pageUrl(page) {
     var base = terminal.getAttribute("data-nav-base") || "";
     if (!base) return "";
