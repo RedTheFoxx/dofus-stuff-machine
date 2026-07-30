@@ -64,7 +64,7 @@ bp = Blueprint("terminal", __name__)
 
 DEFAULT_FKEYS = [
     ("F3", "Quitter"),
-    ("F12", "Retour"),
+    ("ESC", "Retour"),
 ]
 
 
@@ -131,7 +131,7 @@ def _screen(
     if total > 1 or f7_url or f8_url:
         f7_label = "Precedent" if f7_url else "Page prec"
         f8_label = "Suivant" if f8_url else "Page suiv"
-        tail = [k for k in keys if k[0] in ("F3", "F12")]
+        tail = [k for k in keys if k[0] in ("F3", "ESC")]
         keys = [("F7", f7_label), ("F8", f8_label)] + tail
 
     indicators: list[str] = []
@@ -262,9 +262,9 @@ def quit_screen() -> str:
             "SESSION TERMINEE.",
             "",
             "VOUS POUVEZ FERMER CET ONGLET",
-            "OU REVENIR AU MENU (F12).",
+            "OU REVENIR AU MENU (ESC).",
         ],
-        fkeys=[("F12", "Menu")],
+        fkeys=[("ESC", "Menu")],
         form_action=url_for("terminal.menu"),
         form_method="get",
         input_label=None,
@@ -346,7 +346,7 @@ def search() -> Any:
         status=status,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         form_action=url_for("terminal.search", q=query, page=page),
         form_method="post",
         input_label="ANKAMA_ID",
@@ -416,7 +416,7 @@ def item_form() -> Any:
         body_lines=slice_lines,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         form_action=url_for("terminal.item_form", id=ankama_id, page=page),
         form_method="get",
         input_label=None,
@@ -480,7 +480,7 @@ def list_items() -> Any:
         body_lines=lines,
         body_page=page,
         body_total_pages=total_pages,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         form_action=url_for("terminal.list_items", page=page, size=size),
         form_method="post",
         input_label="ANKAMA_ID",
@@ -511,7 +511,7 @@ def version() -> str:
         body_lines=body,
         status=status,
         status_kind=kind,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.system_menu"),
@@ -548,7 +548,7 @@ def self_test() -> str:
         status_kind=kind,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.self_test", page=page),
@@ -627,7 +627,7 @@ def db_status() -> str:
         body_lines=slice_lines,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         input_label=None,
         form_method="get",
         form_action=url_for("terminal.db_menu"),
@@ -785,7 +785,7 @@ def optimize_entry() -> Any:
 
 
 def _wizard_fkeys(step: str) -> list[tuple[str, str]]:
-    return [("F12", "Retour")]
+    return [("ESC", "Retour")]
 
 
 def _wizard_step_urls(step: str) -> tuple[str | None, str | None]:
@@ -1014,7 +1014,7 @@ def _wizard_edit_screen(step: str, edit: dict[str, Any]) -> Any:
             input_name="value",
             input_maxlength=20,
             form_action=url_for("terminal.optimize_wizard", step=step),
-            fkeys=[("F12", "Annuler")],
+            fkeys=[("ESC", "Annuler")],
         )
 
     name = str(edit.get("name"))
@@ -1046,7 +1046,7 @@ def _wizard_edit_screen(step: str, edit: dict[str, Any]) -> Any:
         input_name="value",
         input_maxlength=40,
         form_action=url_for("terminal.optimize_wizard", step=step),
-        fkeys=[("F12", "Annuler")],
+        fkeys=[("ESC", "Annuler")],
     )
 
 
@@ -1061,7 +1061,7 @@ def saves() -> Any:
         input_label="",
         input_name="cmd",
         input_maxlength=40,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         form_action=url_for("terminal.saves"),
         status="N OUVRIR | DEL N | PURGE OUI",
         mode="saves",
@@ -1148,7 +1148,7 @@ def _result_screen(lines: list[str]) -> Any:
         input_maxlength=40,
         body_page=page,
         body_total_pages=total,
-        fkeys=[("F12", "Retour")],
+        fkeys=[("ESC", "Retour")],
         form_action=url_for("terminal.optimize_result"),
         status="ID DETAIL | SAVE [NOM] | SAVES | EDIT | DB",
         nav_base=url_for("terminal.optimize_result"),

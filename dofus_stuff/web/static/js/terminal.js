@@ -353,7 +353,7 @@
     terminal.setAttribute("data-body-page", String(page));
     terminal.setAttribute("data-body-total", String(total));
     setStatus(
-      "PAGE " + page + "/" + total + " — N OUVRIR | DEL N | PURGE OUI | F12",
+      "PAGE " + page + "/" + total + " — N OUVRIR | DEL N | PURGE OUI | ESC",
       "info"
     );
   }
@@ -383,7 +383,7 @@
     terminal.setAttribute("data-body-page", String(page));
     terminal.setAttribute("data-body-total", String(total));
     setStatus(
-      "PAGE " + page + "/" + total + " — BACK LISTE | DB DOFUSBOOK | F12 MENU",
+      "PAGE " + page + "/" + total + " — BACK LISTE | DB DOFUSBOOK | ESC MENU",
       "info"
     );
   }
@@ -438,7 +438,7 @@
         openSaveDofusbook();
         return;
       }
-      setStatus("BACK LISTE | DB DOFUSBOOK | F12 MENU", "error");
+      setStatus("BACK LISTE | DB DOFUSBOOK | ESC MENU", "error");
       return;
     }
 
@@ -540,9 +540,9 @@
       return;
     }
 
-    if (key === "F12") {
+    if (key === "Escape") {
       e.preventDefault();
-      window.location.href = terminal.getAttribute("data-f12-url") || "/";
+      window.location.href = terminal.getAttribute("data-esc-url") || "/";
       return;
     }
 

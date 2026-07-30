@@ -76,11 +76,11 @@ def test_system_menu_invalid(client):
 
 
 def test_system_screens_return_to_system(client):
-    """F12 depuis un ecran systeme remonte a SYS-01, pas a l'accueil."""
+    """ESC depuis un ecran systeme remonte a SYS-01, pas a l'accueil."""
     for path in ("/version", "/self-test", "/db"):
         rv = client.get(path)
         assert rv.status_code == 200
-        assert b'data-f12-url="/system"' in rv.data
+        assert b'data-esc-url="/system"' in rv.data
 
 
 def test_saves_reachable_from_result(client):

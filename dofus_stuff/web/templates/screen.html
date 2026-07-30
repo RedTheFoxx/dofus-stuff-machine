@@ -16,7 +16,7 @@
          data-f7-url="{{ f7_url | default('') }}"
          data-f8-url="{{ f8_url | default('') }}"
          data-f3-url="{{ url_for('terminal.quit_screen') }}"
-         data-f12-url="{{ back_url | default(url_for('terminal.menu'), true) }}"
+         data-esc-url="{{ back_url | default(url_for('terminal.menu'), true) }}"
          data-mode="{{ mode | default('') }}"
          {% if stuff_payload is defined and stuff_payload is not none %}data-stuff-payload='{{ stuff_payload | tojson }}'{% endif %}>
       <div class="screen-frame">

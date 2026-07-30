@@ -54,7 +54,7 @@ L’écran est pensé comme un ancien terminal :
 |--------|------|
 | Zone centrale | Texte d’aide et listes numérotées |
 | Ligne jaune `[ … ]` | **Seul champ de saisie** : vous tapez une commande puis Entrée |
-| Ligne du bas | Raccourcis clavier (`F7`, `F8`, `F12`…) |
+| Ligne du bas | Raccourcis clavier (`F7`, `F8`, `ESC`…) |
 | Message de statut | Infos / erreurs (souvent en rouge si erreur) |
 
 ### Touches à connaître
@@ -64,7 +64,7 @@ L’écran est pensé comme un ancien terminal :
 | **Entrée** | Valide la saisie. Sur la plupart des écrans, **Entrée à vide** = passer à l’écran suivant |
 | **F7** | Écran / page **précédent** |
 | **F8** | Écran / page **suivant** |
-| **F12** | Retour à l’écran **parent** (menu principal la plupart du temps) |
+| **ESC** | Retour à l’écran **parent** (menu principal la plupart du temps) |
 | **PageUp / PageDown** | Même idée que F7/F8 pour feuilleter |
 
 Si un écran est trop long pour tenir d’un coup, le statut affiche `PAGE X/Y` : utilisez **F8** pour voir la suite.
@@ -226,7 +226,7 @@ L’écran résultat montre notamment :
 - Tapez un **ID** (ex. `7252`) puis Entrée pour ouvrir le **détail** de l’objet.  
 - Tapez **`SAVE`** (ou `SAVE mon label`) pour **garder ce stuff** dans le navigateur — ce n’est pas obligatoire.  
 - Tapez **`SAVES`** pour ouvrir la liste des stuffs déjà sauvegardés.  
-- **F12** : retour au menu (sans sauvegarder si vous n’avez pas tapé `SAVE`).
+- **ESC** : retour au menu (sans sauvegarder si vous n’avez pas tapé `SAVE`).
 
 ### Stuffs sauvegardés (commande `SAVES`)
 
@@ -241,7 +241,7 @@ Sur l’écran **STUFFS SAUVEGARDES** :
 | `BACK` | Depuis le détail, revient à la liste |
 | `DEL N` | Supprime la sauvegarde N |
 | `PURGE OUI` | Efface **toutes** les sauvegardes locales |
-| **F12** | Retour au menu |
+| **ESC** | Retour au menu |
 
 ---
 

@@ -69,9 +69,9 @@ def test_header_line_width():
 
 
 def test_format_fkey_bar():
-    bar = format_fkey_bar([("F3", "Quitter"), ("F12", "Retour")])
+    bar = format_fkey_bar([("F3", "Quitter"), ("ESC", "Retour")])
     assert "F3=Quitter" in bar
-    assert "F12=Retour" in bar
+    assert "ESC=Retour" in bar
     assert len(bar) == COLS
 
 
