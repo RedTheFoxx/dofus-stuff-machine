@@ -19,7 +19,7 @@ from flask import (
     url_for,
 )
 
-from dofus_stuff.catalog import format_item_summary
+from dofus_stuff.catalog import format_item_summary, format_set_summary
 from dofus_stuff.cli import collect_self_test_checks
 from dofus_stuff.database import Database
 from dofus_stuff.optimize.api import format_optimize_result_lines, optimize_stuff
@@ -189,9 +189,11 @@ def menu() -> str:
     body = [
         "1. RECHERCHE D'OBJETS",
         "2. LISTE DES EQUIPEMENTS",
-        "3. OPTIMISATION DE STUFF",
+        "3. LISTE DES PANOPLIES",
         "",
-        "4. SYSTEME",
+        "4. OPTIMISATION DE STUFF",
+        "",
+        "5. SYSTEME",
         "",
         "SELECTIONNEZ UNE OPTION ET APPUYEZ SUR ENTREE :",
     ]
@@ -210,17 +212,18 @@ def menu() -> str:
 @bp.post("/")
 def menu_post() -> Any:
     choice = (request.form.get("selection") or "").strip()
-    if choice == "3":
+    if choice == "4":
         reset_wizard(session)
         return redirect(url_for("terminal.optimize_wizard", step="slots"))
     routes = {
         "1": "terminal.search",
         "2": "terminal.list_items",
-        "4": "terminal.system_menu",
+        "3": "terminal.list_sets",
+        "5": "terminal.system_menu",
     }
     if choice in routes:
         return redirect(url_for(routes[choice]))
-    flash("OPTION INVALIDE — SAISIR 1 A 4", "error")
+    flash("OPTION INVALIDE — SAISIR 1 A 5", "error")
     return redirect(url_for("terminal.menu"))
 
 
@@ -420,6 +423,8 @@ def item_form() -> Any:
     try:
         item = catalog.get_equipment(ankama_id)
     except KeyError as exc:
+        if catalog.get("sets", ankama_id) is not None:
+            return redirect(url_for("terminal.set_detail", id=ankama_id))
         flash(str(exc).upper(), "error")
         return redirect(url_for("terminal.item_form"))
 
@@ -508,6 +513,129 @@ def list_items() -> Any:
         input_name="ankama_id",
         input_maxlength=12,
         extra={"nav_base": url_for("terminal.list_items", size=size)},
+    )
+
+
+@bp.route("/sets", methods=["GET", "POST"])
+def list_sets() -> Any:
+    page = max(1, int(request.args.get("page", 1)))
+    size = max(1, min(18, int(request.args.get("size", 10))))
+
+    if request.method == "POST":
+        raw = (request.form.get("ankama_id") or "").strip()
+        if not raw:
+            flash("SAISIE REQUISE", "error")
+            return redirect(url_for("terminal.list_sets", page=page, size=size))
+        try:
+            ankama_id = int(raw)
+        except ValueError:
+            flash("ID INVALIDE — ENTIER ATTENDU", "error")
+            return redirect(url_for("terminal.list_sets", page=page, size=size))
+        return redirect(url_for("terminal.set_detail", id=ankama_id))
+
+    catalog = get_catalog()
+    page_data = catalog.list_sets_page(page=page, page_size=size)
+    sets = page_data.get("items", [])
+    total = int(page_data.get("total", 0))
+    total_pages = max(1, (total + size - 1) // size) if total else 1
+
+    lines: list[str] = [
+        f"PAGE {page}/{total_pages}   TAILLE {size}   TOTAL PANOPLIES {total}",
+        "",
+        table_row([("ID", 8), ("NIV", 5), ("OBJ", 5), ("NOM", 60)]),
+        separator(char="."),
+    ]
+    if not isinstance(sets, list) or not sets:
+        lines.append("AUCUNE PANOPLIE SUR CETTE PAGE.")
+    else:
+        for set_data in sets:
+            if not isinstance(set_data, dict):
+                continue
+            lines.append(
+                table_row(
+                    [
+                        (str(set_data.get("ankama_id", "?")), 8),
+                        (str(set_data.get("level", "?")), 5),
+                        (str(set_data.get("items", "?")), 5),
+                        (str(set_data.get("name", "?")), 60),
+                    ]
+                )
+            )
+        lines.append("")
+        lines.append("SAISIR UN ID ANKAMA POUR AFFICHER LA PANOPLIE.")
+
+    return _screen(
+        pgm="PAN-01",
+        title="** LISTE DES PANOPLIES **",
+        body_lines=lines,
+        body_page=page,
+        body_total_pages=total_pages,
+        fkeys=[("ESC", "Retour")],
+        form_action=url_for("terminal.list_sets", page=page, size=size),
+        form_method="post",
+        input_label="ANKAMA_ID",
+        input_name="ankama_id",
+        input_maxlength=12,
+        extra={"nav_base": url_for("terminal.list_sets", size=size)},
+    )
+
+
+@bp.route("/set", methods=["GET", "POST"])
+def set_detail() -> Any:
+    page = max(1, int(request.args.get("page", 1)))
+
+    if request.method == "POST":
+        # Depuis PAN-02 : ouvrir le détail d'un objet de la panoplie.
+        back = url_for(
+            "terminal.set_detail",
+            id=request.args.get("id", ""),
+            page=page,
+        )
+        raw = (request.form.get("ankama_id") or "").strip()
+        if not raw:
+            flash("SAISIE REQUISE", "error")
+            return redirect(back)
+        try:
+            ankama_id = int(raw)
+        except ValueError:
+            flash("ID INVALIDE — ENTIER ATTENDU", "error")
+            return redirect(back)
+        return redirect(url_for("terminal.item_form", id=ankama_id))
+
+    raw = (request.args.get("id") or "").strip()
+    if not raw:
+        return redirect(url_for("terminal.list_sets"))
+    try:
+        ankama_id = int(raw)
+    except ValueError:
+        flash("ID INVALIDE — ENTIER ATTENDU", "error")
+        return redirect(url_for("terminal.list_sets"))
+
+    catalog = get_catalog()
+    try:
+        set_data = catalog.get_set(ankama_id)
+    except KeyError as exc:
+        flash(str(exc).upper(), "error")
+        return redirect(url_for("terminal.list_sets"))
+
+    text = format_set_summary(set_data, catalog=catalog)
+    lines = wrap_lines(text.splitlines(), COLS)
+    slice_lines, page, total = paginate(lines, page=page, page_size=BODY_LINES)
+    return _screen(
+        pgm="PAN-02",
+        title=f"** PANOPLIE #{ankama_id} **",
+        body_lines=slice_lines,
+        body_page=page,
+        body_total_pages=total,
+        fkeys=[("ESC", "Retour")],
+        form_action=url_for("terminal.set_detail", id=ankama_id, page=page),
+        form_method="post",
+        input_label="ANKAMA_ID",
+        input_name="ankama_id",
+        input_maxlength=12,
+        back_url=url_for("terminal.list_sets"),
+        enter_hint="DETAIL OBJET",
+        extra={"nav_base": url_for("terminal.set_detail", id=ankama_id)},
     )
 
 

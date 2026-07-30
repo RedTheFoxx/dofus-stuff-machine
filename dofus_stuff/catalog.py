@@ -77,6 +77,12 @@ class Catalog:
             raise KeyError(f"Équipement introuvable : #{ankama_id}")
         return item
 
+    def get_set(self, ankama_id: int) -> dict[str, Any]:
+        item = self.get("sets", ankama_id)
+        if item is None:
+            raise KeyError(f"Panoplie introuvable : #{ankama_id}")
+        return item
+
     def get_item_by_subtype(self, ankama_id: int, subtype: str) -> dict[str, Any]:
         kind = SUBTYPE_TO_KIND.get(subtype, subtype)
         item = self.get(kind, ankama_id)
@@ -160,6 +166,30 @@ class Catalog:
         }
         return {"items": slice_items, "_links": links, "total": len(equipment)}
 
+    def list_sets_page(self, page: int = 1, page_size: int = 50) -> dict[str, Any]:
+        sets = sorted(
+            (item for (kind, _), item in self.items.items() if kind == "sets"),
+            key=lambda s: (
+                s.get("level") if isinstance(s.get("level"), int) else 0,
+                str(s.get("name") or ""),
+            ),
+        )
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 1
+        start = (page - 1) * page_size
+        end = start + page_size
+        slice_items = sets[start:end]
+        total_pages = max(1, (len(sets) + page_size - 1) // page_size)
+        links: dict[str, str | None] = {
+            "first": f"page={1}",
+            "prev": f"page={page - 1}" if page > 1 else None,
+            "next": f"page={page + 1}" if page < total_pages else None,
+            "last": f"page={total_pages}",
+        }
+        return {"items": slice_items, "_links": links, "total": len(sets)}
+
 
 def format_item_summary(
     item: dict[str, Any],
@@ -175,6 +205,10 @@ def format_item_summary(
     item_type = item.get("type")
     if isinstance(item_type, dict):
         lines.append(f"  Type : {item_type.get('name', '?')}")
+
+    parent_set = item.get("parent_set")
+    if isinstance(parent_set, dict) and parent_set.get("name"):
+        lines.append(f"  Panoplie : {parent_set.get('name')} (#{parent_set.get('id')})")
 
     if detailed:
         description = item.get("description")
@@ -205,5 +239,57 @@ def format_item_summary(
                         ankama_id = ingredient.get("item_ankama_id")
                         name = f"#{ankama_id}"
                     lines.append(f"    - x{ingredient.get('quantity', '?')} {name}")
+
+    return "\n".join(lines)
+
+
+def format_set_summary(
+    set_data: dict[str, Any],
+    *,
+    catalog: Catalog | None = None,
+) -> str:
+    lines = [
+        f"ID {set_data.get('ankama_id')} — {set_data.get('name', '?')}",
+        f"  Niveau : {set_data.get('level', '?')}",
+        f"  Nombre d'objets : {set_data.get('items', '?')}",
+    ]
+
+    equipment_ids = set_data.get("equipment_ids")
+    if isinstance(equipment_ids, list) and equipment_ids:
+        lines.append("  Objets :")
+        for equipment_id in equipment_ids:
+            if not isinstance(equipment_id, int):
+                continue
+            item = catalog.get("equipment", equipment_id) if catalog is not None else None
+            if item is None:
+                lines.append(f"    - #{equipment_id} (introuvable)")
+                continue
+            item_type = item.get("type")
+            type_name = item_type.get("name", "?") if isinstance(item_type, dict) else "?"
+            lines.append(
+                f"    - #{equipment_id} {item.get('name', '?')} "
+                f"(Niv. {item.get('level', '?')}, {type_name})"
+            )
+
+    effects = set_data.get("effects")
+    if isinstance(effects, dict) and effects:
+        bonuses: list[tuple[int, list[Any]]] = []
+        for key, bonus in effects.items():
+            if not isinstance(bonus, list) or not bonus:
+                continue
+            try:
+                count = int(key)
+            except (TypeError, ValueError):
+                continue
+            bonuses.append((count, bonus))
+        if bonuses:
+            lines.append("  Bonus de panoplie :")
+            for count, bonus in sorted(bonuses):
+                lines.append(f"    Bonus {count} objets :")
+                for effect in bonus:
+                    if isinstance(effect, dict):
+                        formatted = effect.get("formatted")
+                        if formatted:
+                            lines.append(f"      - {formatted}")
 
     return "\n".join(lines)

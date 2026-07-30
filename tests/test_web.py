@@ -13,8 +13,9 @@ def test_menu_get(client):
     assert b"MENU PRINCIPAL" in rv.data
     assert b"1. RECHERCHE" in rv.data
     assert b"2. LISTE DES EQUIPEMENTS" in rv.data
-    assert b"3. OPTIMISATION DE STUFF" in rv.data
-    assert b"4. SYSTEME" in rv.data
+    assert b"3. LISTE DES PANOPLIES" in rv.data
+    assert b"4. OPTIMISATION DE STUFF" in rv.data
+    assert b"5. SYSTEME" in rv.data
     assert b"F3" in rv.data
 
 
@@ -38,12 +39,12 @@ def test_menu_post_invalid(client):
     rv = client.post("/", data={"selection": "9"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"OPTION INVALIDE" in rv.data
-    assert b"1 A 4" in rv.data
+    assert b"1 A 5" in rv.data
     assert b"error" in rv.data
 
 
-def test_menu_option_4_system(client):
-    rv = client.post("/", data={"selection": "4"}, follow_redirects=True)
+def test_menu_option_5_system(client):
+    rv = client.post("/", data={"selection": "5"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"SYS-01" in rv.data
     assert b"DETAIL EQUIPEMENT" in rv.data
@@ -93,7 +94,7 @@ def test_saves_reachable_from_result(client):
 
 
 def test_saves_reachable_from_wizard_recap(client):
-    client.post("/", data={"selection": "3"}, follow_redirects=True)
+    client.post("/", data={"selection": "4"}, follow_redirects=True)
     rv = client.post(
         "/optimize/wizard/recap",
         data={"cmd": "SAVES"},
@@ -252,6 +253,96 @@ def test_list_open_item_invalid_id(client):
     assert b"INVALIDE" in rv.data
 
 
+def test_item_detail_shows_parent_set(client):
+    """Un objet lié à une panoplie affiche son nom dans le détail."""
+    rv = client.get("/item?id=44")
+    assert rv.status_code == 200
+    assert "Panoplie : Panoplie Test (#1)".encode() in rv.data
+
+
+def test_menu_option_3_sets(client):
+    rv = client.post("/", data={"selection": "3"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"PAN-01" in rv.data
+    assert b"LISTE DES PANOPLIES" in rv.data
+
+
+def test_sets_list_page(client):
+    rv = client.get("/sets")
+    assert rv.status_code == 200
+    assert b"PAN-01" in rv.data
+    assert b"LISTE DES PANOPLIES" in rv.data
+    assert b"TOTAL PANOPLIES 1" in rv.data
+    assert "Panoplie Test".encode() in rv.data
+    assert b"ANKAMA_ID" in rv.data
+    assert b"SAISIR UN ID ANKAMA" in rv.data
+
+
+def test_sets_list_open_detail(client):
+    rv = client.post("/sets", data={"ankama_id": "1"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"PANOPLIE #1" in rv.data
+    assert "Panoplie Test".encode() in rv.data
+
+
+def test_sets_list_open_invalid_id(client):
+    rv = client.post("/sets", data={"ankama_id": "abc"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"LISTE DES PANOPLIES" in rv.data
+    assert b"INVALIDE" in rv.data
+
+
+def test_sets_list_open_empty(client):
+    rv = client.post("/sets", data={"ankama_id": ""}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"SAISIE REQUISE" in rv.data
+    assert b"LISTE DES PANOPLIES" in rv.data
+
+
+def test_set_detail(client):
+    rv = client.get("/set?id=1")
+    assert rv.status_code == 200
+    body = rv.data.decode()
+    assert "PAN-02" in body
+    assert "PANOPLIE #1" in body
+    assert "Panoplie Test" in body
+    assert "Objets" in body
+    assert "Épée de Boisaille" in body
+    assert "Atcham" in body
+    assert "Cape Rouge" in body
+    assert "Bonus 2 objets" in body
+    assert "10 Force" in body
+    assert "Bonus 3 objets" in body
+    assert "1 PA" in body
+    assert 'data-esc-url="/sets"' in body
+
+
+def test_set_detail_not_found(client):
+    rv = client.get("/set?id=99999", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"INTROUVABLE" in rv.data
+    assert b"LISTE DES PANOPLIES" in rv.data
+
+
+def test_set_detail_no_id_redirects_to_list(client):
+    rv = client.get("/set", follow_redirects=False)
+    assert rv.status_code in (301, 302)
+    assert "/sets" in (rv.headers.get("Location") or "")
+
+
+def test_set_detail_open_item(client):
+    rv = client.post("/set?id=1", data={"ankama_id": "44"}, follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"ITEM #44" in rv.data
+
+
+def test_item_form_redirects_to_set_detail(client):
+    """Un ID de panoplie saisi dans ITM-01 ou la recherche ouvre PAN-02."""
+    rv = client.get("/item?id=1", follow_redirects=False)
+    assert rv.status_code in (301, 302)
+    assert "/set" in (rv.headers.get("Location") or "")
+
+
 def test_version(client):
     rv = client.get("/version")
     assert rv.status_code == 200
@@ -379,8 +470,8 @@ def _fake_optimize_result():
     )
 
 
-def test_menu_option_3_optimize(client):
-    rv = client.post("/", data={"selection": "3"}, follow_redirects=True)
+def test_menu_option_4_optimize(client):
+    rv = client.post("/", data={"selection": "4"}, follow_redirects=True)
     assert rv.status_code == 200
     assert b"WIZARD" in rv.data
     assert b"SLOTS" in rv.data
@@ -398,7 +489,7 @@ def test_optimize_wizard_go_mocked(client):
         "dofus_stuff.web.routes.optimize_stuff",
         return_value=_fake_optimize_result(),
     ):
-        client.post("/", data={"selection": "3"}, follow_redirects=True)
+        client.post("/", data={"selection": "4"}, follow_redirects=True)
         with client.session_transaction() as sess:
             from dofus_stuff.web.optimize_wizard import SESSION_WIZARD
             from dofus_stuff.model.solver_spec import SolverSpec, StatGoal
@@ -516,7 +607,7 @@ def test_optimize_result_payload_parseable(client):
 
 
 def test_wizard_exposes_step_nav_urls(client):
-    client.post("/", data={"selection": "3"}, follow_redirects=True)
+    client.post("/", data={"selection": "4"}, follow_redirects=True)
     rv = client.get("/optimize/wizard/options")
     assert rv.status_code == 200
     body = rv.data.decode()

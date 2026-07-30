@@ -29,6 +29,7 @@ def _sample_items() -> dict[tuple[str, int], dict]:
                 "icon": "https://api.dofusdu.de/dofus3/v1/img/item/6007-64.png",
                 "sd": "https://api.dofusdu.de/dofus3/v1/img/item/6007-128.png",
             },
+            "parent_set": {"id": 1, "name": "Panoplie Test"},
         },
         ("equipment", 100): {
             "ankama_id": 100,
@@ -50,6 +51,20 @@ def _sample_items() -> dict[tuple[str, int], dict]:
             "name": "Bois de Frêne",
             "level": 1,
             "type": {"name": "Bois"},
+        },
+        ("sets", 1): {
+            "ankama_id": 1,
+            "name": "Panoplie Test",
+            "level": 20,
+            "items": 3,
+            "contains_cosmetics": False,
+            "contains_cosmetics_only": False,
+            "equipment_ids": [44, 100, 101],
+            "effects": {
+                "1": None,
+                "2": [{"formatted": "10 Force"}],
+                "3": [{"formatted": "20 Force"}, {"formatted": "1 PA"}],
+            },
         },
     }
 
