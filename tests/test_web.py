@@ -237,6 +237,8 @@ def test_list_pagination(client):
     rv = client.get("/list?page=2&size=2")
     assert rv.status_code == 200
     assert b"PAGE 2" in rv.data
+    assert b'class="fkey fkey-f7"' in rv.data
+    assert b'class="fkey fkey-f8"' in rv.data
 
 
 def test_list_open_item_detail(client):

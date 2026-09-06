@@ -7,6 +7,8 @@
   --alert: #ff0000;
   --meta: #808080;
   --passive: #404040;
+  --nav-prev: #709b7a;
+  --nav-next: #b8e0c2;
   --cols: 100;
   --rows: 24;
   --char-w: 1ch;
@@ -192,6 +194,18 @@ body {
 
 .fkey-label {
   color: var(--fg);
+}
+
+.fkey-f7 .fkey-key,
+.fkey-f7 .fkey-eq,
+.fkey-f7 .fkey-label {
+  color: var(--nav-prev);
+}
+
+.fkey-f8 .fkey-key,
+.fkey-f8 .fkey-eq,
+.fkey-f8 .fkey-label {
+  color: var(--nav-next);
 }
 
 /* Empêche le scroll et la sélection « moderne » intrusive */

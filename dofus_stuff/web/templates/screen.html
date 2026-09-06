@@ -68,7 +68,7 @@
         {# Ligne 24 : F-keys #}
         <div class="row fkeys" id="fkey-bar">
           {% for key, label in fkeys %}
-          <span class="fkey"><span class="fkey-key meta">{{ key }}</span><span class="fkey-eq meta">=</span><span class="fkey-label">{{ label }}</span></span>
+          <span class="fkey fkey-{{ key | lower }}"><span class="fkey-key meta">{{ key }}</span><span class="fkey-eq meta">=</span><span class="fkey-label">{{ label }}</span></span>
           {% endfor %}
         </div>
       </div>
