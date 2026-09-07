@@ -1,3 +1,9 @@
+> **Entrée simplifiée :** le menu Optimisation demande désormais classe, éléments
+> et niveau, puis lance le calcul. Exemple : `Iop` → `terre feu` → `150`.
+> `multi` sélectionne tous les éléments. `AVANCE` ouvre les réglages ci-dessous ;
+> `EDIT` sur les résultats reprend le profil calculé. Les objectifs PA/PM sont
+> souples : un objectif manqué est signalé. Aucun budget kamas n'est supposé.
+
 # Guide du Wizard d’optimisation de stuff
 
 Ce guide explique comment utiliser le **wizard** de stuff-machine pour générer automatiquement un équipement Dofus, même si vous n’avez jamais utilisé l’outil.

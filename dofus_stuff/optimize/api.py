@@ -79,7 +79,7 @@ def _repair_invalid_conditions(
     """Retire / remplace les items dont les conditions échouent après agrégation."""
     forced_slots = set(pool.forced_build.slots)
     current = build.copy()
-    for _ in range(8):
+    for _ in range(max(8, len(current.slots) * 2)):
         evaluation = evaluate_build(
             current,
             profile,
@@ -110,9 +110,9 @@ def _repair_invalid_conditions(
                     trial,
                     profile,
                     sets_by_id=pool.sets_by_id,
-                    check_conditions=False,
+                    check_conditions=True,
                 )
-                if not item_conditions_satisfied(
+                if not trial_eval.valid or not item_conditions_satisfied(
                     candidate,
                     character_level=profile.level,
                     stats=trial_eval.total_stats,
@@ -193,7 +193,7 @@ def optimize_stuff(
     )
 
     best_build = greedy
-    best_score = greedy_eval.score
+    best_score = greedy_eval.score if greedy_eval.valid else float("-inf")
     method = "greedy"
     optimal = False
     best_bound: float | None = None
@@ -222,17 +222,19 @@ def optimize_stuff(
         if cpsat is not None:
             cpsat_status = cpsat.status_name
             best_bound = cpsat.best_bound
-            optimal = cpsat.optimal
+            candidate_build = _repair_invalid_conditions(cpsat.build, pool, profile)
+            candidate_unchanged = candidate_build.slots == cpsat.build.slots
             cpsat_eval = evaluate_build(
-                cpsat.build,
+                candidate_build,
                 profile,
                 sets_by_id=pool.sets_by_id,
-                check_conditions=False,
+                check_conditions=True,
             )
-            if cpsat_eval.score >= best_score - 1e-9:
-                best_build = cpsat.build
+            if cpsat_eval.valid and cpsat_eval.score >= best_score - 1e-9:
+                optimal = cpsat.optimal and candidate_unchanged
+                best_build = candidate_build
                 best_score = cpsat_eval.score
-                method = "cpsat" if cpsat.optimal else "cpsat_feasible"
+                method = "cpsat" if optimal else "cpsat_feasible"
 
     skip_polish = False
     if stop_when and spec is not None:
@@ -248,15 +250,18 @@ def optimize_stuff(
             polished,
             profile,
             sets_by_id=pool.sets_by_id,
-            check_conditions=False,
+            check_conditions=True,
         )
-        if polished_eval.score > best_score + 1e-9:
+        if polished_eval.valid and polished_eval.score > best_score + 1e-9:
             best_build = polished
             best_score = polished_eval.score
             method = f"{method}+local"
             optimal = False
 
-    best_build = _repair_invalid_conditions(best_build, pool, profile)
+    repaired_build = _repair_invalid_conditions(best_build, pool, profile)
+    if repaired_build.slots != best_build.slots:
+        optimal = False
+    best_build = repaired_build
     evaluation = evaluate_build(
         best_build,
         profile,
@@ -300,30 +305,56 @@ def optimize_stuff(
 def format_optimize_result(result: OptimizeResult, profile: CharacterProfile) -> str:
     """Format texte CLI."""
     lines: list[str] = []
-    lines.append(f"Niveau {profile.level} — objectif {dict(profile.objective.weights)}")
+    simple = profile.solver_spec is not None and bool(profile.solver_spec.balanced_elements)
+    if simple:
+        lines.append(f"Niveau {profile.level} — " + " / ".join(profile.solver_spec.balanced_elements))
+        stats = result.evaluation.total_stats
+        lines.append(f"PA {stats.get('PA'):g} | PM {stats.get('PM'):g} | Portée {stats.get('Portée'):g}")
+        lines.append("Éléments : " + " | ".join(
+            f"{n} {stats.get(n):g}" for n in profile.solver_spec.balanced_elements))
+        lines.append(f"Puissance {stats.get('Puissance'):g} | Vitalité ajoutée {stats.get('Vitalité'):g}")
+        lines.append("Points inclus ; sans exo/parchemins. Jets moyens sauf réglage avancé.")
+    else:
+        lines.append(f"Niveau {profile.level} — objectif {dict(profile.objective.weights)}")
     if profile.solver_spec is not None:
         targets = {
             k: v.target
             for k, v in profile.solver_spec.goals.items()
             if v.target > 0
         }
-        if targets:
+        if targets and not simple:
             lines.append(f"Cibles : {targets}")
-    lines.append(
+    diagnostics: list[str] = []
+    diagnostics.append(
         f"Méthode : {result.method}"
         + (f" ({result.cpsat_status})" if result.cpsat_status else "")
     )
     if result.cpsat_status == "UNAVAILABLE":
-        lines.append(
+        diagnostics.append(
             "Attention : ortools indisponible, résultat = greedy seul "
             "(optimalité non garantie)"
         )
-    lines.append(
+    diagnostics.append(
         f"Score : {result.evaluation.score:.1f}  |  "
-        f"Compatibilité : {result.compatibility.percent:.1f}% "
+        f"Indice de recherche : {result.compatibility.percent:.1f}% "
         f"[{result.compatibility.mode}]"
     )
+    if not simple:
+        lines.extend(diagnostics)
     lines.append(f"Build valide : {'oui' if result.evaluation.valid else 'non'}")
+    if not simple:
+        lines.append("Recherche sur une sélection du catalogue ; optimalité globale non garantie.")
+    if profile.solver_spec is not None:
+        from dofus_stuff.model.slots import is_optional_slot
+        missing = [s for s in profile.solver_spec.slot_instances()
+                   if not is_optional_slot(s) and s not in result.build.slots]
+        if missing:
+            lines.append("Build incomplet — emplacements vides : " + ", ".join(missing))
+        for name, goal in profile.solver_spec.goals.items():
+            if simple and name not in {"PA", "PM", "Portée", "Invocation"}:
+                continue
+            if goal.target > 0 and result.evaluation.total_stats.get(name) < goal.target:
+                lines.append(f"Objectif à vérifier : {name} < {goal.target:g}")
     if result.evaluation.invalid_items:
         lines.append(f"Items invalides : {result.evaluation.invalid_items}")
     lines.append("")
@@ -398,6 +429,9 @@ def format_optimize_result(result: OptimizeResult, profile: CharacterProfile) ->
             f"Détail {primary} — base+parcho: {base_v:.1f} | "
             f"items: {item_v:.1f} | sets: {set_v:.1f}"
         )
+    if simple:
+        lines.extend(diagnostics)
+        lines.append("Recherche sur une sélection du catalogue ; optimalité globale non garantie.")
     lines.append(f"Greedy: {result.greedy_score:.1f} | UB0: {result.ub0:.1f}")
     return "\n".join(lines)
 

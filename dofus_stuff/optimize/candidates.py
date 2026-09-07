@@ -63,6 +63,13 @@ def _is_plausible_equipment(item: Mapping[str, Any]) -> bool:
     if slot in _PET_SLOTS:
         return True
     stats = effects_to_stats(item.get("effects"), mode="max")
+    # The API also includes event / NPC equipment (e.g. Jiva's level-1 4 AP amulet).
+    if stats.get("PA") > 2 or stats.get("PM") > 2:
+        return False
+    if stats.get("Vitalité") > max(200, 8 * level):
+        return False
+    if stats.get("Puissance") > max(100, 2 * level + 20):
+        return False
     for stat_name in _ELEMENTAL_STATS:
         value = stats.get(stat_name, 0.0)
         if value <= 0:
@@ -318,7 +325,16 @@ def build_candidate_pool(
     selected: dict[int, dict[str, Any]] = {}
     top_scored: list[ScoredItem] = []
     for slot, entries in scored_by_logical.items():
-        for entry in entries[:top_k]:
+        diverse = list(entries[:top_k])
+        # Keep specialists even when PA/PM dominate the local weighted ranking.
+        if spec:
+            for name, goal in spec.goals.items():
+                if goal.weight <= 0:
+                    continue
+                diverse.extend(sorted(entries, key=lambda entry: effects_to_stats(
+                    entry.item.get("effects"), mode=profile.jet_mode).get(name),
+                    reverse=True)[:max(2, top_k // 4)])
+        for entry in diverse:
             aid = entry.item.get("ankama_id")
             if isinstance(aid, int):
                 selected[aid] = entry.item

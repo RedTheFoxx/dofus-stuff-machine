@@ -158,6 +158,7 @@ class SolverSpec:
     seed: int | None = None
     top_k: int = 30
     use_cpsat: bool = True
+    balanced_elements: tuple[str, ...] = ()
 
     def goal(self, name: str) -> StatGoal:
         try:
@@ -200,6 +201,7 @@ class SolverSpec:
             "seed": self.seed,
             "top_k": self.top_k,
             "use_cpsat": self.use_cpsat,
+            "balanced_elements": list(self.balanced_elements),
         }
 
     @classmethod
@@ -234,6 +236,7 @@ class SolverSpec:
             seed=int(data["seed"]) if data.get("seed") is not None else None,
             top_k=int(data.get("top_k") or 30),
             use_cpsat=bool(data.get("use_cpsat", True)),
+            balanced_elements=tuple(data.get("balanced_elements") or ()),
         )
 
 
@@ -260,7 +263,7 @@ def characteristic_point_cost(current_points: int) -> int:
 
 def total_capital_for_level(level: int) -> int:
     """Capital de points de caractéristiques disponible (approximation)."""
-    return max(0, int(level) - 1)
+    return 5 * max(0, int(level) - 1)
 
 
 def capital_spent(goals: Mapping[str, StatGoal]) -> int:
@@ -393,6 +396,10 @@ def stuffer_score(
         if goal.target > 0:
             value = min(value, goal.target)
         total += float(goal.weight) * value
+    if len(spec.balanced_elements) > 1:
+        total += min(effective_stat_value(
+            stats, name, allow_power_for_caracs=spec.allow_power_for_caracs,
+        ) for name in spec.balanced_elements)
     return total
 
 

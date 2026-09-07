@@ -41,13 +41,34 @@ python fetcher.py --offline optimize --level 200 --max intelligence \
 python fetcher.py --offline optimize
 ```
 
-Dans l’interface web (`python -m dofus_stuff.web`) : menu **3. OPTIMISATION DE STUFF**
-ouvre directement le **wizard Stuffer** (slots, filtres, cibles/poids, items, options).
+Dans l’interface web (`python -m dofus_stuff.web`), **4. Optimisation de stuff**
+ouvre une recommandation en trois choix : **classe, élément(s), niveau**.
+Saisissez par exemple `Cra`, puis `terre air`, puis `123` pour lancer le calcul.
+`multi` sélectionne les quatre éléments. Les noms de classes avec accents sont acceptés.
 
-**Guide débutant détaillé :** [GUIDE_WIZARD.md](GUIDE_WIZARD.md)
+Les points de caractéristiques sont répartis automatiquement (5 par niveau gagné),
+sans supposer de parchemins ni d'exos. Le score valorise les éléments choisis,
+la puissance, les dommages, et l'élément le plus faible en multi. Des objectifs
+souples de PA/PM et de vitalité accompagnent la progression. Les préférences de
+portée, d'invocations et de distance/mêlée sont des heuristiques de classe modifiables.
+La vitalité affichée est la vitalité ajoutée, pas le total de points de vie.
 
-Le wizard permet de configurer slots, filtres de types, base/points/cible/poids par carac,
-exo PA/PM/PO, items interdits/forcés, substitutions et options solveur.
+`AVANCE` ouvre les réglages détaillés ; après calcul, `EDIT` permet d'ajuster
+le profil puis de relancer. Le design terminal et les raccourcis sont conservés.
+
+**Guide détaillé :** [GUIDE_WIZARD.md](GUIDE_WIZARD.md)
+
+Le solveur et la recherche locale utilisent le même score sur le build agrégé,
+avec les bonus de panoplie et les cibles plafonnées. Le préfiltrage conserve aussi
+des spécialistes par caractéristique. Les conditions évaluables sont vérifiées
+après calcul ; les objectifs manqués et emplacements requis vides sont signalés.
+L'indice de recherche ne mesure ni la qualité en combat ni une optimalité sur tout
+le catalogue : CP-SAT travaille sur un sous-ensemble de candidats. Les prix,
+les effets déclenchés et les rotations de sorts ne sont pas simulés. Certaines
+conditions non numériques (quêtes, alignement, etc.) restent à vérifier en jeu.
+
+Les bases de progression sont documentées dans le [guide des caractéristiques](https://dofusbuilds.com/guides/characteristic-points).
+Les seuils PA/PM et poids de recommandation sont des choix du projet, pas des exigences du jeu.
 
 #### Base locale
 
@@ -77,8 +98,8 @@ python -m dofus_stuff.web
 
 Par défaut : mode offline (base locale uniquement), écoute sur `http://127.0.0.1:5000`.
 
-Le menu principal se limite à **1. Recherche d'objets**, **2. Liste des équipements** et
-**3. Optimisation de stuff**. L'entrée **4. Système** regroupe le détail d'un équipement par ID,
+Le menu principal propose **1. Recherche d'objets**, **2. Liste des équipements**,
+**3. Panoplies** et **4. Optimisation de stuff**. L'entrée **5. Système** regroupe le détail d'un équipement par ID,
 la version locale, le self-test et la gestion de la base.
 
 | Variable / option | Description |

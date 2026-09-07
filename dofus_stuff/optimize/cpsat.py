@@ -10,10 +10,8 @@ from dofus_stuff.model.character import CharacterProfile
 from dofus_stuff.model.set_bonus_limits import max_set_bonuses_allowed
 from dofus_stuff.model.slots import is_optional_slot
 from dofus_stuff.model.solver_spec import (
-    ELEMENTAL_CARACS,
-    ELEMENTAL_DAMAGES,
-    SolverSpec,
     stuffer_score,
+    effective_stat_value,
 )
 from dofus_stuff.model.stats import effects_to_stats, weighted_score
 from dofus_stuff.optimize.candidates import CandidatePool, base_objective_score
@@ -81,50 +79,6 @@ def _set_tiers(set_payload: dict[str, Any]) -> list[int]:
         except (TypeError, ValueError):
             continue
     return sorted(set(tiers))
-
-
-def _item_stat_value(item: dict[str, Any], stat: str, profile: CharacterProfile) -> int:
-    stats = effects_to_stats(item.get("effects"), mode=profile.jet_mode)
-    return int(round(stats.get(stat, 0.0) * SCALE))
-
-
-def _add_target_constraints(
-    model: Any,
-    x: dict[tuple[str, int], Any],
-    item_by_id: dict[int, dict[str, Any]],
-    profile: CharacterProfile,
-    spec: SolverSpec,
-) -> None:
-    """Contraintes dures valeur_effective >= cible (approximation linéaire items)."""
-    base = profile.stats_without_equipment()
-    for name, goal in spec.goals.items():
-        if goal.target <= 0:
-            continue
-        terms: list[Any] = []
-        for (slot, aid), var in x.items():
-            contrib = _item_stat_value(item_by_id[aid], name, profile)
-            # Substitutions approximatives au niveau item
-            if spec.allow_power_for_caracs and name in ELEMENTAL_CARACS:
-                contrib += _item_stat_value(item_by_id[aid], "Puissance", profile)
-            if name in ELEMENTAL_DAMAGES:
-                if spec.allow_damages_for_elemental:
-                    contrib += _item_stat_value(item_by_id[aid], "Dommage", profile)
-                if spec.allow_crit_damages_for_elemental:
-                    contrib += _item_stat_value(
-                        item_by_id[aid], "Dommage Critiques", profile
-                    )
-            if contrib:
-                terms.append(contrib * var)
-        base_part = int(round(base.get(name, 0.0) * SCALE))
-        if spec.allow_power_for_caracs and name in ELEMENTAL_CARACS:
-            base_part += int(round(base.get("Puissance", 0.0) * SCALE))
-        if name in ELEMENTAL_DAMAGES:
-            if spec.allow_damages_for_elemental:
-                base_part += int(round(base.get("Dommage", 0.0) * SCALE))
-            if spec.allow_crit_damages_for_elemental:
-                base_part += int(round(base.get("Dommage Critiques", 0.0) * SCALE))
-        target_scaled = int(round(goal.target * SCALE))
-        model.Add(base_part + sum(terms) >= target_scaled)
 
 
 def solve_cpsat(
@@ -206,6 +160,7 @@ def solve_cpsat(
 
     set_bonus_terms: list[Any] = []
     active_set_vars: list[Any] = []
+    set_stat_terms: list[tuple[Any, Any]] = []
 
     for set_id, member_ids in items_by_set.items():
         set_payload = pool.sets_by_id.get(set_id)
@@ -247,6 +202,8 @@ def solve_cpsat(
                 model.AddBoolOr([ge.Not(), lt.Not(), z])
             else:
                 model.Add(count < tier).OnlyEnforceIf(z.Not())
+            set_stat_terms.append((z, effects_to_stats(
+                set_payload["effects"][str(tier)], mode=profile.jet_mode)))
             contrib = _scaled_set_tier_contrib(set_payload, tier, profile)
             if contrib:
                 set_bonus_terms.append(contrib * z)
@@ -267,11 +224,6 @@ def solve_cpsat(
             continue
         model.Add(set_bonus_count <= max_allowed).OnlyEnforceIf(var)
 
-    if profile.solver_spec is not None and stop_when_satisfied:
-        _add_target_constraints(
-            model, x, item_by_id, profile, profile.solver_spec
-        )
-
     item_terms: list[Any] = []
     for (slot, aid), var in x.items():
         contrib = _scaled_item_contrib(item_by_id[aid], profile)
@@ -280,6 +232,42 @@ def solve_cpsat(
 
     base_scaled = int(round(base_objective_score(profile) * SCALE))
     objective_expr = base_scaled + sum(item_terms) + sum(set_bonus_terms)
+    objective_scale = SCALE
+    if profile.solver_spec is not None:
+        spec = profile.solver_spec
+        totals: dict[str, Any] = {}
+        components = [(var, effects_to_stats(item_by_id[aid].get("effects"),
+                       mode=profile.jet_mode)) for (_, aid), var in x.items()]
+        components.extend(set_stat_terms)
+        objective_terms = []
+        for name in sorted(set(spec.goals) | set(spec.balanced_elements)):
+            def value(stats):
+                return int(round(SCALE * effective_stat_value(
+                    stats, name,
+                    allow_power_for_caracs=spec.allow_power_for_caracs,
+                    allow_damages_for_elemental=spec.allow_damages_for_elemental,
+                    allow_crit_damages_for_elemental=spec.allow_crit_damages_for_elemental)))
+            base_value = value(profile.stats_without_equipment())
+            coefficients = [(var, value(stats)) for var, stats in components]
+            bound = abs(base_value) + sum(abs(c) for _, c in coefficients) + 1
+            total = model.NewIntVar(-bound, bound, f"total_{name}")
+            model.Add(total == base_value + sum(c * var for var, c in coefficients))
+            totals[name] = total
+            goal = spec.goal(name)
+            scored = total
+            if goal.target > 0:
+                target = int(round(goal.target * SCALE))
+                scored = model.NewIntVar(-bound, max(bound, target), f"capped_{name}")
+                model.AddMinEquality(scored, [total, target])
+                if stop_when_satisfied:
+                    model.Add(total >= target)
+            objective_terms.append(int(round(goal.weight * 6000)) * scored)
+        if len(spec.balanced_elements) > 1:
+            balanced = model.NewIntVar(-10**9, 10**9, "weakest_element")
+            model.AddMinEquality(balanced, [totals[n] for n in spec.balanced_elements])
+            objective_terms.append(6000 * balanced)
+        objective_expr = sum(objective_terms)
+        objective_scale *= 6000
     model.Maximize(objective_expr)
 
     if hint_build is not None:
@@ -308,10 +296,10 @@ def solve_cpsat(
     for slot, item in pool.forced_build.slots.items():
         build.slots[slot] = item
 
-    objective_value = solver.ObjectiveValue() / SCALE
+    objective_value = solver.ObjectiveValue() / objective_scale
     best_bound: float | None = None
     try:
-        best_bound = solver.BestObjectiveBound() / SCALE
+        best_bound = solver.BestObjectiveBound() / objective_scale
     except Exception:
         best_bound = objective_value if status == cp_model.OPTIMAL else None
 

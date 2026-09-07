@@ -22,6 +22,7 @@ from flask import (
 from dofus_stuff.catalog import format_item_summary, format_set_summary
 from dofus_stuff.cli import collect_self_test_checks
 from dofus_stuff.database import Database
+from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS, recommendation_spec
 from dofus_stuff.optimize.api import format_optimize_result_lines, optimize_stuff
 from dofus_stuff.sync import ensure_up_to_date
 from dofus_stuff.web import get_catalog, reload_catalog
@@ -213,8 +214,7 @@ def menu() -> str:
 def menu_post() -> Any:
     choice = (request.form.get("selection") or "").strip()
     if choice == "4":
-        reset_wizard(session)
-        return redirect(url_for("terminal.optimize_wizard", step="slots"))
+        return redirect(url_for("terminal.optimize_entry"))
     routes = {
         "1": "terminal.search",
         "2": "terminal.list_items",
@@ -928,9 +928,87 @@ def _run_optimize_and_redirect(req) -> Any:
 
 @bp.get("/optimize")
 def optimize_entry() -> Any:
-    """Entrée unique : démarre le wizard Stuffer."""
-    reset_wizard(session)
-    return redirect(url_for("terminal.optimize_wizard", step="slots"))
+    """Start the accessible recommendation flow."""
+    return redirect(url_for("terminal.optimize_quick", step="classe"))
+
+
+@bp.route("/optimize/quick/<step>", methods=["GET", "POST"])
+def optimize_quick(step: str) -> Any:
+    steps = ("classe", "elements", "niveau")
+    if step not in steps:
+        return redirect(url_for("terminal.optimize_entry"))
+    state = dict(session.get("recommendation_input") or {})
+    if step != "classe" and state.get("classe") not in CLASSES:
+        return redirect(url_for("terminal.optimize_entry"))
+    if step == "niveau" and not state.get("elements"):
+        return redirect(url_for("terminal.optimize_quick", step="elements"))
+    if request.method == "POST":
+        cmd = (request.form.get("cmd") or "").strip()
+        try:
+            if cmd.upper() == "AVANCE":
+                if state.get("classe") and state.get("elements"):
+                    spec = recommendation_spec(state["classe"], state["elements"], state.get("niveau", 200))
+                    save_wizard_spec(session, spec)
+                else:
+                    reset_wizard(session)
+                return redirect(url_for("terminal.optimize_wizard", step="recap"))
+            if step == "classe":
+                import unicodedata
+                def normalized(text):
+                    return "".join(c for c in unicodedata.normalize("NFD", text.lower())
+                                   if not unicodedata.combining(c))
+                chosen = next((c for c in CLASSES if normalized(c) == normalized(cmd)), None)
+                if cmd.isdigit() and 1 <= int(cmd) <= len(CLASSES):
+                    chosen = CLASSES[int(cmd) - 1]
+                if chosen is None:
+                    raise ValueError("Saisissez le nom ou le numéro de votre classe.")
+                state["classe"] = chosen
+            elif step == "elements":
+                values = cmd.lower().replace(",", " ").replace("+", " ").split()
+                values = [dict(zip("1234", ELEMENTS)).get(v, v) for v in values]
+                if values == ["multi"]:
+                    values = list(ELEMENTS)
+                if not values or any(v not in ELEMENTS for v in values):
+                    raise ValueError("Exemple : feu, terre air, ou multi.")
+                state["elements"] = list(dict.fromkeys(values))
+            else:
+                if not cmd.isdigit() or not 1 <= int(cmd) <= 200:
+                    raise ValueError("Saisissez un niveau entre 1 et 200.")
+                state["niveau"] = int(cmd)
+                spec = recommendation_spec(state["classe"], state["elements"], state["niveau"])
+                save_wizard_spec(session, spec)
+                session["recommendation_input"] = state
+                return _run_optimize_and_redirect(spec_to_request(spec))
+            session["recommendation_input"] = state
+            return redirect(url_for("terminal.optimize_quick", step=steps[steps.index(step) + 1]))
+        except ValueError as exc:
+            flash(str(exc), "error")
+    body = ["VOTRE STUFF EN 3 CHOIX", ""]
+    if step == "classe":
+        body += ["1/3 - Quelle est votre classe ?", ""]
+        body += ["    ".join(f"{j + 1:2}. {CLASSES[j]:12}" for j in range(i, min(i + 3, len(CLASSES))))
+                 for i in range(0, len(CLASSES), 3)]
+    elif step == "elements":
+        body += [f"Classe : {state['classe']}", "", "2/3 - Quels éléments privilégier ?", "",
+                 "1. Terre    2. Feu    3. Eau    4. Air", "",
+                 "Un ou plusieurs : feu / terre air / 1 3 / multi",
+                 "Le multi valorise aussi votre élément le plus faible."]
+    else:
+        body += [f"{state['classe']} - {' / '.join(state['elements'])}", "",
+                 "3/3 - Quel est votre niveau ? (1 à 200)", "",
+                 "ENTREE lance la recherche de votre équipement.",
+                 "PA/PM et vitalité sont pris en compte selon le niveau.",
+                 "Points répartis automatiquement, sans exo ni parchemins.",
+                 "Jets moyens ; préférences de classe ajustables après calcul."]
+    body += ["", "AVANCE : personnaliser les réglages"]
+    previous = steps[steps.index(step) - 1] if step != "classe" else None
+    return _screen(
+        pgm="OPT-SIMPLE", title="** RECOMMANDATION DE STUFF **", body_lines=body,
+        input_label="CHOIX", input_name="cmd", input_maxlength=40,
+        form_action=url_for("terminal.optimize_quick", step=step),
+        back_url=url_for("terminal.optimize_quick", step=previous) if previous else url_for("terminal.menu"),
+        fkeys=[("ESC", "Retour")], enter_hint="CALCULER" if step == "niveau" else "SUIVANT",
+    )
 
 
 def _wizard_fkeys(step: str) -> list[tuple[str, str]]:

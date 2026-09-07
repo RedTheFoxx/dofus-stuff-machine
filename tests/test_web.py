@@ -475,15 +475,15 @@ def _fake_optimize_result():
 def test_menu_option_4_optimize(client):
     rv = client.post("/", data={"selection": "4"}, follow_redirects=True)
     assert rv.status_code == 200
-    assert b"WIZARD" in rv.data
-    assert b"SLOTS" in rv.data
+    assert b"RECOMMANDATION" in rv.data
+    assert b"1/3" in rv.data
 
 
-def test_optimize_entry_redirects_to_wizard(client):
+def test_optimize_entry_redirects_to_quick(client):
     rv = client.get("/optimize", follow_redirects=True)
     assert rv.status_code == 200
-    assert b"WIZARD" in rv.data
-    assert b"SLOTS" in rv.data
+    assert b"RECOMMANDATION" in rv.data
+    assert b"1/3" in rv.data
 
 
 def test_optimize_wizard_go_mocked(client):

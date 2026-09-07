@@ -143,7 +143,11 @@ def evaluate_build(
         set_stats.add_inplace(bonus.stats)
 
     total = base + item_stats + set_stats
-    score = weighted_score(total, profile.objective.weights)
+    from dofus_stuff.model.solver_spec import stuffer_score
+
+    score = (stuffer_score(total, profile.solver_spec)
+             if profile.solver_spec is not None
+             else weighted_score(total, profile.objective.weights))
 
     invalid: list[int] = []
     valid = True
