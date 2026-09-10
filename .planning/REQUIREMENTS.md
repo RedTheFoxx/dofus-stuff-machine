@@ -102,41 +102,55 @@ Explicitement exclu. Documenté pour empêcher la réintroduction par glissement
 
 ## Traceability
 
-Rempli lors de la création du roadmap.
+Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappée à exactement une phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SOMM-01 | TBD | Pending |
-| SOMM-02 | TBD | Pending |
-| SOMM-03 | TBD | Pending |
-| INST-01 | TBD | Pending |
-| INST-02 | TBD | Pending |
-| INST-03 | TBD | Pending |
-| SIMP-01 | TBD | Pending |
-| SIMP-02 | TBD | Pending |
-| SIMP-03 | TBD | Pending |
-| SIMP-04 | TBD | Pending |
-| WIZ-01 | TBD | Pending |
-| WIZ-02 | TBD | Pending |
-| WIZ-03 | TBD | Pending |
-| CLI-01 | TBD | Pending |
-| CLI-02 | TBD | Pending |
-| CLI-03 | TBD | Pending |
-| BASE-01 | TBD | Pending |
-| BASE-02 | TBD | Pending |
-| BASE-03 | TBD | Pending |
-| AIDE-01 | TBD | Pending |
-| AIDE-02 | TBD | Pending |
-| GARD-01 | TBD | Pending |
-| GARD-02 | TBD | Pending |
-| GARD-03 | TBD | Pending |
-| GARD-04 | TBD | Pending |
+| SOMM-01 | Phase 1 | Pending |
+| SOMM-02 | Phase 1 | Pending |
+| SOMM-03 | Phase 1 | Pending |
+| INST-01 | Phase 1 | Pending |
+| INST-02 | Phase 1 | Pending |
+| INST-03 | Phase 1 | Pending |
+| SIMP-01 | Phase 3 | Pending |
+| SIMP-02 | Phase 3 | Pending |
+| SIMP-03 | Phase 3 | Pending |
+| SIMP-04 | Phase 3 | Pending |
+| WIZ-01 | Phase 4 | Pending |
+| WIZ-02 | Phase 4 | Pending |
+| WIZ-03 | Phase 4 | Pending |
+| CLI-01 | Phase 2 | Pending |
+| CLI-02 | Phase 2 | Pending |
+| CLI-03 | Phase 2 | Pending |
+| BASE-01 | Phase 5 | Pending |
+| BASE-02 | Phase 5 | Pending |
+| BASE-03 | Phase 5 | Pending |
+| AIDE-01 | Phase 6 | Pending |
+| AIDE-02 | Phase 6 | Pending |
+| GARD-01 | Phase 1 | Pending |
+| GARD-02 | Phase 1 | Pending |
+| GARD-03 | Phase 6 | Pending |
+| GARD-04 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements : 25 total
-- Mapped to phases : 0 (à remplir par le roadmap)
-- Unmapped : 25 ⚠️
+- Mapped to phases : 25 ✓
+- Unmapped : 0 ✓
+
+**Répartition par phase :**
+
+| Phase | Exigences | Total |
+|-------|-----------|-------|
+| Phase 1 — Socle documentaire, installation et harnais vérifiable | SOMM-01, SOMM-02, SOMM-03, INST-01, INST-02, INST-03, GARD-01, GARD-02 | 8 |
+| Phase 2 — Référence CLI alignée sur le parseur | CLI-01, CLI-02, CLI-03 | 3 |
+| Phase 3 — Parcours simplifié documenté depuis le rendu réel | SIMP-01, SIMP-02, SIMP-03, SIMP-04 | 4 |
+| Phase 4 — Wizard avancé et résorption de la dette `GUIDE_WIZARD` | WIZ-01, WIZ-02, WIZ-03 | 3 |
+| Phase 5 — Base locale, hors-ligne et resynchronisation | BASE-01, BASE-02, BASE-03 | 3 |
+| Phase 6 — Dépannage, glossaire, complétude et preuve finale | AIDE-01, AIDE-02, GARD-03, GARD-04 | 4 |
+
+Aucune exigence n'est dupliquée entre deux phases : la propriété de chaque contrôle appartient à la
+phase qui l'introduit (les phases suivantes l'étendent sans le réclamer).
 
 ---
 *Requirements defined: 2026-09-10*
-*Last updated: 2026-09-10 after initial definition*
+*Last updated: 2026-09-10 after roadmap creation (traceability filled, coverage 25/25)*
