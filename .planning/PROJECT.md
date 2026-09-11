@@ -35,6 +35,7 @@ utilisées comme source de vérité pour la documentation) :
 - ✓ Solveur ortools CP-SAT + recherche locale, score partagé, préfiltrage par caractéristique — existing
 - ✓ Sauvegardes locales de stuffs dans le navigateur (localStorage) et export Dofusbook — existing
 - ✓ Suite de tests pytest (`tests/`) — existing
+- ✓ DOCS-06 : Les commandes et options CLI documentées existent réellement dans le parsing d'arguments (`docs/cli.md`, 8 sous-commandes, 4 options globales, 30 options d'`optimize`, exemples analysés par `shlex` + `parse_args`) — Phase 2
 
 ### Active
 
@@ -45,7 +46,6 @@ Hypothèses à valider par la livraison :
 - [ ] DOCS-03 : Une page d'installation & démarrage permet d'aller de Python 3.11+ jusqu'au premier lancement (CLI et web)
 - [ ] DOCS-04 : Le flux simplifié classe → éléments → niveau est décrit tel qu'il existe réellement dans le code
 - [ ] DOCS-05 : Le flux avancé (wizard) est décrit écran par écran, aligné sur les libellés et écrans réels
-- [ ] DOCS-06 : Les commandes et options CLI documentées existent réellement dans le parsing d'arguments
 - [ ] DOCS-07 : La base locale et la fenêtre de resynchronisation 24 h sont expliquées, en mode hors-ligne par défaut
 - [ ] DOCS-08 : Une FAQ / dépannage couvre les erreurs courantes (base absente, saisie invalide, calcul long, clavier inactif)
 - [ ] DOCS-09 : Un glossaire définit le vocabulaire Dofus/tooling utilisé par la doc
@@ -98,6 +98,10 @@ Hypothèses à valider par la livraison :
 | Modèles « adaptatif » | Les rôles lourds (recherche, plan, vérification) doivent lire réellement le code ; les tâches légères restent économiques | — Pending |
 | Sections PR : User Stories + Risques & Dépendances | Récits et critères d'acceptation = tests prévus ; risques/dépendances = désynchronisation et fichiers pivots partagés | — Pending |
 | Pas de validation par parties prenantes dans les PR | Aucune validation humaine ne peut être automatisée ni inventée ; un contrôle automatique prouve le même critère | — Pending |
+| L'ancrage documentaire dérive sa vérité du parseur à l'exécution, jamais d'une liste recopiée | Une liste recopiée se périme en même temps que la page : les sondes d'argv et `format_help()` restent vrais après tout renommage d'option | ✓ Appliqué en phase 2 (contrôle strict par nom exact ajouté après revue, commit `a650032`) |
+| Une section par sous-commande plutôt que la table récapitulative unique de `CLAUDE.md` §2 (DOCS-06) | Les décisions D-16/D-17 gouvernent la phase ; la substance de DOCS-06 est tenue section par section ; une table unique serait un second référentiel à maintenir | ✓ Écart assumé, consigné dans `WINDOWS.md` (02-01, id 2) |
+| Un écran de contrôle (batterie de mutations) doit être exécutable sur une implémentation correcte | Une batterie qui échoue sur une page correcte rend la phase inexécutable ; les constats sont donc accumulés puis assertés une seule fois, pour que chaque motif attribué reste atteignable | ✓ Appliqué en phase 2 (19/19 mutations, revue de plan itérée 3 fois) |
+| La revue de code d'une phase de documentation se juge sur le harnais, pas sur la page | Le livrable était exact (37/37 valeurs par défaut vérifiées) ; les 5 avertissements portaient tous sur les tests, et deux d'entre eux (faux positif `--help`, garde absente sur `db sync`/`cache fill`) étaient de vrais défauts de sûreté ou d'usage | ✓ Corrigés et re-mesurés (commit `a650032`), suite 169 passed |
 
 ## Evolution
 
@@ -117,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-10 after initialization*
+*Last updated: 2026-09-11 after Phase 2 (Référence CLI alignée sur le parseur)*
