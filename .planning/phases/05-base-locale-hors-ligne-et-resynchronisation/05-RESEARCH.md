@@ -245,7 +245,7 @@ synchronisation et sans écrire sous `.data/` (méthode : § *Feasibility*).
 | Défaut CLI `--data-dir` | `default=DEFAULT_DATA_DIR` — donc `.data/` à la racine du dépôt | `dofus_stuff/cli.py:38` |
 | Aide CLI de `--data-dir` (⚠ volatile) | `help=f"Répertoire de la base locale (défaut : {DEFAULT_DATA_DIR})"` — l'aide **imprime le chemin absolu du poste** ; la page ne recopie **jamais** ce chemin | `dofus_stuff/cli.py:39` |
 | Défaut web `--data-dir` | `default=Path(os.environ.get("DOFUS_DATA_DIR", DEFAULT_DATA_DIR))`, aide `"Répertoire de la base locale"` (**sans** chemin absolu, contrairement à la CLI) | `dofus_stuff/web/__main__.py:15-20` |
-| Base non versionnée | `.gitignore` porte `.data/` | `.gitignore:7` |
+| Base non versionnée | `.gitignore` porte `.data/` | `.gitignore:6` |
 
 Mesures de création (repertoire temporaire, `tmp_path`) :
 
