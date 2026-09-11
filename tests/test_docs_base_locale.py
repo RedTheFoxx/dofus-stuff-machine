@@ -2172,3 +2172,78 @@ def test_page_close_et_sans_valeur_volatile(docs_dir: Path, section, normalize) 
         f"dernier titre, « {LIEN_RETOUR} » en derniere ligne, octets CRLF sans BOM, aucune valeur "
         f"volatile, aucun lien externe et chaque chemin du bloc source existant (D-67, D-69, D-73)"
     )
+
+
+def _empreinte(chemin: Path) -> tuple[int, int, str]:
+    """Empreinte `(taille, mtime_ns, sha256)` d'un fichier, pour comparer deux instants (V15).
+
+    Troisieme copie **assumee** du meme helper (`tests/test_docs_parcours.py:2557+`, puis
+    `tests/test_docs_wizard.py:2289+`) : la convention du depot est de le reprendre verbatim, jamais de
+    le factoriser (Pitfall 10). Le SHA-256 porte le contenu et `mtime_ns` porte la modification a contenu
+    identique : les trois composantes sont rendues pour qu'un ecart dise laquelle a bouge.
+
+    Limite nommee (L-2 de `04-SECURITY.md`) : c'est une mesure **locale**, vraie par construction. La
+    fixture `app` construit sa base sous `tmp_path`, donc comparer la base du depot a elle-meme pendant
+    les rendus de ce module ne peut pas detecter une ecriture faite par un **autre** module. Ce module ne
+    pretend pas prouver autre chose que l'absence d'ecriture pendant ses propres rendus.
+    """
+    octets = chemin.read_bytes()
+    return (len(octets), chemin.stat().st_mtime_ns, hashlib.sha256(octets).hexdigest())
+
+
+def test_data_locale_non_modifiee_autour_des_rendus(app) -> None:
+    """La base du depot est intacte autour des rendus reels des ecrans de ce module (D-81, D-89).
+
+    Porte de non-regression du critere 4 : l'etat de la base, l'ecran de synchronisation, l'ecran de
+    vidage et les sauvegardes sont rendus par le client de l'application — tous en **lecture**, aucun
+    `POST` n'est emis (poster une confirmation declencherait la synchronisation ou le vidage) — et
+    l'empreinte `(taille, mtime_ns, sha256)` de `.data/dofus.sqlite3` est mesuree avant et apres. La
+    seule operation sur le chemin reel est une **lecture d'octets** : le fichier n'est jamais ouvert par
+    SQLite, jamais ecrit, jamais supprime.
+
+    Quand la base du depot est absente, le controle **saute** avec un motif nomme
+    (`MOTIF_BASE_ABSENTE`) : jamais un vert silencieux, la mesure n'ayant alors aucun objet (D-85).
+
+    Limite nommee : ce controle prouve que **ce module** n'ecrit pas sous `.data/` pendant ses rendus. Que
+    la suite **entiere** n'y ecrive pas est mesure par la porte de fin de phase — l'empreinte est prise
+    avant et apres `pytest -q` sur toute la suite, dans la verification du plan — parce qu'une mesure
+    locale prise par un module qui ne touche pas au chemin reel est vraie par construction (L-2 de
+    `04-SECURITY.md`). L'execution du JavaScript de l'ecran des sauvegardes reste hors d'atteinte : aucun
+    navigateur n'est lance (A2 de la recherche, D-85).
+    """
+    chemin = RACINE_DEPOT.joinpath(*BASE_LOCALE)
+    if not chemin.is_file():
+        pytest.skip(MOTIF_BASE_ABSENTE)
+
+    avant = _empreinte(chemin)
+    constats: list[str] = []
+    declarees = _routes_declarees()
+    client = app.test_client()
+    for ecran in ECRANS_RENDUS:
+        if ecran not in declarees:
+            constats.append(
+                f"{MOTIF_EMPREINTE_CHANGEE} : l'ecran « {ecran} » n'est declare par aucun decorateur "
+                f"`get`/`post` de {SOURCE_ROUTES} ; attendu un ecran reel du produit, sans quoi le rendu "
+                f"mesure ne serait celui d'aucun ecran (D-76, D-81)"
+            )
+        rendu = client.get(ecran)
+        if rendu.status_code != 200:
+            constats.append(
+                f"{MOTIF_EMPREINTE_CHANGEE} : l'ecran « {ecran} » repond {rendu.status_code} ; attendu "
+                f"200, sans quoi la seconde empreinte serait prise sans qu'aucun rendu n'ait eu lieu "
+                f"({SOURCE_ROUTES})"
+            )
+    apres = _empreinte(chemin)
+    if avant != apres:
+        constats.append(
+            f"{MOTIF_EMPREINTE_CHANGEE} : la base du depot a change pendant les rendus de ce module : "
+            f"avant {avant}, apres {apres} ; attendu une empreinte identique (taille, mtime_ns, sha256) "
+            f"— les controles de cette phase ne font que lire ces octets (D-81, D-89)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'empreinte de la base locale autour des rendus : "
+        + " ; ".join(constats)
+        + f" ; attendu les ecrans {', '.join(ECRANS_RENDUS)} rendus en lecture par {SOURCE_ROUTES}, "
+        f"sans que .data/dofus.sqlite3 soit ouvert, ecrit ou supprime par ce module (D-81)"
+    )
