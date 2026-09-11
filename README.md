@@ -60,8 +60,6 @@ La vitalité affichée est la vitalité ajoutée, pas le total de points de vie.
 `AVANCE` ouvre les réglages détaillés ; après calcul, `EDIT` permet d'ajuster
 le profil puis de relancer. Le design terminal et les raccourcis sont conservés.
 
-**Guide détaillé :** [GUIDE_WIZARD.md](GUIDE_WIZARD.md)
-
 Le solveur et la recherche locale utilisent le même score sur le build agrégé,
 avec les bonus de panoplie et les cibles plafonnées. Le préfiltrage conserve aussi
 des spécialistes par caractéristique. Les conditions évaluables sont vérifiées

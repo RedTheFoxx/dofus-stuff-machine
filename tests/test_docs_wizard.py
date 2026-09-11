@@ -2396,3 +2396,174 @@ def test_aiguillage_sans_renvoi_obsolete(docs_dir: Path, app, normalize) -> None
     )
 
 
+# --- Aiguillage de la racine et README (plan 04-03, tache 1) ---
+#
+# Ces deux fichiers ne sont lus par aucun autre module : `test_docs_structure.py` ne parcourt que
+# `docs/**`, et son seul controle de racine est le lien du `README.md` vers le sommaire (Pitfall 8 de
+# `04-RESEARCH.md`). Un aiguillage dont les deux liens seraient morts passerait donc la suite sans ce
+# controle.
+LIGNES_MAX_AIGUILLAGE = 20
+CIBLE_AIGUILLAGE = "docs/wizard-avance.md"
+CIBLE_SOMMAIRE = "docs/sommaire.md"
+NOM_PRODUIT_AIGUILLAGE = "GUIDE_WIZARD"
+NOM_PAGE_WIZARD = "wizard-avance"
+
+# Motifs de morsure portes par des constantes du module, jamais ecrits en clair dans la ligne
+# d'assertion (meme regle que les motifs ci-dessus) : pytest reproduit la ligne source du `assert`, et
+# une valeur ecrite en clair y serait trouvee sans qu'aucun message n'ait ete produit.
+MOTIF_AIGUILLAGE_BRUYANT = "aiguillage qui decrit encore le wizard"
+MOTIF_LIEN_PRODUIT = "renvoi produit vers un fichier non indexe"
+MOTIF_LIEN_AIGUILLAGE = "aiguillage sans lien vers la page"
+
+# Cibles de liens markdown d'un texte, telles qu'ecrites entre parentheses : la comparaison porte sur
+# la cible du fichier, jamais sur une cible reecrite.
+MOTIF_LIEN_MARKDOWN = re.compile(r"\[(?P<libelle>[^\]]*)\]\((?P<cible>[^)]+)\)")
+
+# Enonces de contenu que l'aiguillage ne porte plus (D-46/D-48/D-49), chacun adosse a son producteur
+# (D-13) : le message de refus de la syntaxe d'items (`optimize_wizard.py:424`), les deux formats
+# d'edition des quatre nombres (`routes.py:1254` et `:1260`), la phrase d'arrivee directe du texte
+# retire, et le titre de l'exemple guide migre vers la page cible (D-55). Les valeurs sont comparees
+# **normalisees** (D-11) : casse, accents et espaces ne doivent pas faire echapper un enonce remis.
+MARQUEURS_DE_CONTENU = (
+    ("le message de refus de la syntaxe d'items", "syntaxe : +id | -id | !id | clear"),
+    ("le format d'edition a exo", "base exo cible poids"),
+    ("le format d'edition a points", "base points cible poids"),
+    ("la phrase d'arrivee directe", "directement dans le wizard"),
+    ("le titre de l'exemple guide migre", "premier stuff en 5 minutes"),
+)
+
+
+def test_aiguillage_et_readme(docs_dir: Path, app, normalize) -> None:
+    """`GUIDE_WIZARD.md` est l'aiguillage corrige et `README.md` a perdu son pointeur produit (D-46/D-62).
+
+    Le vert du critere 5 est obtenu par la **correction du fichier livre**, jamais par un detecteur
+    affaibli : ce controle tient la forme courte de l'aiguillage (au plus `LIGNES_MAX_AIGUILLAGE`
+    lignes, un seul `H1`), ses deux liens de navigation (la page unique et le sommaire), et l'**absence
+    d'enonce de contenu** — mesuree au rendu pour les lignes d'options du solveur, lues a
+    `/optimize/wizard/options`, et lue au code pour le message de refus de la syntaxe d'items et les
+    deux formats d'edition des quatre nombres. `README.md` ne cite plus l'aiguillage produit et garde
+    **un seul** lien vers le sommaire (D-10/D-29).
+
+    Limite honnete : la prose libre (le libelle du `H1`, le texte de l'avis de deplacement) releve de
+    Claude's Discretion et n'est pas figee ici ; le controle porte sur les invariants de forme, les
+    deux liens et les enonces de contenu nommes.
+    """
+    racine = docs_dir.parent
+    chemin_aiguillage = racine / GUIDE_WIZARD
+    chemin_readme = racine / README
+    if not chemin_aiguillage.is_file():
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : aiguillage introuvable ({chemin_aiguillage}) ; attendu le fichier de la "
+            f"racine que le perimetre WIZ-03 designe, reduit a son aiguillage corrige (D-46)"
+        )
+    if not chemin_readme.is_file():
+        raise AssertionError(
+            f"{README} : fichier introuvable ({chemin_readme}) ; attendu le point d'entree du depot, "
+            f"dont la ligne « Guide detaille » est retiree sans texte de remplacement (D-62)"
+        )
+
+    texte = chemin_aiguillage.read_text(encoding="utf-8")
+    lignes = texte.splitlines()
+    normalise = normalize(texte)
+    constats: list[str] = []
+
+    # 1. Forme courte : au plus vingt lignes et un seul titre de niveau 1.
+    if len(lignes) > LIGNES_MAX_AIGUILLAGE:
+        constats.append(
+            f"{GUIDE_WIZARD} : {len(lignes)} lignes ; attendu un aiguillage d'au plus "
+            f"{LIGNES_MAX_AIGUILLAGE} lignes, le reste du guide ayant migre vers {CIBLE_AIGUILLAGE} "
+            f"(D-46)"
+        )
+    titres = [ligne for ligne in lignes if ligne.startswith(FRAGMENT_H1)]
+    if len(titres) != 1:
+        constats.append(
+            f"{GUIDE_WIZARD} : {len(titres)} titre(s) de niveau 1 ({', '.join(titres)}) ; attendu un "
+            f"seul `H1`, celui de l'aiguillage (D-46)"
+        )
+
+    # 2. Les deux liens de navigation, et leurs cibles presentes sur disque.
+    cibles = [trouve.group("cible") for trouve in MOTIF_LIEN_MARKDOWN.finditer(texte)]
+    for attendue in (CIBLE_AIGUILLAGE, CIBLE_SOMMAIRE):
+        if attendue not in cibles:
+            constats.append(
+                f"{MOTIF_LIEN_AIGUILLAGE} : {GUIDE_WIZARD} ne porte aucun lien vers « {attendue} » ; "
+                f"attendu {CIBLE_AIGUILLAGE} (la source unique, D-46) et {CIBLE_SOMMAIRE} (le second "
+                f"lien de navigation, D-48), tous deux exiges"
+            )
+        elif not (racine / attendue).is_file():
+            constats.append(
+                f"{MOTIF_LIEN_AIGUILLAGE} : la cible « {attendue} » du lien de {GUIDE_WIZARD} n'existe "
+                f"pas depuis la racine du depot ({racine.as_posix()}) ; attendu une cible livree sur "
+                f"disque, sans quoi l'aiguillage menerait a une page morte"
+            )
+
+    # 3. Aucun enonce de contenu : marqueurs lus au code, compares normalises (D-11).
+    for nom, marqueur in MARQUEURS_DE_CONTENU:
+        if marqueur in normalise:
+            constats.append(
+                f"{MOTIF_AIGUILLAGE_BRUYANT} : l'aiguillage porte encore {nom} (« {marqueur} ») ; "
+                f"attendu un fichier sans enonce de contenu, la description vivant dans "
+                f"{CIBLE_AIGUILLAGE} (D-48/D-49)"
+            )
+
+    # 4. Aucune ligne d'option du solveur : les libelles sont lus au rendu, jamais recopies.
+    options = _options_du_rendu(_lignes_du_corps(app.test_client().get("/optimize/wizard/options")))
+    if not options:
+        constats.append(
+            f"le rendu de /optimize/wizard/options ne porte aucune ligne d'option ; attendu les "
+            f"options rendues par {SOURCE_WIZARD}, sans quoi l'absence d'option dans l'aiguillage "
+            f"serait mesuree contre rien"
+        )
+    for numero, libelle in sorted(options.items()):
+        significatifs = _mots_significatifs(libelle)
+        if not significatifs:
+            continue
+        for ligne in lignes:
+            trouve = MOTIF_OPTION_RENDUE.match(ligne.strip())
+            if trouve is None:
+                continue
+            if significatifs & _mots_significatifs(trouve.group("libelle")):
+                constats.append(
+                    f"{MOTIF_AIGUILLAGE_BRUYANT} : la ligne « {ligne} » porte l'option {numero} du "
+                    f"solveur (« {libelle} », rendue par {SOURCE_WIZARD}) ; attendu un aiguillage sans "
+                    f"ligne d'option, celles-ci vivant dans {CIBLE_AIGUILLAGE} (D-48)"
+                )
+    if COMMANDE_DESTRUCTRICE.search(texte):
+        constats.append(
+            f"{MOTIF_AIGUILLAGE_BRUYANT} : l'aiguillage porte une commande destructrice ; attendu "
+            f"aucune commande de ce genre, ni comme etape ni comme renvoi (D-22/D-23, D-61)"
+        )
+
+    # 5. `README.md` : plus aucun renvoi produit, un seul lien vers le sommaire.
+    texte_readme = chemin_readme.read_text(encoding="utf-8")
+    normalise_readme = normalize(texte_readme)
+    if normalize(NOM_PRODUIT_AIGUILLAGE) in normalise_readme:
+        constats.append(
+            f"{MOTIF_LIEN_PRODUIT} : {README} cite encore « {NOM_PRODUIT_AIGUILLAGE} » ; attendu la "
+            f"ligne « Guide detaille » retiree **sans texte de remplacement** (D-62)"
+        )
+    if normalize(NOM_PAGE_WIZARD) in normalise_readme:
+        constats.append(
+            f"{MOTIF_LIEN_PRODUIT} : {README} renvoie encore vers « {NOM_PAGE_WIZARD} » ; attendu "
+            f"aucun renvoi produit vers {CIBLE_AIGUILLAGE}, dont l'usage appartient a la documentation "
+            f"utilisateur de `docs/` (D-62)"
+        )
+    cibles_readme = [trouve.group("cible") for trouve in MOTIF_LIEN_MARKDOWN.finditer(texte_readme)]
+    vers_sommaire = [cible for cible in cibles_readme if cible == CIBLE_SOMMAIRE]
+    if len(vers_sommaire) != 1:
+        constats.append(
+            f"{MOTIF_LIEN_PRODUIT} : {README} porte {len(vers_sommaire)} lien(s) vers "
+            f"« {CIBLE_SOMMAIRE} » ; attendu exactement un, la section « Documentation utilisateur » "
+            f"gardant son lien unique vers le sommaire (D-10/D-29) — deux formulations du meme renvoi "
+            f"affaibliraient le controle de structure (D-17)"
+        )
+
+    assert not constats, (
+        f"{GUIDE_WIZARD} et {README} : constats sur l'aiguillage et le README : "
+        + " ; ".join(constats)
+        + f" ; attendu un aiguillage d'au plus {LIGNES_MAX_AIGUILLAGE} lignes portant un seul `H1`, un "
+        f"lien vers {CIBLE_AIGUILLAGE} et un lien vers {CIBLE_SOMMAIRE}, sans aucun enonce de contenu, "
+        f"et un {README} sans renvoi produit et avec un seul lien vers le sommaire (D-46/D-48/D-62)"
+    )
+
+
