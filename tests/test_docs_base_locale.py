@@ -286,6 +286,18 @@ MOTIF_DESTRUCTRICES = "commandes destructrices"
 MOTIF_EFFET = "effet de la commande destructrice"
 MOTIF_EXEMPLE = "bloc de commandes"
 
+# Motifs de morsure du plan 05-03 (vague 3), portes par des constantes du module comme les precedents :
+# pytest reproduit la ligne source du `assert`, une valeur ecrite en clair y serait trouvee meme si
+# aucun constat n'avait ete produit. Valeurs ASCII, sans apostrophe, chacune incluse dans le constat
+# qui la concerne.
+MOTIF_README = "renvoi du README"
+MOTIF_LIEN_D63 = "renvoi en prose sans lien vers la page de la base locale"
+MOTIF_SECTION = "section attendue de la page"
+MOTIF_SOURCE = "chemin du bloc source de verite"
+MOTIF_LIEN_EXTERNE = "lien externe"
+MOTIF_BASE_ABSENTE = "base locale du depot absente"
+MOTIF_EMPREINTE_CHANGEE = "empreinte de la base locale modifiee"
+
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
 # produit a tenir a jour — et **plus** sur l'import de `dofus_stuff.database`, qui est la matiere de
@@ -322,6 +334,31 @@ CONFIRMATIONS_INTERDITES = ("O", "Y", "OUI", "YES")
 # `tmp_path`, ou un nom lie dans le module a une telle expression (patron `dossier = tmp_path / "absent"`).
 CIBLES_DATA_DIR = ("Database", "create_app")
 REPERTOIRES_ISOLES = ("tmp_path", "web_config")
+
+# Contenu et objets du plan 05-03 : le detecteur de renvois du `README.md` (D-87), la dette denouee de
+# la page voisine (D-63/D-44), la cloture de la page (D-67, D-69, D-73) et la mesure d'empreinte de
+# `.data/` (D-81, D-89). Le motif des liens Markdown est celui deja employe par
+# `tests/test_docs_wizard.py:2475` : une cible lue entre parentheses, jamais une cible reecrite.
+MOTIF_LIEN_MARKDOWN = re.compile(r"\[(?P<libelle>[^\]]*)\]\((?P<cible>[^)]+)\)")
+CIBLES_EXTERNES = ("http://", "https://", "mailto:")
+TITRE_SECTION_RENVOI = "### Ce que cette page ne décrit pas"
+PAGE_PARCOURS = "parcours-simplifie.md"
+# Ligne de retour de la page, deja epinglee par le plan 05-01 sous le nom `LIGNE_RETOUR` : le plan
+# 05-03 la nomme `LIEN_RETOUR`, et le litteral n'est pas reecrit une seconde fois.
+LIEN_RETOUR = LIGNE_RETOUR
+TITRE_H1 = "# Base locale"
+BASE_LOCALE = (".data", "dofus.sqlite3")
+# Renvois attendus vers la page de la base locale dans `docs/parcours-simplifie.md` : deux, l'un dans la
+# phrase d'introduction, l'autre dans la section des renvois (D-63, D-86).
+RENVOIS_PAGE_VOISINE = 2
+# Formulaire d'un jeton entre accents graves qui ressemble a un chemin de fichier (une barre oblique, ou
+# un suffixe de fichier connu) : le bloc « Source de verite » de la page est lu par ce motif, et chaque
+# chemin trouve est exige sur disque (D-03, D-69).
+MOTIF_JETON_ACCENTS = re.compile(r"`(?P<jeton>[^`]+)`")
+SUFFIXES_CHEMIN = (".py", ".md", ".js", ".json")
+# Ecrans rendus par le module pour la mesure d'empreinte : l'etat de la base, l'ecran de
+# synchronisation, l'ecran de vidage et les sauvegardes, tous en **lecture** (aucun `POST`, D-81).
+ECRANS_RENDUS = ("/db/status", "/db/sync", "/db/clear", "/saves")
 
 
 def _texte_page(docs_dir: Path) -> str:
@@ -1735,4 +1772,220 @@ def test_commandes_destructrices(
         + f" ; attendu chacune des deux commandes signalee sur sa propre ligne, avec la cible qu'elle "
         f"detruit, hors de tout parcours et de tout bloc d'exemple, et son effet lu dans "
         f"{SOURCE_DATABASE}, {SOURCE_ROUTES} et {SOURCE_TERMINAL_JS} sans jamais etre execute"
+    )
+
+
+# ------------------------------------------------------------------------------------------------
+# Cloture de la phase (plan 05-03). Ces controles n'ajoutent aucun fait a la page : ils la ferment —
+# chaque renvoi interne du `README.md` resout (D-87), la dette D-44 est denouee par un renvoi
+# legitime (D-63), les octets et les valeurs de la page sont conformes (D-67, D-69, D-73) — et ils
+# mesurent que rien de tout cela n'ecrit sous `.data/` (D-81, D-89).
+# ------------------------------------------------------------------------------------------------
+
+
+def _cibles_de_liens(texte: str) -> list[tuple[str, str]]:
+    """Couples `(libelle, cible)` des liens Markdown d'un texte, dans l'ordre du document.
+
+    Lecture du seul motif du depot (`MOTIF_LIEN_MARKDOWN`, repris de `tests/test_docs_wizard.py`) : la
+    cible est celle qui est ecrite entre parentheses, jamais une cible reecrite.
+    """
+    return [
+        (trouve.group("libelle"), trouve.group("cible"))
+        for trouve in MOTIF_LIEN_MARKDOWN.finditer(texte)
+    ]
+
+
+def _cible_interne(cible: str) -> bool:
+    """Vrai quand la cible est un renvoi de fichier interne, candidat a la resolution (D-87).
+
+    Ecartees : les cibles externes (`CIBLES_EXTERNES`) et les formes que la garde de structure de
+    `docs/` interdit deja — ancre, chemin absolu, antislash, schema `file://`. Ces formes ne sont pas
+    signalees ici : les signaler dupliquerait un controle que `tests/test_docs_structure.py` possede
+    (D-12), et ce module ne revendique que la resolution des renvois de fichier.
+    """
+    if cible.startswith(CIBLES_EXTERNES):
+        return False
+    if "#" in cible or cible.startswith("/") or "\\" in cible or cible.startswith("file://"):
+        return False
+    return True
+
+
+def _corps_du_titre(texte: str, titre: str) -> str:
+    """Texte ouvert par un titre, jusqu'au prochain titre de niveau 2 ; vide si le titre est absent.
+
+    Le titre de la section des renvois de `docs/parcours-simplifie.md` est de **niveau 3** : le helper
+    `section` de `tests/conftest.py` ne rend que des sections de niveau 2 et ne peut donc pas l'isoler.
+    Ce lecteur local reste un motif du module, jamais un doublon du helper partage (D-12).
+    """
+    debut = texte.find(titre)
+    if debut < 0:
+        return ""
+    suite = texte[debut + len(titre) :]
+    suivant = re.search(r"^##\s", suite, re.MULTILINE)
+    return suite[: suivant.start()] if suivant is not None else suite
+
+
+def renvois_morts(texte: str, racine: Path, fichier: str = "") -> list[str]:
+    """Renvois internes d'un texte dont la cible n'existe pas sous `racine`, un constat par cible.
+
+    Fonction **pure** : elle ne lit aucun fichier, n'ouvre aucune connexion et n'ecrit rien. La seule
+    operation sur le systeme de fichiers est le test d'existence d'une cible interne sous `racine` ; la
+    mutation qui prouve sa morsure vit donc sur une **chaine**, jamais sur un fichier du depot (D-84).
+
+    Le motif du resolveur est **local** a ce module, et non importe de `tests/test_docs_structure.py` :
+    ce dernier resout les cibles **depuis `docs/`** (`problemes_liens` part de `page.parent`), alors que
+    le mandat de D-87 est de resoudre les renvois du `README.md` **depuis la racine du depot**. La
+    duplication porte sur ce motif, jamais sur un helper de `tests/conftest.py` (D-12 ne porte que sur
+    ceux-la).
+
+    Limite honnete : seules les cibles de liens Markdown sont vues. Un chemin cite en prose, ou un renvoi
+    ecrit sous une autre forme, ne l'est pas — ce module ne revendique aucune exhaustivite (D-85).
+    """
+    constats: list[str] = []
+    for _, cible in _cibles_de_liens(texte):
+        if not _cible_interne(cible):
+            continue
+        if not (racine / cible).exists():
+            constats.append(
+                f"{fichier or 'texte controle'} : {MOTIF_README} — la cible interne « {cible} » n'existe "
+                f"pas sous {racine} ; attendu un renvoi interne qui resout depuis la racine du depot "
+                f"(D-87)"
+            )
+    return constats
+
+
+def test_renvois_du_readme_resolus(docs_dir: Path, normalize) -> None:
+    """Chaque renvoi interne du `README.md` resout, et ce controle est prouve mordant (D-87, D-84).
+
+    Tranche verticale du plan : elle traverse le fichier de la racine, le detecteur et le disque. Le
+    temoin est mesure **vert** sur le texte livre ; la morsure est ensuite mesuree dans le meme test, sur
+    une **copie en memoire** ou la cible du premier renvoi interne est remplacee par un chemin absent —
+    aucun fichier du depot n'est ecrit, et la mutation vit sur une chaine (D-84).
+
+    La mesure doit avoir un objet : un `README.md` sans aucun renvoi interne rendrait le controle vert
+    sans qu'il ait rien controle. C'est pourquoi l'absence de renvoi interne est un constat, et non un
+    vert silencieux.
+
+    Limite honnete : ce controle dit que les cibles de liens Markdown du fichier resolvent depuis la
+    racine du depot. Il ne dit rien d'un renvoi ecrit en prose, et il ne reecrit rien du fichier : le
+    bloc de commandes du `README.md` est hors du mandat de cette phase (D-87).
+    """
+    chemin = docs_dir.parent / README
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{README} : fichier introuvable ({chemin}) ; attendu le fichier de la racine du depot dont "
+            f"chaque renvoi interne est controle (D-87)"
+        )
+    texte = chemin.read_text(encoding="utf-8")
+    liens = _cibles_de_liens(texte)
+    cibles = [cible for _, cible in liens if _cible_interne(cible)]
+    constats: list[str] = []
+
+    # 1. La mesure a un objet : au moins un renvoi interne dans le fichier.
+    if not cibles:
+        constats.append(
+            f"{README} : {MOTIF_README} — la mesure n'a aucun objet : aucun renvoi interne n'a ete vu "
+            f"dans {chemin} (cibles lues : {', '.join(normalize(cible) for _, cible in liens) or 'aucune'}) "
+            f"; attendu au moins un renvoi interne, la garde de D-87 n'ayant rien a resoudre sur un "
+            f"fichier sans renvoi"
+        )
+
+    # 2. Le temoin vert : le texte **livre** ne porte aucun renvoi mort.
+    temoin = renvois_morts(texte, chemin.parent, fichier=README)
+    if temoin:
+        constats.append(
+            f"{README} : {MOTIF_README} — le fichier livre est deja signale par le detecteur : "
+            + " ; ".join(temoin)
+        )
+
+    # 3. La morsure, mesuree dans le meme test sur une copie en memoire (D-84).
+    if cibles:
+        cible = cibles[0]
+        mute = texte.replace(f"({cible})", f"({cible}.absent)", 1)
+        if mute == texte:
+            constats.append(
+                f"{README} : {MOTIF_README} — la copie en memoire n'a pas pu etre construite : la cible "
+                f"« {cible} » n'a pas ete retrouvee telle quelle dans {chemin} ; attendu une cible ecrite "
+                f"« ({cible}) », sans quoi la morsure ne mesurerait rien (D-84)"
+            )
+        elif not renvois_morts(mute, chemin.parent, fichier=README):
+            constats.append(
+                f"{README} : {MOTIF_README} — la copie en memoire ou la cible « {cible} » est remplacee "
+                f"par « {cible}.absent » n'est signalee par aucun constat ; attendu au moins un constat, "
+                f"sans quoi ce controle vert ne dirait rien de sa valeur (D-84)"
+            )
+
+    assert not constats, (
+        f"{README} : constats sur la resolution des renvois : "
+        + " ; ".join(constats)
+        + f" ; attendu un fichier dont chaque renvoi interne resout depuis la racine du depot, et un "
+        f"detecteur dont la morsure est mesuree sur une copie en memoire (D-87, D-84)"
+    )
+
+
+def test_renvoi_base_locale_legitime(docs_dir: Path, normalize) -> None:
+    """La dette D-44 est **denouee** : deux renvois vers la base locale, dont un dans la section idoine.
+
+    La dette D-44/D-63 n'est pas supprimee par un controle en moins : le renvoi en prose de
+    `docs/parcours-simplifie.md` est devenu un **lien**, parce que la cible existe desormais, et ce
+    controle exige les deux faits ensemble — le lien dans la section des renvois, et le sens conserve
+    (la section nomme toujours la base locale en clair, la normalisation du depot absorbant casse,
+    accents et entites, D-11).
+
+    Limite honnete : ce controle dit ce que les deux renvois nommes sont devenus, et que la cible existe.
+    Il ne dit rien de la prose du reste de la page (D-85).
+    """
+    chemin = docs_dir / PAGE_PARCOURS
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{PAGE_PARCOURS} : page introuvable ({chemin}) ; attendu la page du parcours simplifie, "
+            f"celle dont les renvois vers « {PAGE} » sont controles (D-63)"
+        )
+    texte = chemin.read_text(encoding="utf-8")
+    cibles = [cible for _, cible in _cibles_de_liens(texte) if cible.endswith(PAGE)]
+    corps = _corps_du_titre(texte, TITRE_SECTION_RENVOI)
+    constats: list[str] = []
+
+    # 1. Les deux renvois de la page, dont un dans sa phrase d'introduction.
+    if len(cibles) < RENVOIS_PAGE_VOISINE:
+        constats.append(
+            f"{PAGE_PARCOURS} : {MOTIF_LIEN_D63} — la page porte {len(cibles)} renvoi(s) vers « {PAGE} » "
+            f"({', '.join(cibles) or 'aucun'}) ; attendu au moins {RENVOIS_PAGE_VOISINE} renvois, la dette "
+            f"etant denouee par un renvoi legitime et non par la suppression d'un controle (D-44, D-63)"
+        )
+
+    # 2. Le renvoi de la section des renvois, et le sens qui y est conserve.
+    if TITRE_SECTION_RENVOI not in texte:
+        constats.append(
+            f"{PAGE_PARCOURS} : {MOTIF_LIEN_D63} — la section « {TITRE_SECTION_RENVOI} » est introuvable "
+            f"dans {chemin} ; attendu la section ouverte par ce titre de niveau 3, celle ou le renvoi en "
+            f"prose est devenu un lien (D-63, D-86)"
+        )
+    else:
+        if f"]({PAGE})" not in corps:
+            constats.append(
+                f"{PAGE_PARCOURS} : {MOTIF_LIEN_D63} — la section « {TITRE_SECTION_RENVOI} » ne porte "
+                f"aucun lien vers « {PAGE} » ; attendu un renvoi en prose devenu lien, la cible existant "
+                f"desormais (D-63, D-86)"
+            )
+        if normalize("base locale") not in normalize(corps):
+            constats.append(
+                f"{PAGE_PARCOURS} : {MOTIF_LIEN_D63} — la section « {TITRE_SECTION_RENVOI} » ne nomme "
+                f"plus la base locale en clair ; attendu le sens conserve par le renvoi en prose devenu "
+                f"lien (D-63)"
+            )
+
+    # 3. La cible existe sur disque : c'est ce qui rend le renvoi legitime, et non seulement present.
+    if not (docs_dir / PAGE).is_file():
+        constats.append(
+            f"{PAGE_PARCOURS} : {MOTIF_LIEN_D63} — la cible « {PAGE} » n'existe pas sous {docs_dir} ; "
+            f"attendu la page de la base locale, sans laquelle le renvoi resterait mort (D-63)"
+        )
+
+    assert not constats, (
+        f"{PAGE_PARCOURS} : constats sur le renvoi vers la base locale : "
+        + " ; ".join(constats)
+        + f" ; attendu deux renvois vers « {PAGE} » dont un dans la section « {TITRE_SECTION_RENVOI} », "
+        f"la section nommant toujours la base locale en clair, et la page cible presente sur disque "
+        f"(D-44, D-63, D-86)"
     )
