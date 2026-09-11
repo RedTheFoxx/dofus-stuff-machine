@@ -173,15 +173,17 @@ Sur l'écran de résultat, tapez `SAVE` pour garder le stuff sans lui donner de 
 
 `SAVES` ouvre l'écran des sauvegardes, l'écran `SAV-01`, servi par l'adresse `/saves`. Son corps affiche d'abord le texte d'attente `CHARGEMENT DES SAUVEGARDES LOCALES…`, que le navigateur remplace par la liste dès qu'il l'a lue. Sa ligne de statut annonce `N OUVRIR | DEL N | PURGE OUI` : `N` ouvre la sauvegarde portant ce numéro, `DEL N` en supprime une, et `PURGE OUI` les retire toutes.
 
+Une fois la liste lue, la ligne de statut porte en plus le numéro de page, sous la forme `PAGE n/total — N OUVRIR | DEL N | PURGE OUI | ESC`, et `PURGE OUI` annonce ensuite `SAUVEGARDES PURGEES`. Le détail d'une sauvegarde affiche de son côté `PAGE n/total — BACK LISTE | DB DOFUSBOOK | ESC MENU` : `BACK` ou `LISTE` revient à la liste, et `DB DOFUSBOOK` prépare l'envoi de cette sauvegarde vers Dofusbook.
+
 ### La limite du navigateur
 
-L'outil ne garde pas un nombre illimité de sauvegardes. Quand la liste est pleine, **les plus anciennes sont remplacées** par la nouvelle : la sauvegarde la plus ancienne s'efface sans message d'échec, et le stuff qui vient d'être calculé prend sa place. Rien n'est refusé et rien n'est signalé dans la ligne de statut. Si une sauvegarde compte pour vous, notez-la ou exportez-la avant d'en enregistrer d'autres.
+L'outil ne garde pas un nombre illimité de sauvegardes : la liste en accepte **20** au plus, rangées dans le navigateur sous la clé `dofus-stuff-machine.saves`. Quand elle est pleine, **les plus anciennes sont remplacées** par la nouvelle : la sauvegarde la plus ancienne s'efface sans message d'échec, et le stuff qui vient d'être calculé prend sa place. Rien n'est refusé et rien n'est signalé dans la ligne de statut. Si une sauvegarde compte pour vous, notez-la ou exportez-la avant d'en enregistrer d'autres.
 
 ### Envoyer un stuff vers Dofusbook
 
 `DB` sur l'écran de résultat prépare l'envoi : l'outil ouvre une page Dofusbook pré-remplie avec votre stuff. Depuis une sauvegarde ouverte dans la liste, la même action s'appelle `DB DOFUSBOOK`. L'adresse préparée est celle de l'import Dofus-Stuffer — `https://www.dofusbook.net/fr/equipement/dofus-stuffer/objets` — complétée par un jeton `stuff=` qui porte le stuff.
 
-Un stuff ne part pas en entier vers Dofusbook. L'export reprend au plus seize emplacements, et **la prysmaradite n'est pas exportée** : elle reste sur place, alors qu'elle fait bien partie de votre stuff. Mieux vaut le savoir avant de compter dessus.
+Un stuff ne part pas en entier vers Dofusbook. L'export reprend **16 emplacements au plus** : les six emplacements de Dofus, les deux anneaux, l'amulette, la ceinture, les bottes, la coiffe, la cape, l'arme, le bouclier et le familier. L'emplacement `prysma` — la prysmaradite — n'est pas exportée : elle reste sur place, alors qu'elle fait bien partie de votre stuff. Mieux vaut le savoir avant de compter dessus.
 
 ## Source de vérité
 

@@ -14,16 +14,29 @@ ce que ce module importe et appelle, pas ce qu'un autre chemin ferait. La preuve
 ecriture n'a lieu sous `.data/` est la mesure d'empreinte prise autour de la suite entiere
 (plan 03-04). Le seul appel au produit qui soit court-circuite est l'etape 3 : elle est patchee
 pour ne pas lancer le solveur, dont le resultat n'est ni deterministe ni utile ici.
+
+Limite nommee (plan 03-03) : le comportement de sauvegarde du navigateur (compteur, eviction, purge,
+hydratation de la liste) n'est **pas** executable dans cet environnement — ni `localStorage`, ni
+`shift`. Le module controle donc des **litteraux** lus dans
+`dofus_stuff/web/static/js/terminal.js` (la cle de stockage et la valeur de la limite) et les
+libelles rendus par le client : cela prouve que la page et le code ne divergent pas, **pas** que le
+navigateur se comporte ainsi. L'export Dofusbook, lui, est eprouve par une surface publique pure
+(`build_dofusbook_url`) dont la charge utile est decodee (`base64` + `msgpack`).
 """
 
 from __future__ import annotations
 
 import ast
+import base64
+import importlib
 import re
 from pathlib import Path
 from unittest.mock import patch
 
+import msgpack
+
 from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS
+from dofus_stuff.web.dofusbook_export import build_dofusbook_url
 
 RACINE_DEPOT = Path(__file__).resolve().parents[1]
 PAGE = "parcours-simplifie.md"
@@ -1509,4 +1522,358 @@ def test_ecrans_de_sauvegarde_et_export(app, docs_dir: Path, section, normalize)
         + " ; ".join(constats)
         + f" ; attendu ces libelles rendus par {SOURCE_ROUTES}:1280-1295 et :1380, et cites par la "
         f"section « {TITRE_SAUVEGARDE} » de {PAGE}"
+    )
+
+
+# --- Limite de sauvegarde ancree sur le JS et export Dofusbook (plan 03-03, ECR-5, M8/M9) ---
+
+# Motifs des deux constantes du client de sauvegarde, lues dans le fichier JS et jamais recopiees de
+# memoire (D-42) : `dofus_stuff/web/static/js/terminal.js:14-15`.
+MOTIF_SAVES_KEY = re.compile(r'var\s+SAVES_KEY\s*=\s*"(?P<valeur>[^"]+)"')
+MOTIF_MAX_SAVES = re.compile(r"var\s+MAX_SAVES\s*=\s*(?P<valeur>\d+)")
+LIGNE_SAVES_KEY = 14
+LIGNE_MAX_SAVES = 15
+
+# Fil de la limite : `stuffs.shift()` tant que la liste est pleine (`terminal.js:294-318`).
+LIGNES_EVICTION = "294-318"
+
+# Tournures epinglees de la section. L'eviction est **silencieuse** (ECR-5) : « 20 maximum » seul
+# serait exact mais trompeur, puisque la sauvegarde en trop remplace la plus ancienne sans message
+# d'echec. La `prysma` (prysmaradite) n'appartient a aucun des dix groupes d'export (M9).
+TOURNURE_EVICTION = "les plus anciennes sont remplacées"
+TOURNURE_LIMITE_INTERDITE = "20 maximum"
+TOURNURE_NON_EXPORTEE = "n'est pas exportée"
+JETON_PRYSMARADITE = "prysma"
+
+# Libelles produits par le client de sauvegarde, exiges dans la page **et** sur une ligne du fichier
+# JS (patron `LIBELLES_SOURCE` de `tests/test_docs_code_anchor.py:61-74`) : un libelle qui disparait
+# d'un cote ou de l'autre rougit.
+LIBELLES_JS_SAUVEGARDE = (
+    ("DB DOFUSBOOK", 400),
+    ("BACK LISTE", 400),
+    ("SAUVEGARDES PURGEES", 466),
+)
+
+# Empreinte du constat qui porte le nombre d'emplacements exportes, ecrite **dans une constante** et
+# jamais en clair dans la ligne d'assertion : pytest reproduit la ligne source du `assert` dans sa
+# sortie, un motif ecrit en clair y serait donc trouve meme si aucun constat n'etait produit, et la
+# morsure cesserait d'etre discriminante.
+MOTIF_EMPREINTE_EXPORT = "nombre d'emplacements exportes mesure"
+
+# Module produit dont la fonction d'export et l'URL d'import sont publiques (D-14) : l'importation
+# statique donne la fonction a appeler, `importlib` donne la valeur courante de l'URL. Aucune
+# introspection privee.
+SOURCE_MODULE_DOFUSBOOK = "dofus_stuff.web.dofusbook_export"
+NOM_ATTRIBUT_URL_IMPORT = "DOFUSBOOK_IMPORT_URL"
+
+# Stuff d'epreuve de l'export : les seize emplacements exportes plus la `prysma`, identifiants tous
+# distincts. `build_dofusbook_url` est pure : elle n'ouvre aucune base et ne joint aucun reseau.
+ID_PRYSMARADITE = 999
+NIVEAU_EXPORT = 137
+SLOTS_EXPORT = {
+    "cape": 501,
+    "hat": 502,
+    "belt": 503,
+    "boots": 504,
+    "amulet": 505,
+    "ring_a": 506,
+    "ring_b": 507,
+    "dofus_1": 601,
+    "dofus_2": 602,
+    "dofus_3": 603,
+    "dofus_4": 604,
+    "dofus_5": 605,
+    "dofus_6": 606,
+    "shield": 508,
+    "weapon": 509,
+    "pet": 510,
+    "prysma": ID_PRYSMARADITE,
+}
+NOMBRE_EMPLACEMENTS_EXPORTES = 16
+NOMBRE_GROUPES_EXPORT = 10
+LONGUEUR_CARACTERISTIQUES = 51
+
+
+def _litteral_js(motif: re.Pattern[str]) -> str:
+    """Valeur d'une constante du client de sauvegarde, lue dans le fichier JS (D-42).
+
+    Controle de **litteral source**, jamais de comportement : aucun moteur JavaScript n'est
+    disponible ici (ni `localStorage`, ni `shift`). Un echec nomme le fichier, le motif et la
+    consequence, plutot que de laisser remonter une exception brute.
+    """
+    chemin = RACINE_DEPOT / SOURCE_JS
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{SOURCE_JS} : fichier introuvable ({chemin}) ; attendu le client de sauvegarde du "
+            f"navigateur, qui porte les constantes citees par {PAGE}"
+        )
+    trouve = motif.search(chemin.read_text(encoding="utf-8"))
+    if trouve is None:
+        raise AssertionError(
+            f"{SOURCE_JS} : aucune ligne ne porte le motif {motif.pattern!r} ; attendu les "
+            f"constantes de sauvegarde du navigateur (lignes {LIGNE_SAVES_KEY} et "
+            f"{LIGNE_MAX_SAVES}) — la constante a peut-etre ete renommee : la page {PAGE} doit etre "
+            f"mise a jour dans le meme commit"
+        )
+    return trouve.group("valeur")
+
+
+def _url_import() -> str:
+    """URL d'import portee par le module produit, lue sur son attribut public (D-14, D-42)."""
+    module = importlib.import_module(SOURCE_MODULE_DOFUSBOOK)
+    return str(getattr(module, NOM_ATTRIBUT_URL_IMPORT))
+
+
+def test_sauvegarde_navigateur_et_export_dofusbook(docs_dir: Path, section, normalize) -> None:
+    """La limite vient du JS et l'export est prouve pur : seize emplacements, `prysma` exclue (V9, V10).
+
+    Controle de **litteraux source** pour la sauvegarde du navigateur (cle, valeur de la limite,
+    libelles) : aucun moteur JavaScript n'existe ici, donc ni `localStorage`, ni `shift`, ni
+    hydratation de liste ne sont exerces. Controle **comportemental** pour l'export, sur la surface
+    publique pure `build_dofusbook_url`. La fixture `app` n'est pas consommee : aucun ecran n'est
+    rendu ici, les deux ecrans qui exposent la sauvegarde et l'export etant rendus par
+    `test_ecrans_de_sauvegarde_et_export`.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    # 1. Valeur de la limite et cle de stockage, lues dans le fichier JS, jamais de memoire (D-42).
+    try:
+        cle_stockage = _litteral_js(MOTIF_SAVES_KEY)
+    except AssertionError as erreur:
+        cle_stockage = ""
+        constats.append(str(erreur))
+    try:
+        limite = _litteral_js(MOTIF_MAX_SAVES)
+    except AssertionError as erreur:
+        limite = ""
+        constats.append(str(erreur))
+
+    corps_page = ""
+    try:
+        corps_page = section(texte, TITRE_SAUVEGARDE, PAGE)
+    except AssertionError as erreur:
+        constats.append(str(erreur))
+    normalise = normalize(corps_page)
+
+    if limite and not re.search(rf"(?<![\d.]){re.escape(limite)}(?![\d])", corps_page):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas la limite de sauvegarde portee "
+            f"par {SOURCE_JS}:{LIGNE_MAX_SAVES} (« MAX_SAVES = {limite} ») ; attendu cette valeur, "
+            f"lue dans le fichier a chaque execution — une valeur ecrite de memoire perime sans rien "
+            f"faire rougir"
+        )
+    if cle_stockage and cle_stockage not in corps_page:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas la cle de stockage "
+            f"« {cle_stockage} » portee par {SOURCE_JS}:{LIGNE_SAVES_KEY} ; attendu cette cle, lue "
+            f"dans le fichier a chaque execution (D-42)"
+        )
+
+    # 2. L'eviction est dite honnetement : silencieuse, sans refus ni message d'echec (ECR-5).
+    if normalize(TOURNURE_EVICTION) not in normalise:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne dit pas « {TOURNURE_EVICTION} » ; "
+            f"attendu cette tournure : l'eviction du plus ancien est silencieuse "
+            f"({SOURCE_JS}:{LIGNES_EVICTION} : `shift` tant que la liste est pleine, sans message "
+            f"d'echec)"
+        )
+    if normalize(TOURNURE_LIMITE_INTERDITE) in normalise:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » dit « {TOURNURE_LIMITE_INTERDITE} » ; "
+            f"attendu la tournure honnete « {TOURNURE_EVICTION} » : la sauvegarde en trop remplace "
+            f"la plus ancienne sans message d'echec ({SOURCE_JS}:{LIGNES_EVICTION})"
+        )
+
+    # 3. Libelles du client de sauvegarde : exiges dans la page **et** sur une ligne du fichier JS.
+    chemin_js = RACINE_DEPOT / SOURCE_JS
+    lignes_js = chemin_js.read_text(encoding="utf-8").splitlines() if chemin_js.is_file() else []
+    for libelle, ligne_source in LIBELLES_JS_SAUVEGARDE:
+        if normalize(libelle) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas le libelle « {libelle} » ; "
+                f"attendu ce libelle, rendu par {SOURCE_JS}:{ligne_source}"
+            )
+        if not any(libelle in ligne for ligne in lignes_js):
+            constats.append(
+                f"{SOURCE_JS} : aucune ligne ne porte le libelle « {libelle} » ; attendu ce libelle, "
+                f"rendu par le client de sauvegarde (ligne {ligne_source}) et cite par la section "
+                f"« {TITRE_SAUVEGARDE} » — un libelle qui disparait d'un cote ou de l'autre doit "
+                f"rougir"
+            )
+
+    # 4. L'export, par la surface publique pure : charge utile decodee (base64 puis msgpack).
+    url = build_dofusbook_url(SLOTS_EXPORT, NIVEAU_EXPORT)
+    total_exporte: int | None = None
+    if "stuff=" not in url:
+        constats.append(
+            f"{SOURCE_DOFUSBOOK} : l'URL produite ne porte pas de jeton « stuff= » ; attendu le jeton "
+            f"d'import Dofusbook, pour {len(SLOTS_EXPORT)} emplacements fournis et le niveau "
+            f"{NIVEAU_EXPORT}"
+        )
+    else:
+        charge = msgpack.unpackb(base64.b64decode(url.split("stuff=", 1)[1]), raw=False)
+        if not isinstance(charge, list) or len(charge) != 6:
+            constats.append(
+                f"{SOURCE_DOFUSBOOK} : la charge utile decodee n'a pas la forme "
+                f"[caracs, points, niveau, flags, counts, ids] ; attendu cette forme mesuree "
+                f"(recue : {type(charge).__name__}, "
+                f"{len(charge) if isinstance(charge, list) else 0} elements)"
+            )
+        else:
+            caracs, points, niveau, flags, counts, ids = charge
+            if (
+                not isinstance(caracs, list)
+                or not isinstance(points, list)
+                or len(caracs) != LONGUEUR_CARACTERISTIQUES
+                or len(points) != LONGUEUR_CARACTERISTIQUES
+            ):
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : la charge utile porte "
+                    f"{len(caracs) if isinstance(caracs, list) else '?'} caracteristiques et "
+                    f"{len(points) if isinstance(points, list) else '?'} points ; attendu "
+                    f"{LONGUEUR_CARACTERISTIQUES} de chaque, comme les lit l'import Dofusbook"
+                )
+            if niveau != NIVEAU_EXPORT:
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : le niveau porte par la charge utile vaut {niveau!r} ; "
+                    f"attendu {NIVEAU_EXPORT!r}, la valeur passee a `build_dofusbook_url`"
+                )
+            if flags != 0:
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : les drapeaux de la charge utile valent {flags!r} ; attendu "
+                    f"0, la valeur posee par l'export pour des emplacements connus"
+                )
+            if not isinstance(counts, list) or len(counts) != NOMBRE_GROUPES_EXPORT:
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : la charge utile porte "
+                    f"{len(counts) if isinstance(counts, list) else '?'} groupes de comptes ; attendu "
+                    f"{NOMBRE_GROUPES_EXPORT} (cape, coiffe, ceinture, bottes, amulette, anneaux, "
+                    f"dofus, bouclier, arme, familier)"
+                )
+            elif not all(isinstance(nombre, int) for nombre in counts):
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : {MOTIF_EMPREINTE_EXPORT} impossible : les comptes de "
+                    f"groupe ne sont pas tous des entiers ({counts!r})"
+                )
+            else:
+                total_exporte = sum(counts)
+                if total_exporte != NOMBRE_EMPLACEMENTS_EXPORTES:
+                    constats.append(
+                        f"{SOURCE_DOFUSBOOK} : {MOTIF_EMPREINTE_EXPORT} — {total_exporte} pour "
+                        f"{len(SLOTS_EXPORT)} emplacements fournis ; attendu "
+                        f"{NOMBRE_EMPLACEMENTS_EXPORTES} : la `{JETON_PRYSMARADITE}` n'appartient a "
+                        f"aucun des {NOMBRE_GROUPES_EXPORT} groupes d'import"
+                    )
+            if not isinstance(ids, list):
+                constats.append(
+                    f"{SOURCE_DOFUSBOOK} : les identifiants exportes ne forment pas une liste "
+                    f"({type(ids).__name__}) ; attendu les identifiants Ankama a plat"
+                )
+            else:
+                if ID_PRYSMARADITE in ids:
+                    constats.append(
+                        f"{SOURCE_DOFUSBOOK} : l'identifiant {ID_PRYSMARADITE} de la "
+                        f"`{JETON_PRYSMARADITE}` figure dans les identifiants exportes ; attendu son "
+                        f"absence : la prysmaradite ne part pas vers Dofusbook"
+                    )
+                if total_exporte is not None and len(ids) != total_exporte:
+                    constats.append(
+                        f"{SOURCE_DOFUSBOOK} : {len(ids)} identifiants pour {total_exporte} "
+                        f"emplacements comptes ; attendu un identifiant par emplacement exporte"
+                    )
+
+    # 5. Cote page : le nombre est celui du calcul, la `prysma` est exclue, l'URL vient du module.
+    if total_exporte is not None and not re.search(
+        rf"(?<![\d.]){total_exporte}(?![\d])", corps_page
+    ):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas le nombre d'emplacements "
+            f"exportes « {total_exporte} » ; attendu ce nombre, {MOTIF_EMPREINTE_EXPORT} a chaque "
+            f"execution depuis la charge utile de `build_dofusbook_url` ({SOURCE_DOFUSBOOK})"
+        )
+    lignes_prysma = [
+        ligne
+        for ligne in corps_page.splitlines()
+        if JETON_PRYSMARADITE in ligne and normalize(TOURNURE_NON_EXPORTEE) in normalize(ligne)
+    ]
+    if not lignes_prysma:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne dit pas, sur une meme ligne, que la "
+            f"« {JETON_PRYSMARADITE} » « {TOURNURE_NON_EXPORTEE} » ; attendu cette phrase : la "
+            f"prysmaradite n'appartient a aucun des {NOMBRE_GROUPES_EXPORT} groupes d'export "
+            f"({SOURCE_DOFUSBOOK})"
+        )
+    url_import = _url_import()
+    if f"`{url_import}`" not in corps_page:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas, entre accents graves, l'URL "
+            f"d'import portee par {SOURCE_DOFUSBOOK} (DOFUSBOOK_IMPORT_URL : « {url_import} ») ; "
+            f"attendu cette adresse, lue sur l'attribut public du module a chaque execution, et citee "
+            f"entre accents graves car c'est une adresse technique, pas un lien externe (D-01)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la limite de sauvegarde du navigateur et l'export Dofusbook (limite "
+        f"lue dans {SOURCE_JS}:{LIGNE_MAX_SAVES}, cle lue dans {SOURCE_JS}:{LIGNE_SAVES_KEY}, export "
+        f"eprouve par `build_dofusbook_url` de {SOURCE_DOFUSBOOK}) : "
+        + " ; ".join(constats)
+        + f" ; attendu la valeur « MAX_SAVES = {limite} » et la cle « {cle_stockage} » cites par la "
+        f"section « {TITRE_SAUVEGARDE} », la tournure « {TOURNURE_EVICTION} », "
+        f"{NOMBRE_EMPLACEMENTS_EXPORTES} emplacements exportes au plus et la "
+        f"`{JETON_PRYSMARADITE}` exclue"
+    )
+
+
+def test_aucun_post_db_sans_patch() -> None:
+    """Le harnais ne poste jamais `DB` : cette saisie ouvre un navigateur cote serveur (T-12).
+
+    La saisie `DB` de l'ecran de resultat passe par `_open_dofusbook`, qui appelle
+    `webbrowser.open_new_tab` **cote serveur** (`dofus_stuff/web/routes.py:1326-1337`) : un test qui
+    la posterait sans patcher lancerait un navigateur pendant la suite. Le comportement est couvert,
+    patche, par `tests/test_web.py:668` ; ce controle statique garantit que le present module ne la
+    poste jamais.
+    """
+    arbre = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    constats: list[str] = []
+
+    importes = _imports_du_module(arbre)
+    navigateur = sorted(
+        module for module in importes if module == "webbrowser" or module.startswith("webbrowser.")
+    )
+    if navigateur:
+        constats.append(
+            f"import(s) de navigateur dans le module d'ancrage : {', '.join(navigateur)} ; attendu "
+            f"aucun import de ce genre : la saisie `DB` ouvre un navigateur cote serveur "
+            f"({SOURCE_ROUTES}:1326-1337)"
+        )
+
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, ast.Call):
+            continue
+        for mot in noeud.keywords:
+            if mot.arg != "data" or not isinstance(mot.value, ast.Dict):
+                continue
+            paires: dict[str, str] = {}
+            for cle, valeur in zip(mot.value.keys, mot.value.values):
+                if (
+                    isinstance(cle, ast.Constant)
+                    and isinstance(cle.value, str)
+                    and isinstance(valeur, ast.Constant)
+                    and isinstance(valeur.value, str)
+                ):
+                    paires[cle.value] = valeur.value
+            if paires.get("cmd", "").strip().casefold() == "db":
+                constats.append(
+                    f"saisie `cmd` = « DB » postee ligne {noeud.lineno} ; attendu aucune saisie "
+                    f"`DB` : elle appelle `webbrowser.open_new_tab` cote serveur "
+                    f"({SOURCE_ROUTES}:1326-1337) et lancerait un navigateur pendant la suite — le "
+                    f"comportement est couvert, patche, par tests/test_web.py:668"
+                )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la garde « aucun post de DB sans patch » : "
+        + " ; ".join(constats)
+        + f" ; attendu un module d'ancrage qui ne poste jamais `DB`, cette saisie ouvrant un "
+        f"navigateur cote serveur ({SOURCE_ROUTES}:1326-1337)"
     )
