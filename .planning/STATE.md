@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 4
-current_phase_name: Wizard avancé et résorption de la dette `GUIDE_WIZARD`
-status: verifying
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-09-11T19:22:42.008Z"
+current_phase: 5
+current_phase_name: Base locale, hors-ligne et resynchronisation
+status: planning
+stopped_at: Phase 4 complete, ready to plan Phase 5
+last_updated: "2026-09-11T19:47:44.727Z"
 last_activity: 2026-09-11
-last_activity_desc: Plan 04-01 terminé — page du wizard avancé, entrée d'index et module d'ancrage (194 tests verts)
-state_head: eeaa93f1076b1eadae58f341bfa1ad1ef855760f
+last_activity_desc: Phase 4 complete, transitioned to Phase 5
+state_head: c22d3edcfa81793b0af8e1981d4945b66ed3f2ad
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
   completed_plans: 15
-  percent: 50
+  percent: 67
 ---
 
 # Project State
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 
 ## Current Position
 
-Phase: 4 (Wizard avancé et résorption de la dette `GUIDE_WIZARD`) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
-Last activity: 2026-09-11 — Plan 04-01 terminé (page du wizard avancé, entrée d'index, module d'ancrage)
+Phase: 5 — Base locale, hors-ligne et resynchronisation
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-09-11 — Phase 4 complete, transitioned to Phase 5
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 12
+- Total plans completed: 16
 - Average duration: -
 - Total execution time: -
 
@@ -49,7 +49,7 @@ Progress: [█████░░░░░] 50%
 | 1 | 4 | - | - |
 | 2 | 3 | - | - |
 | 3 | 4 | - | - |
-| 4 | 1 | 4 | - |
+| 4 | 5 | - | - |
 
 **Recent Trend:**
 
@@ -172,5 +172,5 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-09-11T19:22:41.966Z
-Stopped at: Completed 04-03-PLAN.md
+Stopped at: Phase 4 complete, ready to plan Phase 5
 Resume file: None
