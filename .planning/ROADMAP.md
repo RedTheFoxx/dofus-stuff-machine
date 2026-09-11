@@ -127,13 +127,13 @@ Plans:
   4. Les hypothèses de l'outil (points par niveau, paliers PA/PM 40/100/150, heuristiques de classe, ni exo ni parchemins) et ses limites (« indice de recherche » ≠ qualité en combat, recherche sur une sélection du catalogue) sont explicites.
   5. Le contrôle détecte un numéro de menu associé au mauvais libellé (assertion négative dérivée du rendu réel) et la suite reste verte.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 **UI hint**: no
 
 Plans:
 
 - [x] 03-01-PLAN.md
-- [ ] 03-02-PLAN.md
+- [x] 03-02-PLAN.md
 - [ ] 03-03-PLAN.md
 - [ ] 03-04-PLAN.md
 
@@ -224,7 +224,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
 | 2. Référence CLI alignée sur le parseur | 3/3 | Complete    | 2026-09-11 |
-| 3. Parcours simplifié documenté depuis le rendu réel | 1/4 | In Progress|  |
+| 3. Parcours simplifié documenté depuis le rendu réel | 2/4 | In Progress|  |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
 | 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |
 | 6. Dépannage, glossaire, complétude et preuve finale | 0/4 | Not started | - |

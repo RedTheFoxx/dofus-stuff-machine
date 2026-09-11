@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Parcours simplifie documente depuis le rendu reel
 status: executing
-stopped_at: Phase 3 plan 03-01 complete, ready for 03-02
-last_updated: "2026-09-11T16:41:23.000Z"
+stopped_at: Completed 03-02-PLAN.md (pagination, emplacement du calcul et correspondance des libelles ; suite verte a 178 tests)
+last_updated: "2026-09-11T16:51:18.391Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 3 plan 03-01 complete
-state_head: e61f4f6968e8434589a679d90c5d72d9fb42085e
+last_activity_desc: Phase 3 plan 03-02 complete
+state_head: 0d24f68fe6b09a1469e1368df0874d19cfb41092
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
   percent: 33
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 3 (Parcours simplifie documente depuis le rendu reel) — EXECUTING
-Plan: 1 of 4 (03-01 complete)
+Plan: 2 of 4 (03-02 complete)
 Status: Executing Phase 3
-Last activity: 2026-09-11 — Plan 03-01 complete (page du parcours simplifie ouverte et ancree sur le rendu reel, 176 tests verts)
+Last activity: 2026-09-11 — Plan 03-02 complete (pagination, emplacement du calcul et correspondance des libelles lus sur le rendu, 178 tests verts)
 
 Progress: [███░░░░░░░] 33%
 
@@ -67,6 +67,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 2 P02 | 7min | 2 tasks | 3 files |
 | Phase 2 P03 | 5min | 2 tasks | 2 files |
 | Phase 3 P01 | 7min | 3 tasks | 4 files |
+| Phase 03 P02 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,13 @@ Recent decisions affecting current work:
 - [Phase 3 03-01]: Le controle des couples ne se contente pas des numeros distincts : `sum(len(libelles))` exige 23 occurrences (19 classes + 4 elements), faute de quoi un second exemplaire (table recapitulative des 19 classes) ne serait pas detecte — la preservation dict[numero] -> list[libelles] etant necessaire a la comparaison par section.
 - [Phase 3 03-01]: Commits locaux sur main : la garde de branche protegee a ete levee par la cle d'override prevue par le protocole lui-meme (`git.allow_default_branch_commits: true` dans .planning/config.json, deux lignes de diff), coherente avec `git.branching_strategy = none` et les phases 1 et 2 livrees sur main ; aucun commit n'est passe par --no-verify.
 - [Phase 3 03-01]: Mesures de la passe de tache : `.venv/Scripts/python.exe -m pytest -q` -> 176 passed (169 avant la phase + 7) ; les trois batteries de morsures (1 pour t1, 1 pour t2, 5 pour t3) rapportent toutes « mutation detectee » sur une copie verte verifiee avant mutation ; .data/dofus.sqlite3 identique (24 989 696 octets, mtime_ns 1788730056843137500) ; aucun ecart de perimetre.
+- [Phase 3]: [Phase 3 03-02]: La carte de pagination est lue dans la ligne de statut du resultat rendu (PAGE 1/<total>) et confrontee aux attributs data-body-page/data-body-total de la coquille : la coherence statut <-> attributs est exigee, mais aucun total de pages n'est epingle (il depend du catalogue : 3 pages sur la fixture, 6 puis 7 sur la base reelle).
+- [Phase 3]: [Phase 3 03-02]: La position des diagnostics est exigee sur les pages CONCATENEES du resultat, apres le dernier « Équipement : » et avant « Greedy: », la phrase du catalogue devant suivre immediatement le dernier diagnostic : aucune comparaison entre un numero de page et le total n'existe dans le module (reformulation enregistree ECR-2).
+- [Phase 3]: [Phase 3 03-02]: La page ecrit « en fin de resultat — jusqu'a PAGE n/n » et non « derniere page » (tournure controlee absente, comparaison apres normalisation) ; les quatre motifs de valeur volatile (Score : \d, Indice de recherche : \d, Greedy: \d, Methode : [a-z]) sont controles absents de la section.
+- [Phase 3]: [Phase 3 03-02]: Les libelles de la table viennent d'une extraction ast de display_slots (jamais d'une liste ecrite de memoire) ; SLOTS_MESURE porte pour chaque libelle une aiguille de ligne et le nom complet recopie de sa source (commentaires de _GROUP_SLOTS pour les seize emplacements exportes, solver_spec pour prysma), re-verifie sur la ligne qui les porte.
+- [Phase 3]: [Phase 3 03-02]: Aucune troncature n'est promise ni assertee : la section « Correspondance des libelles » ne contient ni « libelle tronque » ni le caractere de points de suspension, et le module n'asserte nulle part ce caractere sur un rendu (reformulation enregistree ECR-1, mesure M7 : 0 ligne rendue du resultat n'en porte).
+- [Phase 3]: [Phase 3 03-02]: Le resultat est rendu une seule fois par le solveur dans ce plan (fixture minimale deterministe : niveau 200, quatre elements -> 3 pages, diagnostics en page 2/3 ; module a 0,8 s) et le module reutilise _touches sans le redefinir (D-12).
+- [Phase 3]: [Phase 3 03-02]: Mesures de la passe de tache : .venv/Scripts/python.exe -m pytest -q -> 177 passed apres la tache 1 puis 178 passed apres la tache 2 ; les deux batteries de morsures (2 pour t1, 4 pour t2) rapportent toutes « mutation detectee » sur une copie verte verifiee avant mutation ; .data/dofus.sqlite3 identique (24 989 696 octets, mtime_ns 1788730056843137500).
 
 ### Pending Todos
 
@@ -136,6 +144,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T16:41:23.000Z
-Stopped at: Phase 3 plan 03-01 complete (SUMMARY ecrit, ROADMAP a 1/4, STATE mis a jour) — reprise sur 03-02
-Resume file: .planning/phases/03-parcours-simplifi-document-depuis-le-rendu-r-el/03-01-SUMMARY.md
+Last session: 2026-09-11T16:51:14.563Z
+Stopped at: Completed 03-02-PLAN.md (pagination, emplacement du calcul et correspondance des libelles ; suite verte a 178 tests)
+Resume file: None
