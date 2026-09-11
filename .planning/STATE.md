@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 5
-current_phase_name: Base locale, hors-ligne et resynchronisation
+current_phase: 6
+current_phase_name: Dépannage, glossaire, complétude et preuve finale
 status: executing
-stopped_at: "Phase 5 plan 05-04 complete : critere 1 ferme (quatre conditions reelles du declencheur dans docs/base-locale.md, controle qui les mesure, base absente bornee) ; les 4 plans de la phase 5 sont executes"
-last_updated: "2026-09-11T22:33:43.082Z"
+stopped_at: "Phase 6 plan 06-01 complete : docs/depannage.md (cinq rubriques du critere 1 indexees par le message reellement produit), sa ligne d'index et tests/test_docs_depannage.py (9 tests, 9/9 morsures detectees) ; la phase 5 est close et verifiee (05-VERIFICATION.md, status: passed) ; 3 plans de la phase 6 restent a jouer (06-02, 06-03, 06-04)"
+last_updated: "2026-09-11T23:54:46.837Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 5 plan 05-04 complete (critere 1 ferme : les quatre conditions reelles du declencheur sont dites par docs/base-locale.md, mesurees par un nouveau controle qui mord, et la base absente est bornee) — les 4 plans de la phase 5 sont executes
-state_head: b6bc8321f6144202d1134e2ab1ea3515b0a2f0de
+last_activity_desc: Phase 6 plan 06-01 complete (la page de depannage est indexee par le message reellement produit : 32 messages de provenance mesuree repartis sur les cinq familles du critere 1, la famille sans message declaree mecanisme, une ligne d'index ajoutee, 9 tests dont la garde de harnais auto-analysee et 9/9 morsures detectees ; 228 passed, base du depot intacte)
+state_head: 0c672f74a4fbb1cd05d4a8b113adb3397693ea46
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 19
-  completed_plans: 19
-  percent: 67
+  completed_phases: 5
+  total_plans: 23
+  completed_plans: 20
+  percent: 83
 ---
 
 # Project State
@@ -23,22 +23,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-10)
 
 **Core value:** Un utilisateur qui n'a jamais vu le projet peut installer l'outil, lancer le flux simplifié classe → éléments → niveau, lire son résultat et retrouver chaque commande/menu cité dans le code réel — sans lire le code et sans rencontrer de documentation périmée.
-**Current focus:** Phase 5 — Base locale, hors-ligne et resynchronisation
+**Current focus:** Phase 6 — Dépannage, glossaire, complétude et preuve finale
 
 ## Current Position
 
-Phase: 5 — Base locale, hors-ligne et resynchronisation
-Plan: 4 of 4 — phase 5 entièrement livrée (05-01 la page, 05-02 les cas non évidents et les commandes destructrices, 05-03 la clôture : renvois du `README.md`, dette D-44 dénouée, page close, intégrité de `.data/` mesurée, et 05-04 la fermeture du gap du critère 1 : les quatre conditions réelles du déclencheur dites par la page et **mesurées** par un contrôle qui mord). Vérification de phase à jouer.
-Status: Executing — les 4 plans de la phase 5 sont livrés (vagues 1 à 3 puis la fermeture de gap 05-04), `/gsd:verify-work` reste à jouer
-Last activity: 2026-09-11 — 05-04 complete (2 commits, 3/3 morsures détectées + contrôle rouge sur la page d'avant correction, 219 passed, `.data/dofus.sqlite3` intact)
+Phase: 6 — Dépannage, glossaire, complétude et preuve finale
+Plan: 1 of 4 — plan 06-01 livré (la page `docs/depannage.md`, sa ligne d'index dans `docs/sommaire.md` et `tests/test_docs_depannage.py` : cinq rubriques indexées par le message réellement produit, 32 messages de provenance mesurée, la famille sans message déclarée mécanisme, 9 tests et 9/9 morsures détectées). Restent 06-02 (glossaire et parcours conseillé), 06-03 (complétude et `README.md`) et 06-04 (preuve finale).
+Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a son plan 06-01 livré
+Last activity: 2026-09-11 — 06-01 complete (3 commits, 9/9 morsures détectées sur copie verte avant mutation, 228 passed, `.data/dofus.sqlite3` intact)
 
-Progress: [███████░░░] 67% (19/19 plans exécutés ; 4 phases closes, la 5e attend sa vérification)
+Progress: [████████░░] 83% (20/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01 livré, 06-02 à 06-04 restants)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 18
+- Total plans completed: 20
 - Average duration: -
 - Total execution time: -
 
@@ -50,6 +50,8 @@ Progress: [███████░░░] 67% (19/19 plans exécutés ; 4 phase
 | 2 | 3 | - | - |
 | 3 | 4 | - | - |
 | 4 | 5 | - | - |
+| 5 | 4 | - | - |
+| 6 | 1 | - | - |
 
 **Recent Trend:**
 
@@ -80,6 +82,7 @@ Progress: [███████░░░] 67% (19/19 plans exécutés ; 4 phase
 | Phase 5 P02 | 7min | 3 tasks | 2 files |
 | Phase 5 P03 | 9 | 3 tasks | 1 files |
 | Phase 5 P04 | 6min | 2 tasks | 2 files |
+| Phase 6 P01 | 4min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -173,6 +176,11 @@ Recent decisions affecting current work:
 - [Phase 5]: 05-04 (fermeture du critere 1) : la page dit les quatre conditions reelles du declencheur lues dans dofus_stuff/sync.py:32 (fenetre ecoulee, base vide, aucun dernier controle enregistre, --force-sync), le cas de non-contact est dit pour ce qu'il est, et l'affirmation de la base absente est bornee par la limite mesuree de la ligne de commande (sync.py:43) sans contredire la section de la ligne de commande. Mesure : 219 passed, `.data/dofus.sqlite3` intact (24989696:1788730056843137500:e3793d64cb79...), dofus_stuff/** non modifie (D-88).
 - [Phase 5]: 05-04 : le controle du declencheur mesure le CODE avant de juger la page — six cas sur des bases construites sous tmp_path, dofus_stuff.sync.fetch_version et pull_all remplaces par des doubles compteurs avant l'appel, chargement par Catalog.load (jamais ensure_up_to_date, refuse par APPELS_SYNCHRO_PRODUIT) ; les contacts attendus sont 0/1/1/1/1/0 et le cas hors-ligne leve en portant le message reel de sync.py:43. La prohibition des marques d'exclusivite de la fenetre est CONDITIONNEE a la mesure qui la contredit (un contact sur une base vide a fenetre fraiche), jamais une liste en dur ; le message de l'assertion finale ne porte aucun des trois motifs, sans quoi une morsure matcherait sur une implementation aveugle (T-05-20). Preuve de voyance : sur une copie de la page livree par 05-03 le controle est ROUGE pour trois constats independants (1 failed, 12 passed, 1 skipped) ; 3/3 morsures detectees sur copie verte avant mutation, aucune corrigee.
 
+- [Phase 6]: 06-01 : la page de depannage est indexee par le message **reellement produit** — table `MESSAGES` de 32 entrees reparties en trois modes de mesure (`cli_status` 3, `web_render` 20, `source_literal` 9), en **bijection** famille par famille avec les lignes de tableau de la page (un message declare non cite comme un message cite non declare sont des constats nommes) ; la famille qui ne produit aucun message (« clavier inactif ») est declaree **mecanisme** et se controle sur les jetons portes par la page ET par le fichier (`screen.html`, `terminal.js`), sur le rendu des trois ecrans sans champ et sur l'absence de toute entree de `MESSAGES` pour elle (D-76, D-93).
+- [Phase 6]: 06-01 : le decoupage de la page en trois taches n'etait pas tenable — l'action de la tache 1 fige `RUBRIQUES` (les cinq rubriques du critere 1) et son test exige de chacune un corps adosse a `MESSAGES`, et elle decrit `_produire` de bout en bout (parcours simplifie conduit pas a pas compris) : la page entiere et la table complete sont donc livrees en tache 1, et les taches 2 et 3 livrent les deux controles que leurs criteres d'acceptation nomment et qui manquaient (`problemes_budget` : la rubrique « Calcul long » cite `--time-limit` et ne promet aucune duree ; `problemes_renvois` : les rubriques « clavier » et « pagination » renvoient vers `installation.md` et `parcours-simplifie.md`, D-17). Aucun controle n'a ete affaibli : deux controles ont ete ajoutes.
+- [Phase 6]: 06-01 : une mutation qui ne preserve pas les `\r\n` est un no-op sur ce poste (`routes.py` et `depannage.md` sont en CRLF, et le `sed -i` local les retire) — la batterie crie alors `MUTATION NON DETECTEE` pour une raison qui n'est pas la derive visee. Toutes les mutations de ce plan passent par `python -c` avec `newline=""` et un motif portant les CR, avec garde d'unicite du motif avant remplacement (lecon payee une fois sur `pagination_inconditionnelle`).
+- [Phase 6]: 06-01 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `228 passed in 4.36s` (219 avant ce plan, 9 tests dans le module) ; 9/9 morsures detectees sur copie verte avant mutation (4 + 2 + 2 + 1 supplementaire pour les renvois D-17), aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant, apres chaque tache et apres la suite complete (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**` non modifie. Bookkeeping : `progress.completed_plans` portee de 19 a 20 et `total_plans` de 19 a 23 (les 4 plans de la phase 6), la ligne de la phase 5 du ROADMAP rendue coherente (case cochee + statut `Complete` : `05-VERIFICATION.md` est `status: passed`), et la ligne 06-01 des plans de la phase 6 cochee.
+
 ### Pending Todos
 
 None yet.
@@ -192,6 +200,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T22:33:43.024Z
-Stopped at: Phase 5 plan 05-04 complete : critere 1 ferme (quatre conditions reelles du declencheur dans docs/base-locale.md, controle qui les mesure, base absente bornee) ; les 4 plans de la phase 5 sont executes
+Last session: 2026-09-11T23:54:46.837Z
+Stopped at: Phase 6 plan 06-01 complete : docs/depannage.md (cinq rubriques du critere 1 indexees par le message reellement produit), sa ligne d'index et tests/test_docs_depannage.py (9 tests, 9/9 morsures detectees) ; la phase 5 est complete et verifiee
 Resume file: None

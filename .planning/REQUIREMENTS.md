@@ -50,7 +50,7 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Aide et vocabulaire
 
-- [ ] **AIDE-01** : Un lecteur trouve une rubrique de dépannage en cherchant par message d'erreur réel — dérivé de DOCS-08
+- [x] **AIDE-01** : Un lecteur trouve une rubrique de dépannage en cherchant par message d'erreur réel — dérivé de DOCS-08
 - [ ] **AIDE-02** : Un lecteur trouve un glossaire du vocabulaire employé par l'outil et par la documentation — dérivé de DOCS-09
 
 ### Garde-fous automatiques
@@ -125,7 +125,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | BASE-01 | Phase 5 | Complete |
 | BASE-02 | Phase 5 | Complete |
 | BASE-03 | Phase 5 | Complete |
-| AIDE-01 | Phase 6 | Pending |
+| AIDE-01 | Phase 6 | Complete |
 | AIDE-02 | Phase 6 | Pending |
 | GARD-01 | Phase 1 | Complete |
 | GARD-02 | Phase 1 | Complete |
