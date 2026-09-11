@@ -15,13 +15,21 @@ cette paire dans le module, et aucun controle de ce module ne poste `GO`.
 Limite nommee : la prose libre de la page (les phrases d'explication) n'est pas verifiee par un
 test. Les controles portent sur les libelles, les nombres et les messages **cites**, et ce module ne
 revendique aucune exhaustivite de la redaction.
+
+Etat attendu pendant la phase : `test_aiguillage_sans_renvoi_obsolete` est **ROUGE** tant que
+l'aiguillage livre `GUIDE_WIZARD.md` n'a pas ete corrige (plan 04-03, vague 4). C'est la preuve du
+critere 5 dans son etat rouge (D-59a) — le detecteur est ecrit **et lance alors que le fichier est
+encore obsolete** — et jamais une regression : le plan 04-04 ne corrige pas ce fichier, et la copie
+figee `tests/fixtures/guide-wizard-obsolete.md` rend ce rouge relancable apres la correction.
 """
 
 from __future__ import annotations
 
 import ast
 import hashlib
+import html
 import re
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -214,6 +222,89 @@ MOTIF_TOUCHE = "couple touche/libelle"
 MOTIF_COMMANDE_RECAP = "commande du recapitulatif"
 MOTIF_COMMANDE_NUMERIQUE = "commande numerique"
 
+# ---------------------------------------------------------------------------------------------
+# Detecteur de renvois obsoletes (D-58, WIZ-03) — critere 5 de la phase 4.
+#
+# Trois formes nommees, et rien d'autre : (a) un renvoi au menu principal qui ne correspond pas au
+# menu rendu, (b) un renvoi de filtre inverse (`F7` presente comme les armes a distance), (c) une
+# arrivee « directe » dans le wizard. Chaque constat porte son motif en tete ; les tests de morsure
+# cherchent la chaine du motif, jamais une phrase ecrite en clair dans la ligne d'assertion (meme
+# regle que les motifs ci-dessus).
+MOTIF_RENVOI_MENU = "renvoi obsolete (a)"
+MOTIF_RENVOI_FILTRE = "renvoi obsolete (b)"
+MOTIF_RENVOI_ARRIVEE = "renvoi obsolete (c)"
+MOTIFS_RENVOI = (MOTIF_RENVOI_MENU, MOTIF_RENVOI_FILTRE, MOTIF_RENVOI_ARRIVEE)
+
+# Copie figee des extraits obsoletes (D-59b) : un artefact de `tests/`, jamais une page de `docs/`.
+FIXTURE_OBSOLETE = ("tests", "fixtures", "guide-wizard-obsolete.md")
+
+# Limite honnete (D-58/D-26), ecrite dans le module **et** dans les messages : ce que le controle ne
+# couvre pas est nomme, jamais passe sous silence. L'enonce produit est « le detecteur ne signale
+# rien sur l'aiguillage corrige », jamais « plus aucun renvoi obsolete n'existe ».
+LIMITE_HONNETE = (
+    "le detecteur couvre trois formes nommees (un renvoi au menu principal, un renvoi de filtre "
+    "inverse, une arrivee directe dans le wizard) et ne revendique aucune exhaustivite : une autre "
+    "inversion, hors de ces trois formes, ne fera pas echouer la suite ; l'enonce produit est « le "
+    "detecteur ne signale rien sur l'aiguillage corrige », jamais « plus aucun renvoi obsolete "
+    "n'existe » (D-58, arbitrage D-26)"
+)
+
+# Jeton de menu `N. LIBELLE`, cherche **n'importe ou** dans la ligne : les trois occurrences reelles
+# du fichier sont en tete de ligne (l'arbre), en gras (`**4. SYSTEME**`) et entre accents graves, donc
+# une prise limitee au debut de ligne en manquerait deux sur trois.
+MOTIF_JETON_MENU = re.compile(r"(?P<numero>\d)\.\s+(?P<libelle>[A-Z]['A-Z /-]{2,})")
+MOTIF_LIGNE_MENU_RENDU = re.compile(r"^\s*(?P<numero>\d)\.\s+(?P<libelle>.+?)\s*$")
+MOTIF_INVITATION = re.compile(r"(?i)\b(tapez|saisissez)\b")
+MOTIF_NUMERO_CITE = re.compile(r"`(?P<numero>\d)`")
+RACINE_OPTIMISATION = re.compile(r"(?i)optimisation")
+MOTIF_TOUCHE_FILTRE = re.compile(r"F(?P<numero>[67])")
+MOTIF_NEGATION = re.compile(r"\bpas\b|\bjamais\b|\bne\b|n['\u2019]")
+
+# Mots-outils ecartes de la comparaison d'appartenance : aucun ne designe un menu.
+MOTS_OUTILS = frozenset({"LISTE", "DES", "DE", "LA", "LE", "LES"})
+
+# Signes d'arme a distance et d'arrivee, compares sur une ligne sans accents et en minuscules.
+RACINES_DISTANCE = ("distance", "melee")
+RACINES_ARRIVEE = ("arriv", "atterriss")
+MARQUES_IMMEDIATETE = ("direct", "sans passer", "sans etape")
+
+# Temoins legitimes du controle anti-faux-positif (D-60) : le texte corrige type que le plan 04-03
+# ecrira, une phrase de filtre qui nomme sa touche **et** son libelle rendu, une phrase negative sur
+# l'arrivee, et un renvoi en prose ordinaire. Un detecteur qui crie au loup sur ces quatre textes
+# serait pire que pas de detecteur.
+TEMOIN_AIGUILLAGE_CORRIGE = (
+    "# Guide du Wizard (deplace)\n"
+    "\n"
+    "Le contenu de ce guide vit desormais dans `docs/wizard-avance.md`.\n"
+    "\n"
+    "```\n"
+    "1. RECHERCHE D'OBJETS\n"
+    "2. LISTE DES EQUIPEMENTS\n"
+    "3. PANOPLIES\n"
+    "\n"
+    "4. OPTIMISATION\n"
+    "5. SYSTEME\n"
+    "```\n"
+    "\n"
+    "Tapez `4` puis Entrée pour ouvrir l'optimisation.\n"
+)
+TEMOIN_PHRASE_FILTRE_CORRIGEE = (
+    "La touche `F7` retire les armes de mêlée du calcul ; le libellé rendu est ARMES MELEE.\n"
+)
+TEMOIN_PHRASE_NEGATIVE = (
+    "Le parcours ne vous amène pas directement dans le wizard : il passe par les trois questions.\n"
+)
+TEMOIN_RENVOI_EN_PROSE = (
+    "Pour revenir au menu principal, appuyez sur `ESC` ; le wizard avancé est décrit dans la page "
+    "`docs/wizard-avance.md`.\n"
+)
+TEMOINS_LEGITIMES = (
+    ("aiguillage corrige", TEMOIN_AIGUILLAGE_CORRIGE),
+    ("phrase de filtre corrigee", TEMOIN_PHRASE_FILTRE_CORRIGEE),
+    ("phrase negative sur l'arrivee", TEMOIN_PHRASE_NEGATIVE),
+    ("renvoi en prose ordinaire", TEMOIN_RENVOI_EN_PROSE),
+)
+
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
 # produit a tenir a jour.
@@ -333,6 +424,281 @@ def _filtres_du_rendu(lignes: list[str]) -> dict[int, str]:
         if trouve is not None:
             couples[int(trouve.group("numero"))] = trouve.group("libelle").strip()
     return couples
+
+
+def _sans_accents(texte: str) -> str:
+    """Texte prive de ses accents, casse conservee (les comparaisons passent en minuscules).
+
+    `renvois_obsoletes` doit rester **pure** : elle ne peut donc pas recevoir la fixture `normalize`
+    de `tests/conftest.py` et porte sa propre reduction, comme ce module le fait deja pour ses
+    comparaisons internes (D-11).
+    """
+    decompose = unicodedata.normalize("NFKD", texte)
+    return "".join(caractere for caractere in decompose if not unicodedata.combining(caractere))
+
+
+def _mots_significatifs(libelle: str) -> set[str]:
+    """Mots significatifs d'un libelle de menu : accents et casse reduits, mots-outils ecartes.
+
+    C'est la regle d'**appartenance** retenue par `04-RESEARCH.md`, et non l'egalite stricte : D-47
+    exige des formes abreges dans l'aiguillage corrige (`4. OPTIMISATION`, `3. PANOPLIES`), sous
+    peine de declarer fautif le texte corrige et de rendre inatteignable le vert du critere 5.
+    """
+    mots = re.findall(r"[A-Za-z]+", _sans_accents(libelle))
+    return {mot.upper() for mot in mots if len(mot) >= 4 and mot.upper() not in MOTS_OUTILS}
+
+
+def _libelle_rendu(ligne: str) -> str:
+    """Libelle d'une ligne rendue, entites HTML resolues et espaces reduits.
+
+    La premiere ligne du menu est rendue `1. RECHERCHE D&#39;OBJETS` : sans cette reduction, le
+    libelle mesure porterait une entite et la comparaison avec le libelle cite serait fausse.
+    """
+    return re.sub(r"\s+", " ", html.unescape(ligne)).strip()
+
+
+def _lire_fixture() -> str:
+    """Copie figee des extraits obsoletes, lue en UTF-8 explicite (D-59b).
+
+    Fixture absente = `AssertionError` localisante (D-13), jamais un `skip` silencieux : sans cette
+    piece, le rouge du critere 5 ne serait plus relancable apres la correction de `GUIDE_WIZARD.md`
+    et le detecteur resterait sans morsure.
+    """
+    chemin = RACINE_DEPOT.joinpath(*FIXTURE_OBSOLETE)
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{'/'.join(FIXTURE_OBSOLETE)} : copie figee introuvable ({chemin}) ; attendu la copie "
+            f"figee et partielle des extraits obsoletes de {GUIDE_WIZARD}, qui rend relancable le "
+            f"rouge du critere 5 (D-59b)"
+        )
+    return chemin.read_text(encoding="utf-8")
+
+
+def _faits_du_rendu(app, normalize) -> dict:
+    """Les attentes du detecteur, **mesurees au rendu** — jamais recopiees (D-58, T-04-12).
+
+    Trois groupes de faits, chacun accompagne du **fichier de code qui produit ses attentes** (D-13,
+    repris par D-65) :
+
+    - `menus` et `menu_optimisation` : les libelles du menu principal lus au rendu de `GET /`, et le
+      numero qui ouvre reellement l'optimisation, decouvert en postant chaque numero de menu sur un
+      client **neuf** et en suivant sa redirection — jamais suppose, jamais ecrit de memoire ;
+    - `filtres` : les libelles de touches lus sur les **deux** pages de `/optimize/wizard/slots`,
+      corroborees par `TYPE_FILTER_KEYS[5]`/`[6]` et `TYPE_FILTER_LABELS` de `{SOURCE_SPEC}` (D-53) —
+      une divergence entre les deux sources est une erreur de harnais, jamais un constat de
+      documentation ;
+    - `arrivee` : le dernier segment de la chaine d'arrivee, postee pas a pas sur un seul client.
+
+    Les sources (`source_menu`, `source_filtres`, `source_arrivee`) sont les chemins de code, pris
+    dans les constantes du module : c'est ce qui permet a chaque constat de nommer sa valeur attendue
+    **et** son producteur sans que `renvois_obsoletes` n'ait a lire un fichier ni a citer une
+    constante de projet.
+    """
+    menus: dict[int, str] = {}
+    for ligne in _lignes_du_corps(app.test_client().get("/")):
+        trouve = MOTIF_LIGNE_MENU_RENDU.match(ligne)
+        if trouve is not None:
+            menus[int(trouve.group("numero"))] = _libelle_rendu(trouve.group("libelle"))
+    if not menus:
+        raise AssertionError(
+            f"le rendu de GET / ne porte aucun libelle de menu numerote ; attendu les entrees du "
+            f"menu principal, construites par {SOURCE_ROUTES} (menu)"
+        )
+
+    # Le numero qui ouvre l'optimisation est mesure, jamais suppose : on poste chaque numero sur un
+    # client neuf et l'on suit la redirection jusqu'aux trois questions.
+    menu_optimisation = 0
+    for numero in sorted(menus):
+        reponse = app.test_client().post("/", data={"selection": str(numero)})
+        cible = reponse.headers.get("Location", "")
+        if cible != "/optimize":
+            continue
+        suite = app.test_client().get(cible)
+        if suite.headers.get("Location", "").startswith("/optimize/quick/"):
+            menu_optimisation = numero
+    if not menu_optimisation:
+        raise AssertionError(
+            f"aucun numero du menu rendu par GET / ne mene a l'optimisation ; attendu le numero dont "
+            f"la redirection de POST / atteint /optimize puis les trois questions, construit par "
+            f"{SOURCE_ROUTES} (menu_post)"
+        )
+
+    filtres_client = app.test_client()
+    lignes_slots = _lignes_du_corps(filtres_client.get("/optimize/wizard/slots"))
+    lignes_slots += _lignes_du_corps(filtres_client.get("/optimize/wizard/slots?page=2"))
+    rendus = _filtres_du_rendu(lignes_slots)
+    filtres: dict[int, str] = {}
+    for touche, indice in ((6, 5), (7, 6)):
+        libelle = rendus.get(touche, "")
+        corrobore = TYPE_FILTER_LABELS.get(TYPE_FILTER_KEYS[indice], "")
+        if not libelle or normalize(libelle) != normalize(corrobore):
+            raise AssertionError(
+                f"le rendu de /optimize/wizard/slots porte F{touche} = « {libelle} » ; attendu "
+                f"« {corrobore} », lu dans TYPE_FILTER_LABELS[TYPE_FILTER_KEYS[{indice}]] de "
+                f"{SOURCE_SPEC}"
+            )
+        filtres[touche] = libelle
+
+    parcours = app.test_client()
+    arrivee = ""
+    for methode, adresse, donnees in (
+        ("POST", "/", {"selection": str(menu_optimisation)}),
+        ("GET", "/optimize", None),
+        ("POST", "/optimize/quick/classe", {"cmd": "Cra"}),
+        ("POST", "/optimize/quick/elements", {"cmd": "terre"}),
+        ("POST", "/optimize/quick/niveau", {"cmd": "avance"}),
+    ):
+        reponse = (
+            parcours.get(adresse) if methode == "GET" else parcours.post(adresse, data=donnees)
+        )
+        cible = reponse.headers.get("Location", "")
+        arrivee = cible.rstrip("/").rsplit("/", 1)[-1] if cible else ""
+    if not arrivee:
+        raise AssertionError(
+            f"la chaine d'arrivee mesuree n'atteint aucun ecran ; attendu le dernier segment de la "
+            f"redirection des trois questions, construit par {SOURCE_ROUTES}"
+        )
+
+    return {
+        "menus": menus,
+        "menu_optimisation": menu_optimisation,
+        "filtres": filtres,
+        "arrivee": arrivee,
+        "source_menu": SOURCE_ROUTES,
+        "source_filtres": f"{SOURCE_ROUTES} et {SOURCE_SPEC}",
+        "source_arrivee": SOURCE_ROUTES,
+    }
+
+
+def _renvois_au_menu(lignes: list[str], faits: dict) -> list[str]:
+    """Forme (a) : un renvoi au menu principal qui ne correspond pas au menu rendu (D-58).
+
+    Deux prises, parce que les trois occurrences reelles du fichier n'ont pas la meme forme :
+
+    - une **invitation** (« tapez »/« saisissez ») qui cite un numero entre accents graves en parlant
+      d'optimisation : le numero est compare a celui que `faits["menu_optimisation"]` a mesure ;
+    - un **jeton de menu** `N. LIBELLE`, cherche n'importe ou dans la ligne : il est juge contre le
+      libelle **rendu** de son numero, par appartenance de mots significatifs.
+    """
+    constats: list[str] = []
+    menus: dict[int, str] = faits["menus"]
+    attendu = faits["menu_optimisation"]
+    source = faits["source_menu"]
+    for ligne in lignes:
+        if MOTIF_INVITATION.search(ligne) and RACINE_OPTIMISATION.search(ligne):
+            for numero in MOTIF_NUMERO_CITE.findall(ligne):
+                if int(numero) != attendu:
+                    constats.append(
+                        f"{MOTIF_RENVOI_MENU} : la ligne « {ligne} » invite a taper `{numero}` pour "
+                        f"ouvrir l'optimisation ; le numero mesure qui ouvre l'optimisation est "
+                        f"`{attendu}` (menu {attendu} = « {menus.get(attendu, '')} »), verifie par la "
+                        f"redirection de POST / construite par {source}"
+                    )
+        for trouve in MOTIF_JETON_MENU.finditer(ligne):
+            numero = int(trouve.group("numero"))
+            libelle = trouve.group("libelle").strip()
+            if numero not in menus:
+                constats.append(
+                    f"{MOTIF_RENVOI_MENU} : le jeton de menu « {numero}. {libelle} » porte un numero "
+                    f"absent du menu rendu ({sorted(menus)}) ; attendu un numero du menu principal, "
+                    f"rendu par GET / et construit par {source}"
+                )
+                continue
+            if not _mots_significatifs(libelle) & _mots_significatifs(menus[numero]):
+                constats.append(
+                    f"{MOTIF_RENVOI_MENU} : le jeton de menu « {numero}. {libelle} » ne designe pas le "
+                    f"menu {numero} ; le rendu de GET / associe {numero} au libelle "
+                    f"« {menus[numero]} », construit par {source}"
+                )
+    return constats
+
+
+def _renvois_de_filtre(lignes: list[str], faits: dict) -> list[str]:
+    """Forme (b) : une ligne qui renvoie a une arme a distance par la touche du filtre inverse.
+
+    La fenetre est **la ligne**, jamais le fichier : c'est ce qui evite de signaler un
+    `% Résistance distance` ou un `F7` de navigation qui vivent dans d'autres lignes. Un renvoi est
+    fautif quand la ligne porte `F6`/`F7` et un mot de distance, mais pas le libelle rendu de la
+    touche citee.
+    """
+    constats: list[str] = []
+    filtres: dict[int, str] = faits["filtres"]
+    source = faits["source_filtres"]
+    for ligne in lignes:
+        normalisee = _sans_accents(ligne).lower()
+        if not any(racine in normalisee for racine in RACINES_DISTANCE):
+            continue
+        for trouve in MOTIF_TOUCHE_FILTRE.finditer(ligne):
+            touche = int(trouve.group("numero"))
+            libelle = filtres.get(touche, "")
+            if not libelle:
+                continue
+            if _sans_accents(libelle).lower() not in normalisee:
+                constats.append(
+                    f"{MOTIF_RENVOI_FILTRE} : la ligne « {ligne} » renvoie a une arme de distance par "
+                    f"la touche F{touche} ; le libelle rendu de F{touche} est « {libelle} », lu sur "
+                    f"/optimize/wizard/slots et produit par {source}"
+                )
+    return constats
+
+
+def _renvois_a_l_arrivee(lignes: list[str], faits: dict) -> list[str]:
+    """Forme (c) : une phrase affirmative qui affirme une arrivee directe dans le wizard.
+
+    La garde de negation est indispensable (D-60) : la page corrigee **peut** ecrire « vous n'arrivez
+    pas directement dans le wizard » pour corriger explicitement la croyance, et ce renvoi est
+    legitime.
+    """
+    constats: list[str] = []
+    arrivee = faits["arrivee"]
+    source = faits["source_arrivee"]
+    for ligne in lignes:
+        normalisee = _sans_accents(ligne).lower()
+        if not any(racine in normalisee for racine in RACINES_ARRIVEE):
+            continue
+        if "wizard" not in normalisee and "assistant" not in normalisee:
+            continue
+        if not any(marque in normalisee for marque in MARQUES_IMMEDIATETE):
+            continue
+        if MOTIF_NEGATION.search(normalisee):
+            continue
+        if arrivee == "recap":
+            constats.append(
+                f"{MOTIF_RENVOI_ARRIVEE} : la ligne « {ligne} » affirme une arrivee directe dans le "
+                f"wizard ; la chaine d'arrivee mesuree atteint « {arrivee} » apres les trois "
+                f"questions, construit par {source}"
+            )
+    return constats
+
+
+def renvois_obsoletes(texte: str, faits: dict) -> list[str]:
+    """Constats de renvois obsoletes d'un texte, juges contre les faits du jeu courant (D-58, WIZ-03).
+
+    **Fonction pure** : elle ne lit aucun fichier, n'ouvre aucune connexion et ne cite aucune
+    constante de projet — les attentes lui arrivent par `faits` (mesurees au rendu, D-58) et chaque
+    constat les nomme avec le **fichier de code qui les produit** (D-13, repris par D-65).
+
+    Trois formes nommees, et aucune autre : (a) un renvoi au menu principal qui ne correspond pas au
+    menu rendu, (b) un renvoi de filtre inverse (`F7` presente comme les armes a distance), (c) une
+    arrivee « directe » dans le wizard.
+
+    **Limite honnete (D-58/D-26) :** ce detecteur ne revendique **aucune exhaustivite**. Une autre
+    inversion, hors de ces trois formes, ne fera pas echouer la suite. L'enonce produit est « le
+    detecteur ne signale rien sur l'aiguillage corrige », jamais « plus aucun renvoi obsolete
+    n'existe ».
+
+    **Limite de precision de la forme (a) :** les jetons `N. LIBELLE` sont juges contre les libelles
+    de **premier niveau** mesures au rendu de `GET /`. Un renvoi vers un **sous-menu** portant le
+    meme numero est donc hors de la surface comparee et serait rapporte comme forme (a) : la portee
+    de la forme (a) est les renvois au menu principal, et cette precision est nommee plutot que
+    passee sous silence (meme arbitrage que D-26).
+    """
+    lignes = [ligne.strip() for ligne in texte.splitlines()]
+    constats: list[str] = []
+    constats += _renvois_au_menu(lignes, faits)
+    constats += _renvois_de_filtre(lignes, faits)
+    constats += _renvois_a_l_arrivee(lignes, faits)
+    return constats
 
 
 def _couples_de_table(sous_texte: str, motif: re.Pattern[str]) -> dict[int, str]:
@@ -1904,3 +2270,91 @@ def test_data_locale_non_modifiee_autour_des_rendus(docs_dir: Path, app) -> None
         + f" ; attendu des rendus de {SOURCE_ROUTES} qui ne touchent ni ne modifient "
         f".data/dofus.sqlite3"
     )
+
+
+def test_copie_figee_signalee_par_le_detecteur(docs_dir: Path, app, normalize) -> None:
+    """La copie figee du texte obsolete reste signalee par le **meme** detecteur (D-59b, WIZ-03).
+
+    C'est la seconde moitie de la preuve du critere 5 : le plan 04-03 corrigera l'aiguillage livre et
+    obtiendra le vert, mais le detecteur garde sa morsure parce qu'il est juge ici sur une copie figee
+    conservee sous `tests/`. Les trois formes nommees doivent y etre presentes, dont le libelle
+    **rendu** du menu d'optimisation et le libelle **rendu** de `F7` : un test qui se contenterait de
+    « la liste n'est pas vide » ne prouverait pas que les trois formes sont couvertes.
+
+    Limite honnete, ecrite ici comme dans le module : le detecteur couvre trois formes nommees et ne
+    revendique aucune exhaustivite (D-58). C'est la **presence de chaque forme** qui est exigee,
+    jamais un compte de constats.
+    """
+    faits = _faits_du_rendu(app, normalize)
+    constats = renvois_obsoletes(_lire_fixture(), faits)
+    chemin = "/".join(FIXTURE_OBSOLETE)
+    libelle_optimisation = faits["menus"][faits["menu_optimisation"]]
+    libelle_f7 = faits["filtres"][7]
+    manques: list[str] = []
+
+    if len(constats) < 3:
+        manques.append(
+            f"la copie figee ne rend que {len(constats)} constat(s) ; attendu au moins trois, "
+            f"couvrant les trois formes nommees ({chemin})"
+        )
+    for motif in MOTIFS_RENVOI:
+        if not any(motif in constat for constat in constats):
+            manques.append(
+                f"{motif} : aucun constat de cette forme sur la copie figee ({chemin}) ; attendu "
+                f"chaque forme nommee presente au moins une fois — c'est cette copie qui rend le "
+                f"rouge du critere 5 relancable (D-59b)"
+            )
+    if not any(
+        MOTIF_RENVOI_MENU in constat and libelle_optimisation in constat for constat in constats
+    ):
+        manques.append(
+            f"{MOTIF_RENVOI_MENU} : aucun constat ne nomme le libelle rendu du menu d'optimisation "
+            f"« {libelle_optimisation} » ({chemin}) ; attendu ce libelle, lu au rendu de GET / et "
+            f"construit par {SOURCE_ROUTES}"
+        )
+    if not any(MOTIF_RENVOI_FILTRE in constat and libelle_f7 in constat for constat in constats):
+        manques.append(
+            f"{MOTIF_RENVOI_FILTRE} : aucun constat ne nomme le libelle rendu de F7 "
+            f"« {libelle_f7} » ({chemin}) ; attendu ce libelle, lu sur /optimize/wizard/slots et "
+            f"produit par {SOURCE_ROUTES} et {SOURCE_SPEC}"
+        )
+
+    assert not manques, (
+        f"{chemin} : la copie figee des extraits obsoletes n'est pas signalee comme attendu : "
+        + " ; ".join(manques)
+        + f" ; constats rendus : {' | '.join(constats)} ; attendu la copie figee signalee par les "
+        f"trois formes nommees (D-59b) — {LIMITE_HONNETE}"
+    )
+
+
+def test_renvois_legitimes_non_signales(docs_dir: Path, app, normalize) -> None:
+    """Aucun renvoi legitime n'est signale : la garde anti-faux-positif de D-60 (WIZ-03).
+
+    Quatre textes temoins, ecrits en constantes du module : le texte corrige type que le plan 04-03
+    ecrira (arbre de menu **aux formes que D-47 exige** — `4. OPTIMISATION`, `3. PANOPLIES`,
+    `5. SYSTEME` —, invitation correcte a taper le numero du menu d'optimisation **mesure**, et les
+    deux liens de navigation), une phrase qui porte `F7` **et** son libelle rendu, une phrase negative
+    sur l'arrivee, et un renvoi en prose ordinaire. Le premier temoin est aussi la preuve que la forme
+    (a) accepte les abreviations de D-47 : sans cette tolerance, l'aiguillage corrige serait declare
+    fautif et le vert du critere 5 deviendrait inatteignable.
+
+    Limite honnete : ce controle porte sur quatre textes temoins, pas sur tous les textes corrects
+    possibles (D-58). Un detecteur qui crie au loup serait pire que pas de detecteur, mais quatre
+    temoins ne prouvent pas l'absence de tout faux positif ailleurs.
+    """
+    faits = _faits_du_rendu(app, normalize)
+    fautifs: list[str] = []
+    for nom, temoin in TEMOINS_LEGITIMES:
+        trouves = renvois_obsoletes(temoin, faits)
+        if trouves:
+            fautifs.append(f"temoin legitime « {nom} » signale a tort : " + " | ".join(trouves))
+
+    assert not fautifs, (
+        f"le detecteur signale un renvoi legitime, ce que D-60 interdit : "
+        + " ; ".join(fautifs)
+        + f" ; attendu zero constat sur les quatre temoins legitimes — le texte corrige type ecrit "
+        f"l'arbre aux formes de D-47 et tape le numero `{faits['menu_optimisation']}` mesure, la "
+        f"phrase de filtre nomme « {faits['filtres'][7]} », la phrase negative ne doit pas etre "
+        f"signalee (D-58, D-60)"
+    )
+
