@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Référence CLI alignée sur le parseur
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-09-11T12:19:48.170Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-09-11T12:27:28.699Z"
 last_activity: 2026-09-11
 last_activity_desc: Phase 2 execution started
-state_head: dcb65bc34e5a142dbd1d6cf7d1f5601c74a25409
+state_head: e7dc8a75b9d77b7bd80ae2d7a2305040f52245c9
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 17
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 2 (Référence CLI alignée sur le parseur) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-11 — Phase 2 execution started
 
@@ -63,6 +63,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 01 P03 | 3min | 2 tasks | 1 files |
 | Phase 1 P04 | 2 min | 2 tasks | 1 files |
 | Phase 2 P01 | 3min | 3 tasks | 2 files |
+| Phase 2 P02 | 7min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,12 @@ Recent decisions affecting current work:
 - [Phase 2]: [Phase 2]: Le mode interactif (python fetcher.py --offline optimize) est decrit en prose et dans aucun bloc console : le temoin marque de l'ordre global-avant-sous-commande reste unique (--offline optimize --demo) et la mutation d'ordre de 02-03 t1 garde son motif
 - [Phase 2]: [Phase 2]: Les trois descriptions verbatim de l'aide (Afficher l'état de la base, Forcer la synchronisation complète, Vider la base locale) sont citees une seule fois, dans ## db ; ## cache declare l'alias et renvoie a cette section sans en reprendre aucune (D-20) ; db sync et cache fill reecrivent la base et exigent le reseau mais ne portent pas le jeton destructeur (classement A2)
 - [Phase 2]: [Phase 2]: La regle de docs/installation.md « toutes les commandes portent --offline » n'est pas reconduite sur la page CLI (mesure M5 : --offline db sync sort en code 1) ; le renvoi vers la future page base-locale est fait en prose sans lien markdown, pour ne pas creer de cible morte sous problemes_liens
+- [Phase 2]: Scanner de blocs et helpers de section deplaces (jamais recopies) dans tests/conftest.py, exposes par les fixtures lignes_de_code, sections et section ; _section(texte, titre, page) exige la page et un appel sans page leve TypeError (D-12, D-13, D-31)
+- [Phase 2]: Section « ## cache » : controle d'alias sur les marqueurs normalises alias / second nom / equivaut, la page livree declarant l'equivalence sans le mot « alias » ; la page n'a pas ete modifiee pour faire passer un test
+- [Phase 2]: Espace de noms d'alias lu en deux vues : brute pour exiger command == db ou cache, privee de command pour comparer l'alias — une vue unique aurait fait rougir un constat sur une page correcte
+- [Phase 2]: Un seul point d'assertion par test (constats cumules) : avec une assertion par constat, les motifs --candidats-top et « aucune option » seraient inatteignables et la batterie rapporterait MUTATION NON DETECTEE sur une implementation correcte
+- [Phase 2]: Morsure de la mutation « build_parser() retire » re-mesuree sur une copie incluant l'arbre produit (verte avant mutation, rouge apres) : la copie « sans » est rouge par construction et cite deja le jeton
+- [Phase 2]: Options citees extraites des seules lignes de tableau des sections Options globales et optimize, jamais du texte entier : la section optimize cite --offline, option globale refusee par le sous-parseur optimize (Pitfall 10)
 
 ### Pending Todos
 
@@ -109,6 +116,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T12:19:48.144Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-09-11T12:27:28.674Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
