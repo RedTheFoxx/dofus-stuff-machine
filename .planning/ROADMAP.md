@@ -29,7 +29,7 @@ outils interpréteraient sinon comme un chantier frontend.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Socle documentaire, installation et harnais vérifiable** - Le lecteur trouve la doc depuis le `README.md`, installe l'outil, lance CLI et web ; les invariants documentaires et l'ancrage au code sont vérifiés dès les deux premières pages
+- [x] **Phase 1: Socle documentaire, installation et harnais vérifiable** - Le lecteur trouve la doc depuis le `README.md`, installe l'outil, lance CLI et web ; les invariants documentaires et l'ancrage au code sont vérifiés dès les deux premières pages (completed 2026-09-11)
 - [ ] **Phase 2: Référence CLI alignée sur le parseur** - `docs/cli.md` documente des commandes, options et exemples réellement analysables par `fetcher.py`
 - [ ] **Phase 3: Parcours simplifié documenté depuis le rendu réel** - Le flux classe → éléments → niveau, la lecture du résultat, la sauvegarde/export et les hypothèses de l'outil sont décrits tels qu'ils s'affichent
 - [ ] **Phase 4: Wizard avancé et résorption de la dette `GUIDE_WIZARD`** - `docs/wizard-avance.md` devient la source unique du flux avancé, et `GUIDE_WIZARD.md` ne contredit plus le produit
@@ -76,7 +76,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04: Ajouter `tests/test_docs_code_anchor.py` (chemins « Source de vérité », options d'entrée web) et vérifier la suite complète
+- [x] 01-04: Ajouter `tests/test_docs_code_anchor.py` (chemins « Source de vérité », options d'entrée web) et vérifier la suite complète
 
 ### Phase 2: Référence CLI alignée sur le parseur
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Socle documentaire, installation et harnais vérifiable | 4/4 | In Progress|  |
+| 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
 | 2. Référence CLI alignée sur le parseur | 0/3 | Not started | - |
 | 3. Parcours simplifié documenté depuis le rendu réel | 0/4 | Not started | - |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
