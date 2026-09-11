@@ -3,11 +3,11 @@ gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Référence CLI alignée sur le parseur
 status: planning
-stopped_at: Phase 1 complete, ready to plan Phase 2
-last_updated: "2026-09-11T11:00:59.377Z"
+stopped_at: Phase 2 context gathered
+last_updated: "2026-09-11T11:03:05.462Z"
 last_activity: 2026-09-11
 last_activity_desc: Phase 1 complete, transitioned to Phase 2
-state_head: 753cfacf67a084727a0c20d609ec3ceea45c1748
+state_head: b069e7e413ab33d064a4a1f29d09aa64033ead2c
 progress:
   total_phases: 6
   completed_phases: 1
@@ -104,6 +104,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T10:40:52.625Z
-Stopped at: Phase 1 complete, ready to plan Phase 2
-Resume file: None
+Last session: 2026-09-11T11:03:05.437Z
+Stopped at: Phase 2 context gathered
+Resume file: .planning/phases/02-r-f-rence-cli-align-e-sur-le-parseur/02-CONTEXT.md
