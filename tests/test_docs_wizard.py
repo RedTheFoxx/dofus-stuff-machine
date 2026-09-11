@@ -23,7 +23,12 @@ import ast
 import re
 from pathlib import Path
 
-from dofus_stuff.web.optimize_wizard import STEP_TITLES, WIZARD_STEPS
+from dofus_stuff.model.solver_spec import SLOT_GROUPS, TYPE_FILTER_KEYS
+from dofus_stuff.web.optimize_wizard import (
+    STEP_TITLES,
+    TYPE_FILTER_LABELS,
+    WIZARD_STEPS,
+)
 
 RACINE_DEPOT = Path(__file__).resolve().parents[1]
 PAGE = "wizard-avance.md"
@@ -48,6 +53,14 @@ TITRES_SECTION_ATTENDUS = (
     "## Source de vérité",
 )
 
+TITRE_ETAPES = TITRES_SECTION_ATTENDUS[0]
+TITRE_SLOTS = TITRES_SECTION_ATTENDUS[1]
+TITRE_SOURCE = TITRES_SECTION_ATTENDUS[5]
+
+# Sous-titres de niveau 3 de la section des slots et des filtres.
+SOUS_TITRE_EMPLACEMENTS = "### Les 11 emplacements"
+SOUS_TITRE_FILTRES = "### Les 10 filtres de type"
+
 # Marqueurs du gabarit reel (`dofus_stuff/web/templates/screen.html`) : le corps visible est encadre
 # par `id="body"` et par la seule ligne de statut, qui porte les messages de refus ; la ligne
 # d'en-tete porte le code de programme et le titre de l'ecran.
@@ -61,6 +74,29 @@ TOUCHE_BARRE = re.compile(
     r'<span class="fkey-eq meta">=</span>'
     r'<span class="fkey-label">([^<]*)</span>'
 )
+
+# Lignes rendues des emplacements et des filtres (`optimize_wizard.py:189-215`) : le numero, l'etat
+# entre crochets produit par `_on_off` (espace finale comprise) et le libelle. Le motif est applique
+# ligne par ligne, une ligne rendue ne portant jamais deux entrees.
+MOTIF_EMPLACEMENT_RENDU = re.compile(
+    r"^\s*(?P<numero>\d{1,2})\.\s+\[\s*(?:ON|OFF)\s*\]\s*(?P<libelle>.+?)\s*$"
+)
+MOTIF_FILTRE_RENDU = re.compile(
+    r"^F(?P<numero>\d{1,2})\.\s+\[\s*(?:ON|OFF)\s*\]\s*(?P<libelle>.+?)\s*$"
+)
+
+# Lignes de tableau de la page : `| 1 | `AMULETTE` |` et `| `F1` | `FAMILIER` |`.
+MOTIF_LIGNE_EMPLACEMENT = re.compile(
+    r"^\|\s*(?P<numero>\d{1,2})\s*\|\s*`(?P<libelle>[^`]+)`\s*\|\s*$"
+)
+MOTIF_LIGNE_FILTRE = re.compile(
+    r"^\|\s*`F(?P<numero>\d{1,2})`\s*\|\s*`(?P<libelle>[^`]+)`\s*\|\s*$"
+)
+
+# Invites et rappel de l'ecran des slots et des filtres, lus au rendu et jamais ecrits de memoire.
+MOTIF_INVITE_EMPLACEMENTS = re.compile(r"^SLOTS \(N=TOGGLE\) :$")
+MOTIF_INVITE_FILTRES = re.compile(r"^FILTRES TYPES \(F\+N\) :$")
+MOTIF_RAPPEL_TOUCHES = re.compile(r"^N=TOGGLE SLOT\s+FN=TOGGLE FILTRE$")
 
 # Motif de morsure porte par une constante de module et jamais ecrit en clair dans la ligne
 # d'assertion (regle posee au plan 03-03, tache 2) : pytest reproduit cette ligne dans sa sortie, et
@@ -166,6 +202,36 @@ def _sous_section(corps: str, titre: str) -> str:
             f"porte la liste mesuree du wizard avance, rendue par {SOURCE_WIZARD}"
         )
     return "\n".join(lignes[debut:])
+
+
+def _emplacements_du_rendu(lignes: list[str]) -> dict[int, str]:
+    """Couples numero -> libelle des emplacements, lus dans les lignes rendues du corps."""
+    couples: dict[int, str] = {}
+    for ligne in lignes:
+        trouve = MOTIF_EMPLACEMENT_RENDU.match(ligne)
+        if trouve is not None:
+            couples[int(trouve.group("numero"))] = trouve.group("libelle").strip()
+    return couples
+
+
+def _filtres_du_rendu(lignes: list[str]) -> dict[int, str]:
+    """Couples numero -> libelle des filtres de type, lus dans les lignes rendues du corps."""
+    couples: dict[int, str] = {}
+    for ligne in lignes:
+        trouve = MOTIF_FILTRE_RENDU.match(ligne)
+        if trouve is not None:
+            couples[int(trouve.group("numero"))] = trouve.group("libelle").strip()
+    return couples
+
+
+def _couples_de_table(sous_texte: str, motif: re.Pattern[str]) -> dict[int, str]:
+    """Couples numero -> libelle cites par une table de la page, une ligne de tableau par couple."""
+    couples: dict[int, str] = {}
+    for ligne in sous_texte.splitlines():
+        trouve = motif.match(ligne)
+        if trouve is not None:
+            couples[int(trouve.group("numero"))] = trouve.group("libelle").strip()
+    return couples
 
 
 def _imports_du_module(arbre: ast.AST) -> set[str]:
@@ -324,4 +390,226 @@ def test_page_et_index_du_wizard(docs_dir: Path, app, normalize) -> None:
         + " ; ".join(constats)
         + f" ; attendu la page de {SOURCE_WIZARD} listee dans {SOMMAIRE}, ouverte par un H1 egal a "
         f"son libelle d'index et citant les {len(WIZARD_STEPS)} titres rendus par les ecrans"
+    )
+
+
+def test_etapes_dans_l_ordre_du_code(docs_dir: Path, app, normalize, section) -> None:
+    """Les 9 titres rendus sont cites par la page dans l'ordre de `WIZARD_STEPS` (D-50).
+
+    L'ordre attendu n'est jamais ecrit dans ce module : il est relu dans `WIZARD_STEPS` et les
+    titres dans `STEP_TITLES` (`dofus_stuff/web/optimize_wizard.py:23-45`), puis confronte a la ligne
+    d'en-tete que le rendu produit reellement pour chacun des neuf ecrans. La comparaison d'ordre se
+    fait dans la seule section des etapes, jamais sur la page entiere : la page cite ailleurs des
+    mots qui reprennent un titre d'etape, et une position globale mesurerait alors autre chose.
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_ETAPES, PAGE)
+    corps_normalise = normalize(corps)
+    constats: list[str] = []
+
+    client = app.test_client()
+    titres: list[tuple[int, str, str]] = []
+    for numero, etape in enumerate(WIZARD_STEPS, start=1):
+        rendu = client.get(f"/optimize/wizard/{etape}")
+        attendu = STEP_TITLES.get(etape, "")
+        entete = _entete(rendu)
+        if rendu.status_code != 200 or normalize(attendu) not in normalize(entete):
+            constats.append(
+                f"l'ecran « {etape} » (etape {numero}) repond {rendu.status_code} et son en-tete "
+                f"vaut « {entete} » ; attendu le titre « {attendu} » rendu par la ligne d'en-tete de "
+                f"/optimize/wizard/{etape}, construit par {SOURCE_ROUTES}"
+            )
+        titres.append((numero, etape, attendu))
+
+    numerotees = [
+        ligne for ligne in corps.splitlines() if re.match(r"^\d+\.\s", ligne.strip())
+    ]
+    if len(numerotees) != len(WIZARD_STEPS):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_ETAPES} » porte {len(numerotees)} ligne(s) numerotee(s) "
+            f"pour {len(WIZARD_STEPS)} etape(s) listee(s) par {SOURCE_WIZARD} (WIZARD_STEPS) ; "
+            f"attendu {MOTIF_ORDRE_ETAPES}"
+        )
+
+    position = -1
+    for numero, etape, attendu in titres:
+        index = corps_normalise.find(normalize(attendu))
+        if index < 0:
+            constats.append(
+                f"{PAGE} : le titre rendu de l'etape {numero} (« {attendu} ») de "
+                f"/optimize/wizard/{etape} n'est pas cite par la section « {TITRE_ETAPES} » ; attendu "
+                f"ce titre, lu au rendu et produit par {SOURCE_WIZARD} (STEP_TITLES), dans "
+                f"l'{MOTIF_ORDRE_ETAPES}"
+            )
+            continue
+        if index < position:
+            constats.append(
+                f"{PAGE} : le titre « {attendu} » de l'etape {numero} ({etape}) apparait avant le "
+                f"titre de l'etape precedente ; attendu l'{MOTIF_ORDRE_ETAPES} — les "
+                f"{len(WIZARD_STEPS)} titres cites dans l'ordre du code ({SOURCE_WIZARD}, "
+                f"WIZARD_STEPS) et rendus par {SOURCE_ROUTES}"
+            )
+            continue
+        position = index
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'ordre des etapes : "
+        + " ; ".join(constats)
+        + f" ; attendu les {len(WIZARD_STEPS)} titres rendus cites dans l'{MOTIF_ORDRE_ETAPES}, "
+        f"relu dans {SOURCE_WIZARD} et confronte au rendu de {SOURCE_ROUTES}"
+    )
+
+
+def test_slots_et_filtres_ancres_au_rendu(docs_dir: Path, app, normalize, section) -> None:
+    """Les emplacements et les filtres cites par la page sont ceux du rendu, numerotes (D-53).
+
+    L'ecran `slots` est rendu sur ses **deux** pages : son corps compte plus de 18 lignes
+    (`BODY_LINES`, `dofus_stuff/web/screens.py:10`), les onze emplacements tiennent en page 1 mais
+    les derniers filtres ne sont lisibles qu'en page 2. Les couples `(numero, libelle)` et
+    `(F<n>, libelle)` sont extraits du corps rendu, puis exiges de la page a l'identique. Le couple
+    `F6`/`F7` est en plus adosse a ses deux sources publiques — `TYPE_FILTER_KEYS[5]`/`[6]`
+    (`dofus_stuff/model/solver_spec.py:42-53`) apparies a `TYPE_FILTER_LABELS`
+    (`dofus_stuff/web/optimize_wizard.py:111-121`) — pour que la permutation des deux libelles ne
+    puisse pas passer.
+    """
+    texte = _texte_page(docs_dir)
+    corps_page = section(texte, TITRE_SLOTS, PAGE)
+    constats: list[str] = []
+
+    client = app.test_client()
+    ecran = client.get("/optimize/wizard/slots")
+    ecran_page2 = client.get("/optimize/wizard/slots?page=2")
+    lignes = _lignes_du_corps(ecran) + _lignes_du_corps(ecran_page2)
+    rendus_slots = _emplacements_du_rendu(lignes)
+    rendus_filtres = _filtres_du_rendu(lignes)
+
+    if ecran.status_code != 200 or ecran_page2.status_code != 200:
+        constats.append(
+            f"l'ecran /optimize/wizard/slots repond {ecran.status_code} en page 1 et "
+            f"{ecran_page2.status_code} en page 2 ; attendu 200 sur les deux, cet ecran etant rendu "
+            f"par {SOURCE_ROUTES}"
+        )
+    if len(rendus_slots) != len(SLOT_GROUPS):
+        constats.append(
+            f"le rendu de /optimize/wizard/slots porte {len(rendus_slots)} emplacement(s) numerote(s) "
+            f"pour {len(SLOT_GROUPS)} groupe(s) de {SOURCE_SPEC} (SLOT_GROUPS) ; attendu autant "
+            f"d'emplacements rendus que de groupes, le corps etant lu sur ses deux pages"
+        )
+    if len(rendus_filtres) != len(TYPE_FILTER_KEYS):
+        constats.append(
+            f"le rendu de /optimize/wizard/slots porte {len(rendus_filtres)} filtre(s) numerote(s) "
+            f"pour {len(TYPE_FILTER_KEYS)} touche(s) de {SOURCE_SPEC} (TYPE_FILTER_KEYS) ; attendu "
+            f"autant de filtres rendus que de touches, le corps etant lu sur ses deux pages"
+        )
+
+    # 1. Les invites et le rappel de touches, lus au rendu puis exiges de la page.
+    for motif, invite in (
+        (MOTIF_INVITE_EMPLACEMENTS, "SLOTS (N=TOGGLE) :"),
+        (MOTIF_INVITE_FILTRES, "FILTRES TYPES (F+N) :"),
+        (MOTIF_RAPPEL_TOUCHES, "N=TOGGLE SLOT  FN=TOGGLE FILTRE"),
+    ):
+        ligne_rendue = next((ligne.strip() for ligne in lignes if motif.match(ligne.strip())), "")
+        if not ligne_rendue:
+            constats.append(
+                f"la ligne « {invite} » est absente du rendu de /optimize/wizard/slots ; attendu "
+                f"cet intitule, ecrit par {SOURCE_WIZARD} (body_slots)"
+            )
+            continue
+        if normalize(ligne_rendue) not in normalize(texte):
+            constats.append(
+                f"{PAGE} : l'intitule rendu « {ligne_rendue} » n'est pas cite par la page ; attendu "
+                f"cet intitule, lu au rendu et ecrit par {SOURCE_WIZARD} (body_slots)"
+            )
+
+    # 2. Les onze emplacements, numero par numero.
+    cites_slots = _couples_de_table(_sous_section(corps_page, SOUS_TITRE_EMPLACEMENTS), MOTIF_LIGNE_EMPLACEMENT)
+    for numero in sorted(set(rendus_slots) | set(cites_slots)):
+        rendu = rendus_slots.get(numero, "")
+        cite = cites_slots.get(numero, "")
+        if normalize(rendu) != normalize(cite):
+            constats.append(
+                f"{PAGE} : emplacement {numero} — la section cite « {cite} » et le rendu associe le "
+                f"numero {numero} a « {rendu} » ; attendu le libelle rendu par {SOURCE_WIZARD} "
+                f"(SLOT_GROUP_LABELS), sur l'ordre de {SOURCE_SPEC} (SLOT_GROUPS)"
+            )
+
+    # 3. Les dix filtres, touche par touche.
+    cites_filtres = _couples_de_table(_sous_section(corps_page, SOUS_TITRE_FILTRES), MOTIF_LIGNE_FILTRE)
+    for numero in sorted(set(rendus_filtres) | set(cites_filtres)):
+        rendu = rendus_filtres.get(numero, "")
+        cite = cites_filtres.get(numero, "")
+        if normalize(rendu) != normalize(cite):
+            constats.append(
+                f"{PAGE} : filtre F{numero} — la section cite « {cite} » et le rendu associe F{numero} "
+                f"a « {rendu} » ; attendu le couple (F{numero}, libelle) rendu par {SOURCE_WIZARD} "
+                f"(TYPE_FILTER_LABELS)"
+            )
+
+    # 4. Seconde source du couple F6/F7, lue au code et jamais ecrite de memoire.
+    for index in (5, 6):
+        cle = TYPE_FILTER_KEYS[index]
+        numero = index + 1
+        attendu = TYPE_FILTER_LABELS.get(cle, cle.upper())
+        cite = cites_filtres.get(numero, "")
+        if normalize(cite) != normalize(attendu):
+            constats.append(
+                f"{PAGE} : F{numero} — {SOURCE_SPEC} donne TYPE_FILTER_KEYS[{index}] = « {cle} » et "
+                f"{SOURCE_WIZARD} associe cette cle a « {attendu} » dans TYPE_FILTER_LABELS, alors "
+                f"que la section cite « {cite} » ; attendu le couple lu au rendu et au code"
+            )
+
+    # 5. Les refus mesures, exiges de la page : le message rendu est la seule source.
+    refus = (
+        (("abc",), "SAISIE INVALIDE"),
+        (("F11",), "FILTRE INVALIDE"),
+    )
+    for saisies, message_attendu in refus:
+        client_refus = app.test_client()
+        statut = ""
+        for saisie in saisies:
+            reponse = client_refus.post(
+                "/optimize/wizard/slots", data={"cmd": saisie}, follow_redirects=True
+            )
+            statut = _statut(reponse)
+        if normalize(message_attendu) not in normalize(statut):
+            constats.append(
+                f"la saisie « {saisies[-1]} » rend « {statut} » ; attendu le message "
+                f"« {message_attendu} » dans la ligne de statut, ecrit par {SOURCE_ROUTES} "
+                f"(apply_slots_input)"
+            )
+        if normalize(message_attendu) not in normalize(texte):
+            constats.append(
+                f"{PAGE} : le message de refus rendu « {message_attendu} » n'est pas cite par la "
+                f"page ; attendu ce message, lu au rendu et ecrit par {SOURCE_WIZARD} "
+                f"(apply_slots_input)"
+            )
+
+    # 6. Le dernier emplacement actif ne peut pas etre desactive : les onze numeros sont bascules,
+    #    puis le dernier emplacement encore actif est bascule a son tour.
+    client_dernier = app.test_client()
+    statut = ""
+    for numero in range(1, len(rendus_slots) + 1):
+        reponse = client_dernier.post(
+            "/optimize/wizard/slots", data={"cmd": str(numero)}, follow_redirects=True
+        )
+        statut = _statut(reponse)
+    reponse = client_dernier.post("/optimize/wizard/slots", data={"cmd": "8"}, follow_redirects=True)
+    statut = _statut(reponse)
+    if normalize("AU MOINS UN SLOT REQUIS") not in normalize(statut):
+        constats.append(
+            f"desactiver le dernier emplacement actif rend « {statut} » (apres {len(rendus_slots)} "
+            f"bascule(s) et une derniere) ; attendu le message « AU MOINS UN SLOT REQUIS », ecrit par "
+            f"{SOURCE_WIZARD} (apply_slots_input)"
+        )
+    if normalize("AU MOINS UN SLOT REQUIS") not in normalize(texte):
+        constats.append(
+            f"{PAGE} : le message rendu « AU MOINS UN SLOT REQUIS » n'est pas cite par la page ; "
+            f"attendu ce message, lu au rendu et ecrit par {SOURCE_WIZARD} (apply_slots_input)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les slots et les filtres : "
+        + " ; ".join(constats)
+        + f" ; attendu les {len(SLOT_GROUPS)} emplacements et les {len(TYPE_FILTER_KEYS)} filtres "
+        f"cites avec le numero et le libelle rendus par {SOURCE_WIZARD} et {SOURCE_SPEC}"
     )
