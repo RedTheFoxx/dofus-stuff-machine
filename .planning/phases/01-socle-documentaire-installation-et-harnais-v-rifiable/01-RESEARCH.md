@@ -347,9 +347,9 @@ def test_documented_entry_options_parse() -> None:
 
 ### Pitfall 1 : documenter `python fetcher.py version` comme vérification d'installation
 
-**What goes wrong:** sur une installation neuve (`.data/` absent — `.data/` est ignoré par git), la commande échoue : mesuré `Erreur : Base locale vide et --offline : impossible de synchroniser`, code retour 1 (source `dofus_stuff/sync.py:43`). Et **sans** `--offline`, la CLI est en ligne par défaut (`dofus_stuff/cli.py:47-51`) donc `Catalog.load(…)` peut déclencher `ensure_up_to_date`, c'est-à-dire une resynchronisation Dofusdude que la phase interdit explicitement.
+**What goes wrong:** sur une installation neuve (`.data/` absent — `.data/` est ignoré par git), la commande échoue. Mesure exacte : `python fetcher.py --offline version` → `Erreur : Base locale vide et --offline : impossible de synchroniser`, code retour 1, message levé par la garde `if offline:` de `ensure_up_to_date` (`dofus_stuff/sync.py:43`) et affiché par `dofus_stuff/cli.py`. Et **sans** `--offline`, la commande n'atteint pas cette garde : la CLI est en ligne par défaut (`dofus_stuff/cli.py:44-51`, `version` charge le catalogue avec `offline=args.offline` : `dofus_stuff/cli.py:203-212` puis `dofus_stuff/sync.py:50-53`) donc `Catalog.load(…)` peut déclencher `ensure_up_to_date`, c'est-à-dire une resynchronisation Dofusdude que la phase interdit explicitement — la forme sans drapeau n'échoue donc pas comme la page le prétendrait.
 **Why it happens:** D-07 a été écrit « chemin minimal » en supposant que `version` est une vérification inerte ; la commande dépend en réalité d'une base peuplée.
-**How to avoid:** documenter `python fetcher.py --offline db status` comme premier contact CLI — mesuré : code retour 0, **crée** `dofus.sqlite3` si absent, n'ouvre aucune connexion, affiche `Fichier : …`, `Version jeu : (aucune)`, `Dernier check : (aucun)`, `Entrées : 0` — puis présenter `version` comme nécessitant une base peuplée (`db sync`, décrit comme réseau en phase 5).
+**How to avoid:** documenter `python fetcher.py --offline db status` comme premier contact CLI — mesuré : code retour 0, **crée** `dofus.sqlite3` si absent, n'ouvre aucune connexion, affiche `Fichier : …`, `Version jeu : (aucune)`, `Dernier check : (aucun)`, `Entrées : 0` — et ne citer la commande `version` que sous sa forme hors-ligne `python fetcher.py --offline version` (message d'erreur reproduit tel quel sur base vide, fichier source cité) ; `db sync`, décrit comme réseau en phase 5, est la seule façon d'obtenir une base peuplée.
 **Warning signs:** une phrase « lancez `python fetcher.py version` pour vérifier l'installation » dans `docs/installation.md`.
 
 ### Pitfall 2 : placer une option globale après la sous-commande
@@ -510,7 +510,7 @@ Sortie observée de `GET /` sur un `data_dir` neuf avec `offline=True` (défaut 
 | Extra `dev` | `pyproject.toml:18-21` : `dev = ["pytest>=8.0"]` | Le nom `dev` et la commande `pip install -e ".[dev]"` doivent apparaître tels quels |
 | Vérification | `.venv/Scripts/python.exe -m pytest -q` (critère 3) ; re-mesuré le 2026-09-11 pendant cette recherche : `136 passed in 1.61s` | Le compteur ne doit **jamais** être cité par la doc : il change à chaque phase |
 | Premier contact CLI | `python fetcher.py --offline db status` (mesuré : code 0, base créée, actes de sortie `Fichier : …`, `Version jeu : (aucune)`, `Dernier check : (aucun)`, `Entrées : 0`) | Découper avec `shlex` et valider par `dofus_stuff.cli.build_parser().parse_args` |
-| Piège à documenter | `python fetcher.py version` sans base échoue (`dofus_stuff/sync.py:43`) et sans `--offline` peut contacter l'API (CLI en ligne par défaut, `dofus_stuff/cli.py:47-51`) | Bloc « erreur fréquente » (D-02) — c'est l'erreur réellement rencontrée |
+| Piège à documenter | `python fetcher.py --offline version` sans base échoue : `Base locale vide et --offline : impossible de synchroniser`, levé par la garde `if offline:` de `ensure_up_to_date` (`dofus_stuff/sync.py:43`), affiché par `dofus_stuff/cli.py` sous la forme `Erreur : <message>` (code retour 1). La même commande **sans** `--offline` n'atteint pas cette garde et peut contacter l'API (CLI en ligne par défaut, `dofus_stuff/cli.py:47-51`) | Bloc « erreur fréquente » (D-02) — c'est l'erreur réellement rencontrée, reproduite par la forme hors-ligne seulement ; le plan 01-04 exige `--offline` sur chaque commande `fetcher.py` des blocs de code de la page |
 
 Le nom de l'interpréteur `.venv/Scripts/python.exe` est la forme **observée sur ce poste Windows** et celle citée par le critère 3 ; une mention POSIX (`.venv/bin/python`) reste optionnelle et ne doit pas remplacer la forme vérifiable.
 
@@ -559,30 +559,39 @@ Contrainte d'ordre (D-09) : la section clavier précède la commande de lancemen
 | A4 | `.venv/Scripts/python.exe` est la forme de référence à documenter (poste Windows observé, citée par le critère 3) | Références INST-01 | Faible : une mention POSIX reste possible en complément |
 | A5 | Le seuil minimal de la suite après cette phase est `136 + N` tests (compteur réel non cité par la doc) | Validation Architecture | Faible, mais tout compteur cité dans un rapport doit être re-mesuré avant publication |
 
-**If this table is empty:** elle ne l'est pas — A3 mérite une confirmation explicite du planner, car elle conditionne le contenu de `docs/sommaire.md`.
+**If this table is empty:** elle ne l'est pas — A3 a été confirmée explicitement par le planner (voir Open Question 1, RESOLVED ci-dessous), ce qui fixe le contenu de `docs/sommaire.md`.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+**Statut : les cinq questions sont RESOLVED par le planner de la phase 1.** Chaque resolution est
+reportee inline ci-dessous, sous la forme `**Resolution:**` ; les plans 01-01 a 01-04 appliquent
+ces resolutions telles quelles, et le plan 01-04 en controle une partie executable.
 
 1. **Parcours guidé de `docs/sommaire.md` : liens ou texte ?**
    - What we know: D-04 impose un parcours ordonné sur 7 thèmes ; D-05/D-06 n'autorisent qu'une cible livrée en phase 1 ; `test_sommaire_links_resolve` doit rester vert sans liste blanche.
    - What's unclear: l'ordre de lecture peut-il s'exprimer sans lien (texte numéroté), ou faut-il un contrôle d'ordre tolérant sur la forme ?
    - Recommendation: **parcours en texte simple numéroté** (Installation → Parcours simplifié → Wizard avancé → CLI → Base locale → Dépannage → Glossaire), chaque thème devenant un lien dans la phase qui le livre ; l'index thématique contient alors une seule ligne (`installation.md`). Le contrôle bidirectionnel restant une égalité d'ensembles, la duplication d'une même cible (parcours + index) est sans effet.
+   - **Resolution:** adoptée telle quelle. `docs/sommaire.md` est écrit par le plan 01-01 avec le parcours guidé en texte simple numéroté et un index thématique à une seule entrée (`installation.md`) ; aucun lien mort n'est introduit pour un thème non livré (D-06), et le contrôle d'égalité d'ensembles du plan 01-01 reste la garde opposable. La demande de confirmation explicite de l'hypothèse A3 est satisfaite par cette adoption.
 2. **Quelle commande de vérification dans `docs/installation.md` ?**
    - What we know: mesuré — `--offline version` échoue sans base, `version` sans `--offline` peut déclencher une resynchronisation, `--offline db status` réussit et crée la base.
    - What's unclear: D-07 cite `python fetcher.py version`, alors que le critère 3 (opposable) n'exige que `pip install -e ".[dev]"`, la commande `pytest`, le lancement web et l'adresse par défaut.
    - Recommendation: vérification = `.venv/Scripts/python.exe -m pytest -q` (aucun réseau, aucune base, tests sur `tmp_path`), puis premier contact CLI = `python fetcher.py --offline db status`, et `version` présenté comme nécessitant une base peuplée. À acter dans le plan 01-02.
+   - **Resolution:** adoptée, et précisée par la mesure : la forme `python fetcher.py version` **sans** `--offline` n'est pas seulement « nécessitant une base peuplée », elle atteint l'API Dofusdude sur une base vide (`version` charge le catalogue avec `offline=args.offline`, `dofus_stuff/cli.py:203-212` → `Catalog.load`, puis `fetch_version()` : `dofus_stuff/sync.py:50-53`). La page ne cite donc la commande `version` que sous la forme hors-ligne `python fetcher.py --offline version`, qui atteint réellement la garde `if offline:` et lève le message cité ; le plan 01-02 écrit cette forme et attribue le message à `dofus_stuff/sync.py`, le plan 01-04 exige le drapeau hors-ligne sur chaque commande `fetcher.py` des blocs de code de la page. Le message n'est jamais présenté comme le résultat de la forme sans drapeau.
 3. **Faut-il ancrer aussi la commande CLI citée par `installation.md` ?**
    - What we know: le critère 4 n'exige l'ancrage que des options d'**entrée web** ; la phase 2 (CLI-01/CLI-03) couvrira `docs/cli.md`.
    - What's unclear: coût/bénéfice d'un contrôle minimal supplémentaire sur les exemples CLI de la page d'installation.
    - Recommendation: oui, version minimale — toute commande `fetcher.py …` de `docs/installation.md` doit se découper (`shlex.split`) et passer `dofus_stuff.cli.build_parser().parse_args`, sinon la page enseigne une commande fausse ; le contrôle exhaustif reste en phase 2.
+   - **Resolution:** adoptée et renforcée en deux exigences dans le plan 01-04 : (i) chaque commande `fetcher.py` des blocs de code se découpe et passe le parseur réel (un `SystemExit` devient une assertion localisante) ; (ii) elle porte le drapeau hors-ligne avant la sous-commande, ce qui ferme la porte à une commande documentée qui atteindrait l'API. L'exemple d'ordre fautif de la page est décrit en prose, hors bloc de code, pour que l'exigence (i) reste sans exception.
 4. **`ESC` ou `Escape` comme jeton ancré ?**
    - What we know: le code produit le libellé `ESC` (`routes.py:66-69`) et le nom d'événement `Escape` (`terminal.js:558`).
    - What's unclear: lequel doit être vérifié en priorité.
    - Recommendation: ancrer `ESC` (libellé produit par le code, forme du critère 3) et mentionner `Escape` dans la même ligne ; le test exige `ESC`, l'autre forme restant informative.
+   - **Resolution:** adoptée. La page cite le libellé `ESC` et mentionne `Escape` comme nom d'événement (plan 01-02) ; le plan 01-04 va plus loin pour GARD-02 et ancre aussi les autres libellés produits que la page cite — `Quitter`, `Retour`, `Precedent`, `Page prec`, `Suivant`, `Page suiv` sur `dofus_stuff/web/routes.py` — ainsi que le message d'erreur hors-ligne sur `dofus_stuff/sync.py`.
 5. **`F3` doit-il entrer dans la liste obligatoire du test ?**
    - What we know: `terminal.js:551-555` traite `F3` ; `F3 = Quitter` est la seule touche visible sur le menu (`routes.py:206-208`) ; le critère 3 n'exige que cinq touches.
    - What's unclear: étendre ou non la liste obligatoire.
    - Recommendation: documenter `F3` (un lecteur bloqué doit pouvoir sortir) et l'inclure dans les touches vérifiées, les cinq du critère restant le minimum opposable.
+   - **Resolution:** adoptée. `docs/installation.md` documente `F3` avec son libellé `Quitter`, et le test `test_pilotage_clavier_avant_lancement` du plan 01-02 exige `F3`, `F7`, `F8`, `ESC`, `PageUp` et `PageDown` dans la section clavier, qui précède la commande de lancement web (D-09).
 
 ## Environment Availability
 
