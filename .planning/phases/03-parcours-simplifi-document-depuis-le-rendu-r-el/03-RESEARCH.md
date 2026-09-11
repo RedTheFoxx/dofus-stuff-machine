@@ -373,7 +373,7 @@ ID DETAIL | SAVE [NOM] | SAVES | EDIT | DB — PAGE 1/6 — ENTREE=VALIDER
 
 **Barre de touches mesurée** sur l'écran de résultat : `F7=Page prec`, `F8=Page suiv`, `ESC=Retour`. Attention : `Precedent`/`Suivant` (sans abréviation) ne sont produits que pour le **wizard** (qui passe `f7_url`/`f8_url`) ; le résultat, lui, passe par `f7_label = "Page prec"` / `f8_label = "Page suiv"` (`routes.py:137-141`). **Les deux libellés de la phase 4 et de la phase 3 ne sont donc pas les mêmes** — `tests/test_docs_code_anchor.py:64-67` épingle déjà les quatre.
 
-**Où sont les diagnostics.** `dofus_stuff/optimize/api.py:327-341` construit le bloc, `:342-346` l'insère pour le flux non simplifié, et **`:432-434`** l'insère pour le flux simplifié — donc **en fin de résultat**, après l'équipement et les statistiques :
+**Où sont les diagnostics.** `dofus_stuff/optimize/api.py:327-341` construit le bloc, `:342-346` l'insère pour le flux non simplifié, et **`:433-434`** l'insère pour le flux simplifié — donc **en fin de résultat**, après l'équipement et les statistiques :
 
 ```python
     if simple:
@@ -605,7 +605,7 @@ Le commentaire du code borne lui-même la portée (`recommend.py:44`) : `# Broad
         lines.append("Points inclus ; sans exo/parchemins. Jets moyens sauf réglage avancé.")
 ```
 
-Et l'étape 3/3 le redit dans son corps (`routes.py:1001`, mesuré au rendu) : `Points répartis automatiquement, sans exo ni parchemins.` Enfin `routes.py:1002` : `Jets moyens ; préférences de classe ajustables après calcul.` Mesure de cohérence : `[(n, g.exo, g.scroll) for n, g in spec.goals.items() if g.exo or g.scroll] == []` — aucun exo ni parchemin dans le spec généré, pour toutes les classes et tous les niveaux testés. `tests/test_recommend.py:35` asserte déjà `all(g.exo == g.scroll == 0 …)`.
+Et l'étape 3/3 le redit dans son corps (`routes.py:1001`, mesuré au rendu) : `Points répartis automatiquement, sans exo ni parchemins.` Enfin `routes.py:1002` : `Jets moyens ; préférences de classe ajustables après calcul.` Mesure de cohérence : `[(n, g.exo, g.scroll) for n, g in spec.goals.items() if g.exo or g.scroll] == []` — aucun exo ni parchemin dans le spec généré, pour toutes les classes et tous les niveaux testés. `tests/test_recommend.py:28` asserte déjà `all(g.exo == g.scroll == 0 …)`.
 
 ⚠️ **Nuance honnête à porter dans la page :** la ligne de détail rendue s'appelle `Détail {primary} — base+parcho: … | items: … | sets: …` (`api.py:429`). Le mot « parcho » apparaît donc à l'écran alors que **le parcours guidé suppose zéro parchemin** : le total `base+parcho` y est la somme de la base réelle **plus** les parchemins saisis (nuls ici). Ne pas présenter cette ligne comme un contredit de l'hypothèse ; ne pas la passer sous silence non plus.
 
@@ -697,7 +697,7 @@ Relevé dans `tests/conftest.py` (lu intégralement) — **ne rien recopier, ne 
 
 **Patrons existants à imiter** (relevés, pas supposés) :
 
-- **Rendu Flask** : `tests/test_recommend.py:78-93` (`test_quick_flow_and_advanced`) — `client.post("/optimize/quick/classe", data={"cmd": "Crâ"}, follow_redirects=True)` puis `assert b"2/3" in response.data` ; et `patch("dofus_stuff.web.routes._run_optimize_and_redirect", return_value="computed")` pour tester l'étape 3 **sans** faire tourner le solveur. **C'est la façon la moins chère de tester SIMP-01** : elle est déjà verte et ne coûte rien.
+- **Rendu Flask** : `tests/test_recommend.py:68-82` (`test_quick_flow_and_advanced`) — `client.post("/optimize/quick/classe", data={"cmd": "Crâ"}, follow_redirects=True)` puis `assert b"2/3" in response.data` ; et `patch("dofus_stuff.web.routes._run_optimize_and_redirect", return_value="computed")` pour tester l'étape 3 **sans** faire tourner le solveur. **C'est la façon la moins chère de tester SIMP-01** : elle est déjà verte et ne coûte rien.
 - **Écran de résultat paginé** : `tests/test_web.py:522-585` (`test_optimize_result_pagination`) injecte `sess["optimize_result_lines"] = [...]` par `client.session_transaction()` puis lit les pages. **Patron déterministe et instantané** pour le critère 2 — il ne dépend ni du solveur, ni du catalogue.
 - **Ancrage libellé → source** : `tests/test_docs_code_anchor.py:60-74` (`LIBELLES_SOURCE`) + `:240-255` (`test_libelles_cites_sont_produits_par_le_code`) — pour chaque libellé : présence côté page **et** `porteur` + littéral sur une **même ligne** du fichier source. C'est le patron exact à reprendre pour `MAX_SAVES`, `DOFUSBOOK_IMPORT_URL`, `PAGE {page}/{total}`, les trois questions et `AVANCE`.
 - **Constats accumulés, une seule assertion** : `tests/test_docs_cli.py:985-990` clôt chaque test par `assert not constats, …` avec un message qui cite la page, l'attendu et la source.
@@ -770,7 +770,7 @@ tests/
 **Example:**
 
 ```python
-# Source : patron mesuré tests/test_recommend.py:78-93 + tests/conftest.py (fixture `client`)
+# Source : patron mesuré tests/test_recommend.py:68-82 + tests/conftest.py (fixture `client`)
 BODY_ROW = re.compile(r'<div class="row">(.*?)</div>', re.S)
 
 def lignes_du_corps(resp) -> list[str]:
@@ -888,7 +888,7 @@ def refus(resp, message: str) -> bool:
 
 **What goes wrong:** un test qui rend les trois questions avec `create_app(catalog=None, load_catalog=False)` réussit aux étapes 1 et 2 puis lève `RuntimeError: Catalogue non initialisé` à l'étape 3.
 **Why it happens:** `_run_optimize_and_redirect` appelle `get_catalog()` (`routes.py:912`).
-**How to avoid:** utiliser la fixture `client` (qui fournit un catalogue) dès qu'un scénario franchit l'étape 3, ou patcher `dofus_stuff.web.routes._run_optimize_and_redirect` (patron `tests/test_recommend.py:88`).
+**How to avoid:** utiliser la fixture `client` (qui fournit un catalogue) dès qu'un scénario franchit l'étape 3, ou patcher `dofus_stuff.web.routes._run_optimize_and_redirect` (patron `tests/test_recommend.py:75`).
 **Warning signs:** une exception `RuntimeError` en 500 au lieu d'une redirection.
 
 ### Pitfall 6 : fins de ligne et encodage (le piège qui a coûté un cycle à chaque exécuteur)
@@ -1151,7 +1151,7 @@ Le code n'affiche pas « maximum atteint » : il fait `stuffs.shift()` tant que 
 | V3 | Les refus réels le sont, avec le **message exact** (critère 1) | `POST` d'une valeur refusée ⇒ `200`, corps identique, ligne de statut commençant par le message attendu (`Saisissez le nom ou le numéro de votre classe.`, `Exemple : feu, terre air, ou multi.`, `Saisissez un niveau entre 1 et 200.`) | **Oui** : reformuler un message dans `routes.py` ⇒ rouge |
 | V4 | Le couple **numéro ↔ libellé** des deux menus (critère 5) | Extraire les couples du **rendu** (classe : 19 couples ; éléments : 4), les comparer **section par section** aux couples cités par la page | **Oui, prouvé** : 6 mutations mesurées (libellé inversé, numéro décalé, élément inversé, ligne supprimée, dérive `CLASSES`) ⇒ toutes rouges, page non mutée verte |
 | V5 | La carte de pagination existe et a la forme rendue (critère 2) | Sur l'écran de résultat, exiger `PAGE 1/{total} — ENTREE=VALIDER` dans la **ligne de statut**, `data-body-total` cohérent, et l'atteinte de `PAGE {total}/{total}` | **Oui** : supprimer `indicators.append(f"PAGE {page}/{total}")` (`routes.py:145`) ⇒ rouge |
-| V6 | Les trois diagnostics sont **en fin de résultat** (critère 2) | Concaténer les pages dans l'ordre : exiger `Méthode : `, `Score : ` **et** `Indice de recherche : ` après la dernière ligne `Équipement :` / les statistiques et avant `Greedy: `, avec `Recherche sur une sélection du catalogue ; optimalité globale non garantie.` juste après | **Oui** : déplacer `lines.extend(diagnostics)` (`api.py:432`) avant l'équipement ⇒ rouge |
+| V6 | Les trois diagnostics sont **en fin de résultat** (critère 2) | Concaténer les pages dans l'ordre : exiger `Méthode : `, `Score : ` **et** `Indice de recherche : ` après la dernière ligne `Équipement :` / les statistiques et avant `Greedy: `, avec `Recherche sur une sélection du catalogue ; optimalité globale non garantie.` juste après | **Oui** : déplacer `lines.extend(diagnostics)` (`api.py:433`) avant l'équipement ⇒ rouge |
 | V7 | Les libellés de slot et leur nom complet (critère 2, reformulé par ÉCR-1) | Pour chaque libellé rendu par `api.py:362-380` et présent dans la table de la page : exiger le libellé **et** son nom complet dans la page ; exiger que `api.py` porte bien la liste (`display_slots`) | **Oui** : retirer un slot de `display_slots` ou de la table ⇒ rouge (patron `LIBELLES_SOURCE`) |
 | V8 | Les deux écrans de sauvegarde/export et leurs libellés (critère 3) | `GET /saves` ⇒ `SAV-01`, corps `CHARGEMENT DES SAUVEGARDES LOCALES…`, statut `N OUVRIR \| DEL N \| PURGE OUI` ; écran de résultat ⇒ statut contenant `SAVE [NOM]`, `SAVES`, `DB` et `data-mode="result"` ; ces libellés doivent être cités par la page | **Oui** : changer une ligne de statut ⇒ rouge |
 | V9 | `MAX_SAVES = 20` et la clé de stockage (critère 3) | Ancrage **source** : `dofus_stuff/web/static/js/terminal.js:15` porte `MAX_SAVES = 20` et `:14` la clé `dofus-stuff-machine.saves` ; la page cite le **20** et la clé | **Oui** : passer `MAX_SAVES` à 50 ⇒ rouge. ⚠️ C'est un contrôle de **présence de littéral**, pas d'exécution — à dire dans le test |
@@ -1171,7 +1171,7 @@ Le code n'affiche pas « maximum atteint » : il fait `stuffs.shift()` tant que 
 
 | Req ID | Comportement | Type | Commande d'exécution | Fichier existant ? |
 |--------|--------------|------|----------------------|--------------------|
-| SIMP-01 | Trois questions rendues + entrées acceptées/refusées + 3 messages | rendu (Flask `test_client`) | `.venv/Scripts/python.exe -m pytest tests/test_docs_parcours.py -q` | ❌ Wave 0 (nouveau module) — patrons dans `test_recommend.py:78-100` |
+| SIMP-01 | Trois questions rendues + entrées acceptées/refusées + 3 messages | rendu (Flask `test_client`) | `.venv/Scripts/python.exe -m pytest tests/test_docs_parcours.py -q` | ❌ Wave 0 (nouveau module) — patrons dans `test_recommend.py:68-82` |
 | SIMP-02 | Carte de pagination + position des diagnostics + libellés de slot | rendu + injection de session | idem | ❌ Wave 0 — patron dans `test_web.py:522-585` |
 | SIMP-03 | Écrans `SAV-01` et `OPT-03` + constantes JS ancrées | rendu + lecture source | idem | ❌ Wave 0 — patron dans `test_web.py` + `test_docs_code_anchor.py:240-255` |
 | SIMP-04 | Hypothèses et limites citées avec les littéraux du code | lecture source ancrée | idem | ❌ Wave 0 — patron `LIBELLES_SOURCE` |
