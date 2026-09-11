@@ -19,9 +19,9 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Installation et démarrage
 
-- [ ] **INST-01** : Un lecteur peut installer l'outil (Python 3.11+, `pip install -e ".[dev]"`) puis vérifier son installation sans lire le code — dérivé de DOCS-03
-- [ ] **INST-02** : Un lecteur peut démarrer l'interface web et sait dans quel mode elle démarre (hors-ligne par défaut) et sur quelle adresse — dérivé de DOCS-03
-- [ ] **INST-03** : Un lecteur comprend que l'interface web se pilote au clavier (champ de saisie, F7/F8/ESC/PageUp/PageDown) avant de la lancer — dérivé de DOCS-03
+- [x] **INST-01** : Un lecteur peut installer l'outil (Python 3.11+, `pip install -e ".[dev]"`) puis vérifier son installation sans lire le code — dérivé de DOCS-03
+- [x] **INST-02** : Un lecteur peut démarrer l'interface web et sait dans quel mode elle démarre (hors-ligne par défaut) et sur quelle adresse — dérivé de DOCS-03
+- [x] **INST-03** : Un lecteur comprend que l'interface web se pilote au clavier (champ de saisie, F7/F8/ESC/PageUp/PageDown) avant de la lancer — dérivé de DOCS-03
 
 ### Flux simplifié (cœur de la valeur produit)
 
@@ -109,9 +109,9 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | SOMM-01 | Phase 1 | Complete |
 | SOMM-02 | Phase 1 | Complete |
 | SOMM-03 | Phase 1 | Pending |
-| INST-01 | Phase 1 | Pending |
-| INST-02 | Phase 1 | Pending |
-| INST-03 | Phase 1 | Pending |
+| INST-01 | Phase 1 | Complete |
+| INST-02 | Phase 1 | Complete |
+| INST-03 | Phase 1 | Complete |
 | SIMP-01 | Phase 3 | Pending |
 | SIMP-02 | Phase 3 | Pending |
 | SIMP-03 | Phase 3 | Pending |
