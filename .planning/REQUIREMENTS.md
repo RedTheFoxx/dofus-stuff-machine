@@ -34,7 +34,7 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 - [x] **WIZ-01** : Un lecteur peut parcourir les étapes du wizard, éditer les formats de caractéristiques et utiliser la syntaxe d'items interdits/forcés — dérivé de DOCS-05
 - [x] **WIZ-02** : Un lecteur connaît les commandes et les touches réellement actives du wizard — dérivé de DOCS-05
-- [ ] **WIZ-03** : `GUIDE_WIZARD.md` ne contredit plus le code : contenu migré vers `docs/wizard-avance.md` comme source unique, fichier racine réduit à un aiguillage corrigé, `README.md` redirigé — dérivé de DOCS-10
+- [x] **WIZ-03** : `GUIDE_WIZARD.md` ne contredit plus le code : contenu migré vers `docs/wizard-avance.md` comme source unique, fichier racine réduit à un aiguillage corrigé, `README.md` redirigé — dérivé de DOCS-10
 
 ### Référence CLI
 
@@ -118,7 +118,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | SIMP-04 | Phase 3 | Complete |
 | WIZ-01 | Phase 4 | Complete |
 | WIZ-02 | Phase 4 | Complete |
-| WIZ-03 | Phase 4 | Pending |
+| WIZ-03 | Phase 4 | Complete |
 | CLI-01 | Phase 2 | Complete |
 | CLI-02 | Phase 2 | Complete |
 | CLI-03 | Phase 2 | Complete |

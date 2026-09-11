@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Wizard avancé et résorption de la dette `GUIDE_WIZARD`
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-09-11T19:03:44.433Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-09-11T19:11:37.339Z"
 last_activity: 2026-09-11
 last_activity_desc: Plan 04-01 terminé — page du wizard avancé, entrée d'index et module d'ancrage (194 tests verts)
-state_head: f9576493095184004f5932158f81e2cb065afcdf
+state_head: d84150087218884867830465630fa3e3ba908102
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 50
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 4 (Wizard avancé et résorption de la dette `GUIDE_WIZARD`) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-09-11 — Plan 04-01 terminé (page du wizard avancé, entrée d'index, module d'ancrage)
 
@@ -74,6 +74,7 @@ Progress: [█████░░░░░] 50%
 | Phase 03 P04 | 17 min | 3 tasks | 2 files |
 | Phase 4 P01 | 10min | 3 tasks | 3 files |
 | Phase 4 P2 | 2min | 2 tasks | 2 files |
+| Phase 4 P04 | 1min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,9 @@ Recent decisions affecting current work:
 - [Phase 4]: [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: Les couples de touches sont exiges PAR ETAPE (F7, F8, ESC lus dans la barre rendue des neuf ecrans, table de page mise en correspondance avec WIZARD_STEPS) : aucune assertion n'exige Precedent/Suivant sur les neuf, ce qui contredirait le rendu des extremites (etape 1 = Page prec, etape 9 = Page suiv, consequence directe de routes.py:137-141) et la phrase de docs/parcours-simplifie.md:140, qui reste vraie sur les etapes 2 a 8 et n'a pas ete modifiee.
 - [Phase 4]: [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: Les commandes du recapitulatif sont prouvees par le rendu ET par l'action : les quatre libelles du corps sont compares dans les deux sens (dictionnaire de la section = dictionnaire rendu), RESET, SAVES et les chiffres 1 a 8 sont postes et leur redirection comparee a WIZARD_STEPS[n - 1] lu au code, la saisie hors liste rend GO | RESET | SAVES | 1-8 ; GO n'est jamais poste car il execute le solveur, sa citation vient du corps rendu et son execution reste couverte, patchee, par tests/test_web.py (D-12). Mesure : 6 morsures detectees sur copie verte avant mutation (3 en tache 1, 3 en tache 2), batterie de la tache 1 rejouee apres la tache 2 (3/3), 198 passed, empreinte .data/dofus.sqlite3 identique (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b).
 - [Phase 4]: [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: L'exemple guide migre est reancre edition par edition sur des clients neufs (niveau 123, ligne 4 des caracteristiques 300 0 0 1, variante cible PA 6 0 11 5) : la ligne rendue apres chaque edition doit etre citee par la section, donc la variante PA survit parce que le code la porte (with_exo, forme BASE EXO CIBLE POIDS) et tomberait si le code changeait ; la justification « base 200 + parchemins 100 » est presentee comme une decision du lecteur, le wizard n'editant pas les parchemins, et aucun parcours recommande ne contient de commande destructrice.
+- [Phase 4]: [Phase 4]: [Phase 04-04]: Le detecteur de renvois obsoletes est une fonction PURE `renvois_obsoletes(texte, faits)` a trois formes nommees : ses attentes lui arrivent par `faits` et chaque constat nomme la forme, la valeur fautive, la valeur attendue lue au rendu ET le fichier de code producteur (D-13, D-58, D-65). Les faits sont MESURES (libelles de menu de GET /, numero branche sur /optimize decouvert en postant chaque numero et en suivant la redirection jusqu'aux trois questions, couple F6/F7 lu sur les deux pages de slots et corrobore par TYPE_FILTER_KEYS[5]/[6] + TYPE_FILTER_LABELS, dernier segment de la chaine d'arrivee) : aucune valeur de produit n'est recopiee. Les libelles sont stockes tels que le rendu les produit (OPTIMISATION DE STUFF, ARMES MELEE) et la comparaison normalise a l'interieur du detecteur, qui doit rester pur.
+- [Phase 4]: [Phase 04-04]: La comparaison d'un jeton de menu `N. LIBELLE` est une regle d'APPARTENANCE de mots significatifs (longueur >= 4, hors mots-outils LISTE/DES/DE/LA/LE/LES) contre le libelle rendu de ce numero, et non une egalite stricte : D-47 exige les formes abreges `4. OPTIMISATION` / `3. PANOPLIES` dans l'aiguillage corrige, que l'egalite stricte declarerait fautives et rendrait le vert du critere 5 inatteignable. Le jeton est cherche n'importe ou dans la ligne (les trois occurrences reelles du guide sont en tete de ligne, en gras et entre accents graves), la forme (b) n'est evaluee que sur la ligne qui porte la touche, et la forme (c) exige une marque d'immediatete SANS marque de negation (`pas`, `jamais`, `ne`, `n'`). Quatre temoins legitimes (texte corrige type aux formes de D-47, phrase portant F7 et ARMES MELEE, phrase negative, renvoi en prose) rendent zero constat : un detecteur qui crie au loup serait pire que pas de detecteur (D-60).
+- [Phase 4]: [Phase 04-04]: La vague 3 se termine VOLONTAIREMENT ROUGE sur un seul test : `test_aiguillage_sans_renvoi_obsolete` echoue sur GUIDE_WIZARD.md encore obsolete avec les trois formes nommees (mesure : `1 failed, 200 passed`), c'est la preuve du critere 5 (D-59a) et non une regression ; `git diff --quiet -- GUIDE_WIZARD.md` est vrai, README.md et docs/parcours-simplifie.md ne sont pas touches, et le vert appartient au plan 04-03 (vague 4), jamais a un affaiblissement du detecteur. La copie figee tests/fixtures/guide-wizard-obsolete.md (39 lignes, CRLF en arbre / LF en blob comme le reste du depot) est signalee par le MEME detecteur avec six constats, dont un nommant OPTIMISATION DE STUFF et un nommant ARMES MELEE ; retirer une forme de la copie fait rougir le test (3/3 morsures detectees sur copie verte avant mutation). Limite honnete ecrite dans le module et dans les messages : trois formes nommees, aucune exhaustivite revendiquee, jetons juges contre les libelles de premier niveau mesures au rendu de GET /.
 
 ### Pending Todos
 
@@ -164,6 +168,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T19:03:44.393Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-09-11T19:11:37.298Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
