@@ -2320,11 +2320,13 @@ NOM_FILTRE_PLAUSIBILITE = "_is_plausible_equipment"
 FRAGMENT_PROFONDEUR = "top_k=40"
 FRAGMENT_COUPE_URL = "url[:COLS]"
 
-# Pages citees en prose par la section, sans lien : leurs pages n'existent pas encore (D-44). La
-# reserve est reduite a ce qui est **reellement** inexistant (D-63) : `wizard-avance.md` est livree par
-# la phase 4, donc son lien est desormais legitime, et `test_lien_wizard_avance_legitime` refuse qu'une
-# page existante reste declaree inexistante.
-PAGES_INEXISTANTES = ("base-locale.md",)
+# Pages citees en prose par la section, sans lien : la reserve est **vide** depuis que la dette D-44 est
+# entierement levee (D-63) — `wizard-avance.md` livree par la phase 4, `base-locale.md` livree et indexee
+# par la phase 5. La constante reste le site d'accueil des deux boucles qui l'iterent
+# (`test_limites_ancrees_sur_le_code` et `test_page_complete_et_sans_derive`) : sur un tuple vide elles
+# ne produisent rien. Une entree ne s'y remet que si une page citee en prose n'existe pas sur disque :
+# `test_lien_wizard_avance_legitime` refuse alors qu'une page existante reste declaree inexistante.
+PAGES_INEXISTANTES = ()
 
 # Cibles de liens legitimes de l'aiguillage `GUIDE_WIZARD.md` vers `docs/` (D-60) : chaque cible d'un
 # lien de l'aiguillage vers `docs/` doit etre **declaree ici** et **exister sur disque**. Aucun autre
@@ -2877,18 +2879,18 @@ def test_lien_wizard_avance_legitime(docs_dir: Path, normalize) -> None:
     1. les deux renvois en prose de `docs/parcours-simplifie.md` portent un lien dont la cible est
        `wizard-avance.md` : le sujet du wizard avance est desormais decrit par cette page, et le lien
        le dit ;
-    2. aucune entree de `PAGES_INEXISTANTES` ne correspond a une page qui existe sur disque : c'est
-       cette garde qui rend la reduction obligatoire, verifiable et inversible (remettre
-       `wizard-avance.md` dans la reserve fait rougir la suite) ;
+    2. aucune entree de `PAGES_INEXISTANTES` ne correspond a une page qui existe sur disque : la
+       reserve est videe, donc ce controle est vert, et la remise en dette reste verifiable et
+       inversible (remettre `base-locale.md` dans la reserve fait rougir la suite) ;
     3. chaque cible de lien de `GUIDE_WIZARD.md` vers `docs/` est declaree dans
        `LIENS_LEGITIMES_VERS_L_AIGUILLAGE` ;
     4. chaque cible declaree **existe** depuis la racine du depot — un lien mort est un echec ;
-    5. les phrases de `RENVOIS_SANS_LIEN` sont toujours presentes (`base-locale.md` n'existe pas encore)
-       et la page cible est citee par `docs/sommaire.md`, donc l'aiguillage mene a un point d'entree
-       reel.
+    5. les phrases de `RENVOIS_SANS_LIEN` sont toujours presentes — les deux sujets sont desormais des
+       liens vers leur page, mais le renvoi en prose continue de les nommer — et la page cible est
+       citee par `docs/sommaire.md`, donc l'aiguillage mene a un point d'entree reel.
 
-    Limite honnete : la dette restante (`base-locale.md`) reste visible par construction ; ce controle
-    ne dit rien du reste de la prose de la page, seulement des deux renvois qu'il nomme.
+    Limite honnete : la reserve est videe, donc ce controle ne peut plus rien y voir ; il dit ce que
+    les deux renvois qu'il nomme sont devenus, et rien du reste de la prose de la page.
     """
     chemin_page = docs_dir / PAGE
     if not chemin_page.is_file():
@@ -2966,13 +2968,14 @@ def test_lien_wizard_avance_legitime(docs_dir: Path, normalize) -> None:
                 f"l'aiguillage mene a une page morte"
             )
 
-    # 5. La dette restante reste visible et la cible est indexee par le sommaire.
+    # 5. Les deux renvois en prose restent presents, et la cible est indexee par le sommaire.
     normalise_page = normalize(texte_page)
     for renvoi in RENVOIS_SANS_LIEN:
         if normalize(renvoi) not in normalise_page:
             constats.append(
-                f"{PAGE} : le renvoi « {renvoi} » a disparu ; attendu cette phrase, la dette restante "
-                f"(`base-locale.md` n'existe pas encore) devant rester visible dans la page (D-63)"
+                f"{PAGE} : le renvoi « {renvoi} » a disparu ; attendu cette phrase, les deux sujets "
+                f"etant desormais des liens vers leur page, mais le renvoi en prose les nommant "
+                f"toujours dans la page (D-63, D-86)"
             )
     texte_sommaire = (docs_dir / SOMMAIRE).read_text(encoding="utf-8")
     if f"]({PAGE_WIZARD})" not in texte_sommaire:
@@ -2985,6 +2988,7 @@ def test_lien_wizard_avance_legitime(docs_dir: Path, normalize) -> None:
         f"{PAGE} et {GUIDE_WIZARD} : constats sur le renvoi legitime et la reserve : "
         + " ; ".join(constats)
         + f" ; attendu les deux renvois de {PAGE} portant un lien vers {PAGE_WIZARD}, une reserve "
-        f"PAGES_INEXISTANTES reduite a ce qui n'existe pas, et chaque cible de lien de {GUIDE_WIZARD} "
+        f"PAGES_INEXISTANTES qui ne declare inexistante aucune page presente, et chaque cible de lien "
+        f"de {GUIDE_WIZARD} "
         f"vers `docs/` declaree **et** existante (D-60, D-63)"
     )

@@ -20,3 +20,4 @@ Cette page est le point d'entrée unique de la documentation utilisateur de dofu
 | [Parcours simplifié](parcours-simplifie.md) | Obtenir un stuff en 3 questions, lire puis sauvegarder le résultat |
 | [CLI](cli.md) | Commandes, options et exemples de fetcher.py |
 | [Wizard avancé](wizard-avance.md) | Les 9 étapes du wizard, ses filtres, ses formats et ses touches |
+| [Base locale](base-locale.md) | La base SQLite locale, ses catégories et la fenêtre de resynchronisation |
