@@ -45,12 +45,14 @@ import ast
 import hashlib
 import io
 import re
+import time
 from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
 
 from dofus_stuff.api import SYNC_SOURCES
+from dofus_stuff.catalog import Catalog
 from dofus_stuff.cli import _print_db_status
 from dofus_stuff.cli import build_parser as parseur_cli
 from dofus_stuff.database import (
@@ -298,6 +300,108 @@ MOTIF_LIEN_EXTERNE = "lien externe"
 MOTIF_BASE_ABSENTE = "base locale du depot absente"
 MOTIF_EMPREINTE_CHANGEE = "empreinte de la base locale modifiee"
 
+# Motifs de morsure du plan 05-04 (vague 4), portes par des constantes du module comme les precedents :
+# pytest reproduit la ligne source du `assert`, une valeur ecrite en clair y serait trouvee meme si aucun
+# constat n'avait ete produit. Valeurs ASCII, sans apostrophe, chacune incluse dans le constat qui la
+# concerne. Aucun de ces trois motifs n'est ecrit en clair dans le message de l'assertion finale : une
+# morsure doit trouver le motif de **son** constat, jamais un motif recopie par le message d'accueil du
+# controle, sans quoi elle ne serait pas discriminante (T-05-20).
+MOTIF_DECLENCHEUR = "declencheur du controle de version"
+MOTIF_ABSOLU_DECLENCHEUR = "absolu sur le declencheur"
+MOTIF_SANS_ERREUR = "base absente presentee comme sans erreur"
+
+# Version que rend le double de `fetch_version` : la meme chaine est posee comme version locale des cas
+# « remplis », de sorte que la comparaison de versions soit reellement un cas « versions identiques » et
+# non un cas ou la difference ferait synchroniser pour une autre raison que celle mesuree.
+VERSION_DISTANTE = "1.2.3.4"
+
+# Message reel de `dofus_stuff/sync.py:43`, releve sur le code et jamais paraphrase : c'est lui qui prouve
+# que le cas hors-ligne d'une base vide s'arrete sur une erreur **avant** tout contact.
+MESSAGE_BASE_VIDE = "Base locale vide et --offline : impossible de synchroniser"
+
+# Les six cas du declencheur, nommes un a un puis rassembles : chaque nom est un dossier construit sous
+# `tmp_path`, jamais un chemin du depot ni `DEFAULT_DATA_DIR`.
+CAS_BASE_REMPLIE_FRAICHE = "base_remplie_fenetre_fraiche"
+CAS_FENETRE_ECOULEE = "base_remplie_fenetre_ecoulee"
+CAS_BASE_VIDE = "base_vide_fenetre_fraiche"
+CAS_JAMAIS_CONTROLEE = "base_remplie_jamais_controlee"
+CAS_FORCE = "base_remplie_fenetre_fraiche_force"
+CAS_HORS_LIGNE = "base_vide_hors_ligne"
+
+# Contacts attendus = appels de `fetch_version` mesures par le planificateur sur la decision de
+# `dofus_stuff/sync.py:32` (`needs_check = force or empty or last_checked is None or
+# (now - last_checked) >= CHECK_INTERVAL_SECONDS`), dans l'ordre des six cas ci-dessus : fenetre fraiche
+# sur base remplie -> 0 contact (retour `skip` avec `reason` valant `within_24h`, `sync.py:33-39`) ;
+# fenetre ecoulee -> 1 ; base vide a fenetre fraiche -> 1 (`empty`, meme ligne) ; base jamais controlee
+# -> 1 (`last_checked is None`, meme ligne) ; `--force-sync` -> 1 (`force`, meme ligne) ; base vide en
+# `--offline` -> 0 (la garde `sync.py:41-43` leve avant tout contact). Ces valeurs sont des **mesures**
+# du code, jamais une lecture de la prose de la page.
+CONTACTS_ATTENDUS = {
+    CAS_BASE_REMPLIE_FRAICHE: 0,
+    CAS_FENETRE_ECOULEE: 1,
+    CAS_BASE_VIDE: 1,
+    CAS_JAMAIS_CONTROLEE: 1,
+    CAS_FORCE: 1,
+    CAS_HORS_LIGNE: 0,
+}
+
+# Marques du declencheur, comparees normalisees (D-11) apres la fixture `normalize` : pour chaque cas dont
+# la mesure rend **au moins un** contact, la section de la fenetre de re-check doit porter au moins une
+# marque de son jeu. Les jeux vont du plus explicite au plus court, et jamais une seule formulation
+# epinglee : le controle exige la condition, pas une redaction (D-85). Le cas hors-ligne n'y figure pas :
+# l'absence de contact y vient de la garde hors-ligne (`sync.py:41-43`), pas de la porte de la fenetre.
+MARQUES_DECLENCHEURS = {
+    CAS_FENETRE_ECOULEE: (
+        "fenetre de 24 heures est ecoulee",
+        "fenetre est ecoulee",
+        "fenetre ecoulee",
+    ),
+    CAS_BASE_VIDE: (
+        "base locale ne porte encore aucun objet",
+        "base locale est vide",
+        "base locale vide",
+        "base vide",
+    ),
+    CAS_JAMAIS_CONTROLEE: (
+        "aucun dernier controle",
+        "jamais ete controlee",
+    ),
+    CAS_FORCE: ("--force-sync",),
+}
+
+# Marques du cas de non-contact, comparees normalisees : quand la mesure rend zero contact sur une base
+# remplie a fenetre fraiche, la meme section doit dire que le chargement s'arrete la et qu'aucune requete
+# reseau n'est emise. C'est la moitie utile de la phrase fautive d'origine, rattachee a sa vraie
+# condition (`sync.py:33-39`).
+MARQUES_NON_CONTACT = (
+    "s'arrete la",
+    "s arrete la",
+    "aucune requete reseau",
+    "pas de requete reseau",
+)
+
+# Formes d'exclusivite de la fenetre, refusees **seulement parce qu'un contact a ete mesure** sur une base
+# vide a fenetre fraiche (bloc 4) : la prohibition est conditionnee a la mesure qui la justifie, jamais une
+# liste de chaines interdites en dur (T-05-19). Une exclusivite formulee autrement que par ces chaines
+# reste hors d'atteinte du controle, et c'est declare (D-85).
+ABSOLUS_DECLENCHEUR = (
+    "seulement dans ce cas",
+    "uniquement dans ce cas",
+    "dans ce cas seulement",
+    "la seule situation",
+    "la seule condition",
+)
+
+# Marque de l'affirmation « une base absente n'est pas une erreur » : la section qui la porte doit aussi
+# nommer la limite de la ligne de commande mesuree (`sync.py:43`), sinon elle generalise au-dela du
+# parcours reel (constat secondaire de `05-VERIFICATION.md`, ligne 9).
+MARQUES_ABSENTE_SANS_ERREUR = ("n'est pas une erreur", "pas une erreur")
+MARQUES_LIMITE_CLI = ("ligne de commande", "--offline")
+# La section de la ligne de commande continue de dire, de son cote, qu'une base vide l'arrete sur une
+# erreur : les deux extremites de la contradiction interne sont donc exigees.
+MARQUES_VIDE_HORS_LIGNE = ("vide",)
+MARQUES_ERREUR_HORS_LIGNE = ("sur une erreur", "s'arrete", "echoue", "refuse")
+
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
 # produit a tenir a jour — et **plus** sur l'import de `dofus_stuff.database`, qui est la matiere de
@@ -332,7 +436,10 @@ CONFIRMATIONS_INTERDITES = ("O", "Y", "OUI", "YES")
 
 # Appels qui construisent une base, et formes de `data_dir` admises : une expression derivee de
 # `tmp_path`, ou un nom lie dans le module a une telle expression (patron `dossier = tmp_path / "absent"`).
-CIBLES_DATA_DIR = ("Database", "create_app")
+# `load` est le troisieme appel (plan 05-04) : `Catalog.load(data_dir=...)` ouvre la base par
+# `Database`, et son `data_dir` est donc verifie comme celui des deux autres — c'est un
+# resserrement de la garde, jamais un adoucissement.
+CIBLES_DATA_DIR = ("Database", "create_app", "load")
 REPERTOIRES_ISOLES = ("tmp_path", "web_config")
 
 # Contenu et objets du plan 05-03 : le detecteur de renvois du `README.md` (D-87), la dette denouee de
@@ -2246,4 +2353,209 @@ def test_data_locale_non_modifiee_autour_des_rendus(app) -> None:
         + " ; ".join(constats)
         + f" ; attendu les ecrans {', '.join(ECRANS_RENDUS)} rendus en lecture par {SOURCE_ROUTES}, "
         f"sans que .data/dofus.sqlite3 soit ouvert, ecrit ou supprime par ce module (D-81)"
+    )
+
+def _contacts_mesures(tmp_path: Path, monkeypatch) -> tuple[dict[str, int], str]:
+    """Nombre de contacts reseau **reellement mesures** pour les six cas du declencheur, et message leve.
+
+    Mesure du plan 05-04 (D-83, D-89) : chaque cas est une base **neuve construite sous `tmp_path`**
+    (`Database(data_dir=tmp_path / <cas>)`, jamais `DEFAULT_DATA_DIR`), remplie d'une ligne et d'une
+    version locale egale a la version distante pour les quatre cas « remplis », puis horodatee selon le
+    cas (`last_checked_at` absent, frais ou ecoule) ; les deux cas a base vide n'y ecrivent aucune ligne.
+    Les **deux points d'entree reseau** de `dofus_stuff/sync.py` — `fetch_version` et `pull_all`, importes
+    dans ce module-la — sont remplaces par des doubles compteurs **avant** tout appel : ce controle ne
+    joint jamais le reseau, aucun socket n'est ouvert et aucune synchronisation du produit n'est executee.
+    Le nombre rendu est le nombre d'appels au premier contact (`sync.py:51`), jamais une lecture de la
+    prose de la page.
+
+    Le chargement passe par `Catalog.load(data_dir=..., offline=..., force_sync=..., quiet=True)` et non
+    par un appel direct a `ensure_up_to_date` : la garde de cloture de ce module refuse nommement ce
+    dernier (`APPELS_SYNCHRO_PRODUIT`), et cet interdit n'est pas leve. `Catalog.load` traverse la meme
+    decision, et il construit sa base par `Database` : son `data_dir` est donc verifie comme les autres
+    depuis que `CIBLES_DATA_DIR` porte `load` (resserrement de la garde, jamais un adoucissement).
+    `quiet=True` supprime la sortie du produit dans le resume pytest.
+
+    Limite nommee (D-85) : ce helper mesure une **decision**, il ne prouve pas qu'un appel reel a l'API
+    Dofusdude reussirait — les deux points d'entree sont des doubles.
+    """
+    contacts: dict[str, int] = {}
+    messages: dict[str, str] = {}
+
+    for cas in CONTACTS_ATTENDUS:
+        requetes = {"fetch_version": 0, "pull_all": 0}
+        dossier = tmp_path / cas
+
+        base = Database(data_dir=dossier)
+        base.open()
+        if cas not in (CAS_BASE_VIDE, CAS_HORS_LIGNE):
+            base.replace_kind("equipment", [{"ankama_id": 7, "name": "temoin"}])
+            base.set_meta(META_GAME_VERSION, VERSION_DISTANTE)
+            if cas == CAS_FENETRE_ECOULEE:
+                base.touch_checked_at(time.time() - CHECK_INTERVAL_SECONDS)
+            elif cas != CAS_JAMAIS_CONTROLEE:
+                base.touch_checked_at(time.time())
+            # `CAS_JAMAIS_CONTROLEE` : aucun dernier controle enregistre, `last_checked_at` reste absent.
+        base.close()
+
+        def double_fetch_version(*args, **kwargs) -> str:
+            """Double compteur de `dofus_stuff.sync.fetch_version` : aucun socket, un simple journal."""
+            requetes["fetch_version"] += 1
+            return VERSION_DISTANTE
+
+        def double_pull_all(*args, **kwargs) -> dict[str, int]:
+            """Double compteur de `dofus_stuff.sync.pull_all` : aucun telechargement, un journal vide."""
+            requetes["pull_all"] += 1
+            return {}
+
+        monkeypatch.setattr("dofus_stuff.sync.fetch_version", double_fetch_version)
+        monkeypatch.setattr("dofus_stuff.sync.pull_all", double_pull_all)
+
+        try:
+            Catalog.load(
+                data_dir=dossier,
+                offline=cas == CAS_HORS_LIGNE,
+                force_sync=cas == CAS_FORCE,
+                quiet=True,
+            )
+        except RuntimeError as erreur:
+            messages[cas] = str(erreur)
+
+        contacts[cas] = requetes["fetch_version"]
+
+    return contacts, messages.get(CAS_HORS_LIGNE, "")
+
+
+def test_declencheur_du_controle_de_version(
+    docs_dir: Path, section, normalize, sections, tmp_path: Path, monkeypatch
+) -> None:
+    """Les conditions du declencheur sont **mesurees** sur le code, puis exigees de la page (BASE-01).
+
+    Le defaut ferme ici n'est pas seulement une phrase : c'est le harnais. La section « La fenetre de
+    re-check de 24 heures » n'etait controlee que sur la constante, son expression et l'absence de valeur
+    volatile ; la semantique du declencheur n'etait couverte par rien, et `05-VERIFICATION.md` a paye ce
+    trou (critere 1, lignes 39 et 41 : la page affirmait que la fenetre ecoulee est la seule situation de
+    contact, alors que `dofus_stuff/sync.py:32` contacte aussi sur une base vide, sur une base jamais
+    controlee et avec `--force-sync`). Ce controle mesure donc la decision avant de se prononcer :
+
+    - bloc 1 : `_contacts_mesures` doit rendre **exactement** les six contacts attendus (0, 1, 1, 1, 1, 0)
+      et le cas hors-ligne doit lever avec le message reel de `sync.py:43` ;
+    - bloc 2 : pour chaque cas dont la mesure rend un contact, la section de la fenetre doit porter au
+      moins une marque de son jeu — la correspondance va de la mesure vers la page, jamais d'une
+      constante citee vers la page ;
+    - bloc 3 : le cas mesure a zero contact (base remplie, fenetre fraiche) doit y etre dit pour ce qu'il
+      est : le chargement s'arrete la et aucune requete reseau n'est emise (`sync.py:33-39`) ;
+    - bloc 4 : aucune marque d'exclusivite de la fenetre dans la section, et cette prohibition est
+      **conditionnee a la mesure** qui la justifie — un contact mesure sur une base vide a fenetre fraiche ;
+    - bloc 5 : l'affirmation « une base absente n'est pas une erreur » est bornee des deux cotes — la
+      section qui la porte nomme la limite de la ligne de commande, et la section de la ligne de commande
+      continue de dire qu'une base vide l'arrete sur une erreur (`sync.py:43`, `dofus_stuff/cli.py`).
+
+    Mesure : les six cas sont joues sur des bases **construites sous `tmp_path`**, avec les deux points
+    d'entree reseau de `dofus_stuff/sync.py` remplaces par des doubles avant tout appel, et a travers
+    `Catalog.load` — jamais `ensure_up_to_date`, que la garde de cloture de ce module refuse par son nom.
+
+    Limites declarees (D-85), jamais un vert silencieux : les formulations de la page **au-dela des marques
+    epinglees** ne sont pas lues (le controle ne lit pas le sens des phrases) ; une exclusivite formulee
+    autrement que par les chaines de `ABSOLUS_DECLENCHEUR` reste hors d'atteinte ; le contact reel de l'API
+    Dofusdude n'est **jamais** exerce, les deux points d'entree etant des doubles, et rien ici ne prouve
+    qu'un appel Dofusdude reussirait. Aucun de ces trois points n'est presente comme prouve.
+    """
+    texte = _texte_page(docs_dir)
+    corps_fenetre = section(texte, TITRE_FENETRE, PAGE)
+    corps_cli = section(texte, TITRE_CLI, PAGE)
+    contacts, message = _contacts_mesures(tmp_path, monkeypatch)
+    constats: list[str] = []
+
+    # 1. La mesure existe et correspond a la decision du code (`sync.py:32`, garde hors-ligne `:41-43`).
+    for cas, attendu in CONTACTS_ATTENDUS.items():
+        mesure = contacts.get(cas)
+        if mesure == attendu:
+            continue
+        source = f"{SOURCE_SYNC}:43" if cas == CAS_HORS_LIGNE else f"{SOURCE_SYNC}:32"
+        constats.append(
+            f"{MOTIF_DECLENCHEUR} : le cas « {cas} » a ete mesure a {mesure!r} contact(s) et {attendu} "
+            f"est attendu ; attendu le nombre d'appels a `fetch_version` que la decision de {source} "
+            f"produit sur ce cas, mesure sur une base construite sous `tmp_path`, les deux points "
+            f"d'entree reseau etant remplaces avant l'appel"
+        )
+    if MESSAGE_BASE_VIDE not in message:
+        constats.append(
+            f"{MOTIF_DECLENCHEUR} : le cas « {CAS_HORS_LIGNE} » n'a pas leve le message reel du produit ; "
+            f"mesure : {message!r} ; attendu « {MESSAGE_BASE_VIDE} » ({SOURCE_SYNC}:43), le chargement "
+            f"hors-ligne du catalogue sur une base vide s'arretant sur une erreur avant tout contact"
+        )
+
+    # 2. La page nomme chaque condition dont le contact a ete mesure : de la mesure vers la page.
+    for cas, marques in MARQUES_DECLENCHEURS.items():
+        mesure = contacts.get(cas, 0)
+        if mesure <= 0:
+            continue
+        if any(normalize(marque) in normalize(corps_fenetre) for marque in marques):
+            continue
+        constats.append(
+            f"{MOTIF_DECLENCHEUR} : la condition « {cas} » a ete mesuree a {mesure} contact(s) de "
+            f"`fetch_version` et la section « {TITRE_FENETRE} » ne la nomme pas ; attendu au moins une "
+            f"marque de ({', '.join(marques)}), comparaison normalisee (D-11), la condition etant mesuree "
+            f"sur le code et non lue dans la page ({SOURCE_SYNC}:32)"
+        )
+
+    # 3. La page dit aussi le cas de non-contact, et pour la bonne raison.
+    if contacts.get(CAS_BASE_REMPLIE_FRAICHE, 1) == 0 and not any(
+        normalize(marque) in normalize(corps_fenetre) for marque in MARQUES_NON_CONTACT
+    ):
+        constats.append(
+            f"{MOTIF_DECLENCHEUR} : la base remplie a fenetre fraiche a ete mesuree a zero contact "
+            f"(retour `skip`, `reason` valant `within_24h`) et la section « {TITRE_FENETRE} » ne dit pas "
+            f"que le chargement du catalogue s'arrete la ; attendu au moins une marque de "
+            f"({', '.join(MARQUES_NON_CONTACT)}), la phrase d'origine rattachant cette absence de requete "
+            f"a sa vraie condition ({SOURCE_SYNC}:33-39)"
+        )
+
+    # 4. Aucune marque d'exclusivite, et la prohibition est **justifiee par la mesure** qui la contredit.
+    vide = contacts.get(CAS_BASE_VIDE, 0)
+    if vide > 0:
+        for chaine in ABSOLUS_DECLENCHEUR:
+            if normalize(chaine) not in normalize(corps_fenetre):
+                continue
+            constats.append(
+                f"{MOTIF_ABSOLU_DECLENCHEUR} : la section « {TITRE_FENETRE} » porte « {chaine} » ; or le "
+                f"cas « {CAS_BASE_VIDE} » a ete mesure a {vide} contact(s) de `fetch_version` sur une base "
+                f"vide a fenetre fraiche, ce qui contredit toute exclusivite de la fenetre ; attendu "
+                f"l'enumeration des conditions reelles du declencheur, mesurees sur {SOURCE_SYNC}:32"
+            )
+
+    # 5. L'affirmation de la base absente est bornee des deux cotes de la contradiction interne.
+    for titre, corps in sections(texte):
+        if not any(normalize(marque) in normalize(corps) for marque in MARQUES_ABSENTE_SANS_ERREUR):
+            continue
+        if any(normalize(marque) in normalize(corps) for marque in MARQUES_LIMITE_CLI):
+            continue
+        constats.append(
+            f"{MOTIF_SANS_ERREUR} : la section « {titre or '(en-tete)'} » affirme qu'une base absente "
+            f"n'est pas une erreur sans nommer la limite de la ligne de commande ; mesure : le chargement "
+            f"hors-ligne du catalogue sur une base vide rend "
+            f"{contacts.get(CAS_HORS_LIGNE)!r} contact(s) et s'arrete sur « {MESSAGE_BASE_VIDE} » ; "
+            f"attendu au moins une marque de ({', '.join(MARQUES_LIMITE_CLI)}) dans la section qui porte "
+            f"cette affirmation ({SOURCE_SYNC}:43, {SOURCE_CLI})"
+        )
+    if not any(normalize(marque) in normalize(corps_cli) for marque in MARQUES_VIDE_HORS_LIGNE):
+        constats.append(
+            f"{MOTIF_SANS_ERREUR} : la section « {TITRE_CLI} » ne dit pas le cas d'une base locale vide ; "
+            f"attendu au moins une marque de ({', '.join(MARQUES_VIDE_HORS_LIGNE)}), ce cas etant mesure "
+            f"comme l'arret de la commande sur une erreur ({SOURCE_SYNC}:43, {SOURCE_CLI})"
+        )
+    if not any(normalize(marque) in normalize(corps_cli) for marque in MARQUES_ERREUR_HORS_LIGNE):
+        constats.append(
+            f"{MOTIF_SANS_ERREUR} : la section « {TITRE_CLI} » ne dit pas qu'une base locale vide arrete "
+            f"la commande sur une erreur ; attendu au moins une marque de "
+            f"({', '.join(MARQUES_ERREUR_HORS_LIGNE)}), mesure du chargement hors-ligne d'un catalogue "
+            f"sur une base vide ({SOURCE_SYNC}:43, {SOURCE_CLI})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les conditions du declencheur et sur l'affirmation de la base absente : "
+        + " ; ".join(constats)
+        + f" ; attendu les conditions du declencheur mesurees sur le code avant d'etre exigees de la page, "
+        f"et l'affirmation de la base absente bornee par la limite de la ligne de commande "
+        f"({SOURCE_SYNC}, {SOURCE_CLI}, D-83)"
     )
