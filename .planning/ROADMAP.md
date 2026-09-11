@@ -198,7 +198,7 @@ Plans:
   4. Les commandes destructrices (`db clear`, `PURGE OUI`) sont signalées comme telles sur la même ligne et n'apparaissent dans aucun parcours ; les contrôles de la phase n'écrivent pas sous `.data/`, n'exécutent aucune synchronisation et n'ouvrent aucune connexion réseau.
   5. Chaque nom de champ ou de commande cité par la page est produit par le code, et la suite reste verte avec l'interpréteur épinglé.
 
-**Plans**: 3/3 plans executed
+**Plans**: 3/4 plans executed (05-04 : fermeture du critère 1, plan de fermeture de gap)
 **UI hint**: no
 
 Plans:
@@ -206,10 +206,12 @@ Plans:
 - [x] 05-01-PLAN.md
 - [x] 05-02-PLAN.md
 - [x] 05-03-PLAN.md
+- [ ] 05-04-PLAN.md
 
 - [x] 05-01: Rédiger `docs/base-locale.md` (fichier, catégories, fenêtre 24 h, deux défauts hors-ligne, champs de l'état de la base) et son entrée d'index
 - [x] 05-02: Couvrir les cas non évidents (création du fichier par `db status`, `db sync` refusé avec `--offline`, synchro web qui contacte l'API) et les avertissements destructifs sur la même ligne
 - [x] 05-03: Ajouter les contrôles d'ancrage de la page base locale (noms de champs produits par le code, aucun accès `.data/`, aucun réseau)
+- [ ] 05-04: Fermer le critère 1 — dire les quatre conditions réelles du déclencheur (fenêtre écoulée, base vide, aucun dernier contrôle, `--force-sync`) dans `docs/base-locale.md`, borner l'affirmation de la base absente, et ajouter le contrôle qui **mesure** ses conditions sur `dofus_stuff/sync.py` (trois morsures exigées)
 
 ### Phase 6: Dépannage, glossaire, complétude et preuve finale
 
