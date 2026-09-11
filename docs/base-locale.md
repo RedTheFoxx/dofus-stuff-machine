@@ -98,6 +98,14 @@ La ligne `PAR CATEGORIE :` n'apparaît elle aussi que si la base contient au moi
 
 Le même état ne s'écrit donc pas de la même façon sur les deux surfaces : `Entrées :` est accentué en ligne de commande, `ENTREES :` ne l'est pas dans l'interface web. Cette page ne lisse pas cet écart, parce que la différence est celle du code.
 
+## Le premier contact crée la base
+
+Consulter l'état de la base **crée la base si elle n'existe pas** : le dossier `.data/` d'abord, le fichier `dofus.sqlite3` ensuite. C'est vrai des deux surfaces, et c'est le code qui le fait, pas un geste d'installation : la commande hors-ligne `python fetcher.py --offline db status` et l'écran d'état de l'interface web, au chemin `/db/status`, traversent tous deux `Database.open`, qui crée le dossier parent puis ouvre — et donc crée — le fichier.
+
+La conséquence pratique est qu'un état affiché ne prouve pas que la base est peuplée. Une base fraîchement créée porte ses deux tables et son index, mais aucune fiche : côté ligne de commande, l'état écrit alors `Version jeu : (aucune)`, `Dernier check : (aucun)` et `Entrées : 0`, sans aucune ligne de catégorie ; côté web, l'écran rend `VERSION JEU : (aucune)`, `DERNIER CHECK : (AUCUN)` et `ENTREES : 0`, sans `PAR CATEGORIE :`.
+
+Autrement dit : voir une base locale exister ne dit rien de son contenu. Pour la remplir, il faut une synchronisation — et la surface des commandes est décrite par [la page CLI](cli.md).
+
 ## Source de vérité
 
 - `dofus_stuff/database.py` : nom du fichier de la base (`DB_NAME`), dossier par défaut (`DEFAULT_DATA_DIR`), clés de la table `meta`, catégories stockées (`ITEM_KINDS`) et schéma créé à l'ouverture.

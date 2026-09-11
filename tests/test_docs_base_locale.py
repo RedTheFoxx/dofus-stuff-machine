@@ -91,6 +91,7 @@ TITRE_WEB = "## Le mode hors-ligne du web"
 TITRE_CLI = "## Le mode hors-ligne de la ligne de commande"
 TITRE_CHAMPS_CLI = "## L'état de la base en ligne de commande"
 TITRE_CHAMPS_WEB = "## L'état de la base dans l'interface web"
+TITRE_CREATION = "## Le premier contact crée la base"
 TITRE_SOURCE = "## Source de vérité"
 
 TITRES_SECTION_ATTENDUS = (
@@ -101,6 +102,7 @@ TITRES_SECTION_ATTENDUS = (
     TITRE_CLI,
     TITRE_CHAMPS_CLI,
     TITRE_CHAMPS_WEB,
+    TITRE_CREATION,
     TITRE_SOURCE,
 )
 
@@ -141,6 +143,23 @@ AIDE_CLI_OFFLINE = "Ne pas contacter l'API (échoue si la base locale est vide)"
 MARQUES_DEFAUT_WEB = ("par defaut", "defaut", "actif sans rien preciser")
 MARQUES_EXIGENCE_CLI = ("requis", "obligatoire", "necessaire", "exige")
 
+# Marques de creation exigees de la section du premier contact, comparees normalisees : la section doit
+# dire que le fichier est **cree** au premier contact, pas seulement qu'il est lu ou decrit (D-77).
+MARQUES_CREATION = ("cree", "creation", "cree le fichier", "cree la base")
+
+# Libelle de fichier de l'ecran d'etat du web, dans sa forme exacte (majuscules et « : » final, comme
+# toute cette surface) : c'est lui qui prouve que l'ecran d'etat a bien ete rendu — sur une base
+# fraichement creee comme sur une base peuplee — et non une page d'erreur ou un corps vide. Il est
+# compare par l'ensemble des libelles produits (`_libelles_produits`), jamais par une recherche dans le
+# corps entier, qui confondrait le libelle d'une ligne avec le nom d'un fichier cite en prose.
+LIBELLE_FICHIER_RENDU = "FICHIER :"
+
+# Chemin d'ecran cite entre accents graves : un jeton qui commence par une barre oblique est un chemin de
+# route, jamais un chemin de fichier du depot (ceux-ci passent par `CHEMIN_CITE`). Chaque chemin cite doit
+# etre declare par un decorateur `get`/`post` de `dofus_stuff/web/routes.py` (D-76) : la page ne nomme
+# aucun ecran que le code ne declare.
+CHEMIN_ECRAN = re.compile(r"`(?P<chemin>/[\w./<>-]*)`")
+
 # Un libelle d'etat, dans la section qui le cite, est ecrit entre accents graves et se termine par
 # « : » (« | `Fichier :` | le chemin ... | »). Le motif est ancre en debut de ligne pour ignorer les
 # citations en prose, et la classe `[^`]+` ne peut pas traverser un accent grave : il capture donc le
@@ -173,6 +192,8 @@ MOTIF_GARDE = "garde de cloture du harnais"
 MOTIF_DATA_DIR = "repertoire de donnees non isole"
 MOTIF_CONFIRMATION = "confirmation d une action destructive"
 MOTIF_CRLF = "fins de ligne"
+MOTIF_CREATION = "creation de la base par le premier contact"
+MOTIF_ROUTE = "chemin d ecran cite par la page"
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -242,6 +263,34 @@ def _statut(reponse) -> str:
     """Texte de la ligne de statut : la seule source des messages de refus."""
     texte = reponse.get_data(as_text=True)
     return texte.split(MARQUEUR_STATUT, 1)[1].split(">", 1)[1].split("</div>", 1)[0]
+
+
+def _routes_declarees() -> set[str]:
+    """Chemins d'ecran declares par les decorateurs `get`/`post` de `dofus_stuff/web/routes.py`.
+
+    Lecture par `ast` sur les **decorateurs des fonctions**, jamais par expression reguliere du source ni
+    par introspection privee de Flask : seuls comptent les appels dont la fonction est un attribut nomme
+    `get` ou `post` et dont le premier argument est un litteral de chaine. `request.args.get("page", 1)`
+    n'est donc pas un chemin — ce n'est pas un decorateur — et `@bp.route("/search", methods=[...])`,
+    qui declare pourtant un ecran, n'entre pas dans cet ensemble : la page ne cite que des chemins
+    d'ecran `get`/`post`, et la lecture reste celle que le plan 05-02 a epinglee.
+    """
+    arbre = ast.parse((RACINE_DEPOT / SOURCE_ROUTES).read_text(encoding="utf-8"))
+    chemins: set[str] = set()
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorateur in noeud.decorator_list:
+            if not isinstance(decorateur, ast.Call):
+                continue
+            if not isinstance(decorateur.func, ast.Attribute):
+                continue
+            if decorateur.func.attr not in ("get", "post") or not decorateur.args:
+                continue
+            premier = decorateur.args[0]
+            if isinstance(premier, ast.Constant) and isinstance(premier.value, str):
+                chemins.add(premier.value)
+    return chemins
 
 
 def _imports_du_module(arbre: ast.AST) -> set[str]:
@@ -965,4 +1014,159 @@ def test_champs_de_la_surface_web(
         + f" ; attendu chaque libelle reellement rendu par « /db/status » cite dans la section "
         f"« {TITRE_CHAMPS_WEB} », dans sa forme exacte — majuscules et absence d'accents comprises "
         f"({SOURCE_ROUTES})"
+    )
+
+
+def test_le_premier_contact_cree_la_base(
+    docs_dir: Path, section, app, client, catalog, normalize, tmp_path
+) -> None:
+    """Le premier contact cree le dossier puis le fichier, sur les deux surfaces, hors de `.data/`.
+
+    Tranche verticale du plan 05-02 : la page, la sortie capturee de la ligne de commande, le rendu de
+    l'ecran web et les chemins d'ecran cites sont traverses par ce seul controle. `_print_db_status` est
+    mesure sur un `Database(data_dir=dossier)` jamais ouvert, et l'ecran sur une application dont
+    `data_dir` pointe un dossier absent : les deux dossiers viennent de `tmp_path`, jamais `.data/`
+    (D-81).
+
+    Les deux oracles sont **proteges**, et c'est le point du controle : quand la creation du dossier
+    disparait du code, `sqlite3.connect` echoue cote ligne de commande (`OperationalError: unable to
+    open database file`) et l'erreur remonte sous `TESTING = True` cote web. L'appel est donc enferme
+    dans un `try` et l'exception devient un **constat** portant `MOTIF_CREATION` ; sans cette
+    protection, la morsure `creation_retiree` rapporterait une erreur de collection au lieu du constat
+    attendu, et le controle serait juge non discriminant sur un module correct. La base ouverte cote
+    ligne de commande est refermee par `_sortie_db_status` (`db.close()` en `finally`), sans quoi le
+    nettoyage du dossier temporaire echoue sur Windows (`PermissionError [WinError 32]`).
+
+    Limite honnete : ce controle porte sur la creation du dossier et du fichier, sur les trois libelles
+    de l'etat vide et sur le libelle `FICHIER :` du rendu. Il ne revendique rien sur la prose de la
+    section, ni sur les valeurs produites a l'execution (D-85).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_CREATION, PAGE)
+    constats: list[str] = []
+
+    # 1. Surface ligne de commande : dossier absent, puis dossier ET fichier crees.
+    dossier = tmp_path / "absent_cli"
+    if dossier.exists():
+        constats.append(
+            f"{MOTIF_CREATION} : la surface ligne de commande — le dossier de travail « "
+            f"{dossier.name} » existe deja avant l'appel ; attendu un dossier absent sous `tmp_path`, "
+            f"la creation etant ce que ce controle mesure ({SOURCE_DATABASE})"
+        )
+    db = Database(data_dir=dossier)
+    try:
+        sortie = _sortie_db_status(db)
+    except Exception as exc:
+        constats.append(
+            f"{MOTIF_CREATION} : la surface ligne de commande — `_print_db_status` a leve "
+            f"{type(exc).__name__} : {exc} ; attendu la creation du dossier puis du fichier par "
+            f"`Database.open`, sans exception ({SOURCE_DATABASE})"
+        )
+    else:
+        for chemin, libelle in ((dossier, "le dossier"), (dossier / DB_NAME, "le fichier")):
+            if not chemin.exists():
+                constats.append(
+                    f"{MOTIF_CREATION} : la surface ligne de commande — {libelle} « {chemin.name} » "
+                    f"n'existe pas apres l'appel ; attendu le dossier puis le fichier `{DB_NAME}` "
+                    f"crees au premier contact ({SOURCE_DATABASE})"
+                )
+        for attendu in ("Version jeu : (aucune)", "Dernier check : (aucun)", "Entrées : 0"):
+            if attendu not in sortie:
+                constats.append(
+                    f"{MOTIF_CREATION} : la surface ligne de commande — la sortie de "
+                    f"`_print_db_status` ne porte pas « {attendu} » ; attendu l'etat d'une base "
+                    f"fraichement creee, jamais un ecran d'erreur ({SOURCE_CLI})"
+                )
+
+    # 2. Surface web : dossier absent, puis dossier ET fichier crees, et l'ecran rendu.
+    dossier_web = tmp_path / "absent_web"
+    if dossier_web.exists():
+        constats.append(
+            f"{MOTIF_CREATION} : la surface web — le dossier de donnees « {dossier_web.name} » existe "
+            f"deja avant l'appel ; attendu un dossier absent sous `tmp_path` ({SOURCE_DATABASE})"
+        )
+    application = create_app(
+        data_dir=dossier_web,
+        offline=True,
+        catalog=catalog,
+        load_catalog=False,
+    )
+    application.config["TESTING"] = True
+    try:
+        reponse = application.test_client().get("/db/status")
+    except Exception as exc:
+        constats.append(
+            f"{MOTIF_CREATION} : la surface web — `GET /db/status` a leve {type(exc).__name__} : "
+            f"{exc} ; attendu la creation du dossier puis du fichier par la route, et une reponse "
+            f"rendue ({SOURCE_ROUTES})"
+        )
+    else:
+        if reponse.status_code != 200:
+            constats.append(
+                f"{MOTIF_CREATION} : la surface web — `GET /db/status` rend le statut "
+                f"{reponse.status_code} sur un dossier de donnees absent ; attendu 200, la creation "
+                f"du fichier etant le comportement decrit ({SOURCE_ROUTES})"
+            )
+        elif LIBELLE_FICHIER_RENDU not in _libelles_produits(_lignes_du_corps(reponse)):
+            constats.append(
+                f"{MOTIF_CREATION} : la surface web — le corps rendu par `GET /db/status` ne porte pas "
+                f"le libelle « {LIBELLE_FICHIER_RENDU} » ; attendu l'ecran d'etat rendu, la base "
+                f"venant d'etre creee ({SOURCE_ROUTES})"
+            )
+        if not (dossier_web / DB_NAME).exists():
+            constats.append(
+                f"{MOTIF_CREATION} : la surface web — le fichier « {DB_NAME} » n'existe pas dans "
+                f"« {dossier_web.name} » apres l'appel ; attendu la base creee puis refermee par la "
+                f"route ({SOURCE_DATABASE})"
+            )
+
+    # Temoin : l'ecran d'etat de la base peuplee de la fixture rend le meme libelle de fichier. Le
+    # libelle exige de l'ecran vide n'est donc pas un libelle fantome, et la section decrit bien le
+    # libelle que les deux etats portent.
+    reponse_peuplee = client.get("/db/status")
+    if reponse_peuplee.status_code != 200 or LIBELLE_FICHIER_RENDU not in _libelles_produits(
+        _lignes_du_corps(reponse_peuplee)
+    ):
+        constats.append(
+            f"{MOTIF_CREATION} : la surface web — l'ecran d'etat de la base peuplee (fixture `app`, "
+            f"dossier « {app.extensions['web_config']['data_dir'].name} ») rend le statut "
+            f"{reponse_peuplee.status_code} ; attendu 200 et le libelle « {LIBELLE_FICHIER_RENDU} », "
+            f"le libelle exige de l'ecran vide etant celui du rendu reel ({SOURCE_ROUTES})"
+        )
+
+    # 3. La section dit l'effet de creation et nomme les deux surfaces.
+    for jeton, attendu in (
+        ("db status", "la commande hors-ligne de la ligne de commande"),
+        ("/db/status", "le chemin de l'ecran d'etat du web"),
+        ("--offline", "l'option globale qui rend la commande hors-ligne"),
+    ):
+        if jeton not in corps:
+            constats.append(
+                f"{MOTIF_CREATION} : la section « {TITRE_CREATION} » ne cite pas « {jeton} » "
+                f"({attendu}) ; attendu les deux surfaces nommees dans la section ({SOURCE_CLI}, "
+                f"{SOURCE_ROUTES})"
+            )
+    if not any(normalize(marque) in normalize(corps) for marque in MARQUES_CREATION):
+        constats.append(
+            f"{MOTIF_CREATION} : la section « {TITRE_CREATION} » ne dit pas que le premier contact "
+            f"**cree** la base (attendu au moins une de : {', '.join(MARQUES_CREATION)}) ; attendu "
+            f"l'effet decrit, pas seulement la lecture de l'etat ({SOURCE_DATABASE})"
+        )
+
+    # 4. Chaque chemin d'ecran cite par la page est declare par un decorateur de routes.py.
+    declarees = _routes_declarees()
+    for trouve in sorted({trouve.group("chemin") for trouve in CHEMIN_ECRAN.finditer(texte)}):
+        if trouve not in declarees:
+            constats.append(
+                f"{MOTIF_ROUTE} : la page cite « {trouve} », absent des chemins declares par les "
+                f"decorateurs de {SOURCE_ROUTES} ({', '.join(sorted(declarees))}) ; attendu un chemin "
+                f"d'ecran reellement declare, jamais un chemin deduit (D-76)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la creation de la base par le premier contact : "
+        + " ; ".join(constats)
+        + f" ; attendu le dossier puis le fichier crees par le premier contact, mesures sous "
+        f"`tmp_path` sur la ligne de commande et sur l'ecran web, et cites par la section "
+        f"« {TITRE_CREATION} » ({SOURCE_DATABASE}, {SOURCE_CLI}, {SOURCE_ROUTES})"
     )
