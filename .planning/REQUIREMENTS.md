@@ -13,8 +13,8 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Socle documentaire et accès
 
-- [ ] **SOMM-01** : Un lecteur trouve le sommaire de la documentation depuis le `README.md` racine — dérivé de DOCS-01, DOCS-02
-- [ ] **SOMM-02** : Chaque page livrée sous `docs/` est listée dans `docs/sommaire.md`, et réciproquement — dérivé de DOCS-01
+- [x] **SOMM-01** : Un lecteur trouve le sommaire de la documentation depuis le `README.md` racine — dérivé de DOCS-01, DOCS-02
+- [x] **SOMM-02** : Chaque page livrée sous `docs/` est listée dans `docs/sommaire.md`, et réciproquement — dérivé de DOCS-01
 - [ ] **SOMM-03** : Chaque page `docs/` porte un unique titre H1 égal à son libellé d'index et une ligne de retour vers le sommaire — dérivé de DOCS-01
 
 ### Installation et démarrage
@@ -106,8 +106,8 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SOMM-01 | Phase 1 | Pending |
-| SOMM-02 | Phase 1 | Pending |
+| SOMM-01 | Phase 1 | Complete |
+| SOMM-02 | Phase 1 | Complete |
 | SOMM-03 | Phase 1 | Pending |
 | INST-01 | Phase 1 | Pending |
 | INST-02 | Phase 1 | Pending |
@@ -133,6 +133,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | GARD-04 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements : 25 total
 - Mapped to phases : 25 ✓
 - Unmapped : 0 ✓

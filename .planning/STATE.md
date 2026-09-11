@@ -1,18 +1,18 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 01
-current_phase_name: socle-documentaire-installation-et-harnais-v-rifiable
+current_phase: 1
+current_phase_name: Socle documentaire, installation et harnais vérifiable
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-09-11T10:20:13.326Z"
-last_activity: 2026-09-10
-last_activity_desc: "Roadmap créé : 6 phases, 25 exigences v1 mappées, 0 orpheline"
-state_head: "0bef7bc705681a178eeee605118ddfd2749b5edd"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-09-11T10:25:05.764Z"
+last_activity: 2026-09-11
+last_activity_desc: Phase 1 execution started
+state_head: 53dbc4b653696ec170605216df6794e33d816540
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 
 ## Current Position
 
-Phase: 01 (socle-documentaire-installation-et-harnais-v-rifiable) — READY TO EXECUTE
-Plan: 0 of 4 in current phase
+Phase: 1 (Socle documentaire, installation et harnais vérifiable) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-09-10 — Roadmap créé : 6 phases, 25 exigences v1 mappées, 0 orpheline
+Last activity: 2026-09-11 — Phase 1 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -54,6 +54,11 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -66,6 +71,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Le harnais pytest est posé en phase 1, mais la liste épinglée des 8 pages n'arrive qu'en phase 6 (dernière phase) — une suite rouge pendant cinq phases perdrait sa valeur de signal.
 - [Roadmap]: Le contrôle des renvois obsolètes doit être vu rouge sur l'état antérieur puis vert dans la phase 4, qui résorbe la dette `GUIDE_WIZARD.md` (source unique du flux avancé).
 - [Roadmap]: `**UI hint**: no` explicite sur les 6 phases : la prose documentaire contient « interface » et « page », que les outils prendraient sinon pour un chantier frontend.
+- [Phase 1]: Sommaire sans cible hors index : aucune ligne de retour vers ../README.md, aucun lien dans l'introduction ni dans le parcours conseille, pour que l'egalite d'ensembles sommaire <-> docs/**/*.md reste un vrai signal (SOMM-02, D-05, D-06)
+- [Phase 1]: Parcours conseille des sept themes en texte numerote simple, sans lien markdown : une cible absente ferait rougir problemes_index sans liste blanche possible (D-04)
+- [Phase 1]: Imports ajoutes en tete de tests/conftest.py, fixtures docs_dir/normalize et helper _normalize en fin de fichier ; fixtures existantes byte-identiques (25 insertions, 0 suppression)
 
 ### Pending Todos
 
@@ -86,6 +94,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-10T22:00:57.789Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-socle-documentaire-installation-et-harnais-v-rifiable/01-CONTEXT.md
+Last session: 2026-09-11T10:25:05.740Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
