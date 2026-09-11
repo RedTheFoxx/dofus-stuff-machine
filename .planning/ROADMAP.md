@@ -158,13 +158,13 @@ Plans:
   4. `GUIDE_WIZARD.md` ne décrit plus le wizard en entier : il aiguille vers `docs/wizard-avance.md` avec une arborescence de menus corrigée, et `README.md` ne renvoie plus vers lui pour l'usage produit.
   5. Le contrôle des renvois obsolètes est observé **rouge** sur l'état antérieur (menu `3`/`4` inversés, `F7` présenté comme armes distance, arrivée « directe » dans le wizard) **puis vert** après correction, dans la même phase.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 **UI hint**: no
 
 Plans:
 
 - [x] 04-01-PLAN.md
-- [ ] 04-02-PLAN.md
+- [x] 04-02-PLAN.md
 - [ ] 04-03-PLAN.md
 - [ ] 04-04-PLAN.md
 
@@ -241,6 +241,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
 | 2. Référence CLI alignée sur le parseur | 3/3 | Complete    | 2026-09-11 |
 | 3. Parcours simplifié documenté depuis le rendu réel | 4/4 | Complete    | 2026-09-11 |
-| 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 1/4 | In Progress|  |
+| 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 2/4 | In Progress|  |
 | 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |
 | 6. Dépannage, glossaire, complétude et preuve finale | 0/4 | Not started | - |
