@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Référence CLI alignée sur le parseur** - `docs/cli.md` documente des commandes, options et exemples réellement analysables par `fetcher.py` (completed 2026-09-11)
 - [x] **Phase 3: Parcours simplifié documenté depuis le rendu réel** - Le flux classe → éléments → niveau, la lecture du résultat, la sauvegarde/export et les hypothèses de l'outil sont décrits tels qu'ils s'affichent (completed 2026-09-11)
 - [x] **Phase 4: Wizard avancé et résorption de la dette `GUIDE_WIZARD`** - `docs/wizard-avance.md` devient la source unique du flux avancé, et `GUIDE_WIZARD.md` ne contredit plus le produit (completed 2026-09-11)
-- [ ] **Phase 5: Base locale, hors-ligne et resynchronisation** - Le fichier SQLite, la fenêtre de re-check 24 h, les deux défauts hors-ligne et les commandes destructrices sont expliqués sans être exécutés
+- [ ] **Phase 5: Base locale, hors-ligne et resynchronisation** - Le fichier SQLite, la fenêtre de re-check 24 h, les deux défauts hors-ligne et les commandes destructrices sont expliqués sans être exécutés (completed 2026-09-11)
 - [ ] **Phase 6: Dépannage, glossaire, complétude et preuve finale** - Le lecteur cherche par message d'erreur ou par terme, la complétude est vérifiée, et la suite prouve que les garde-fous mordent
 
 ## Phase Details
