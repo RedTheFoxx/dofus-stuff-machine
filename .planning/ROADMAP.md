@@ -162,11 +162,21 @@ Plans:
 **UI hint**: no
 
 Plans:
+**Wave 1**
 
 - [ ] 04-01: Trancher la source unique et rédiger `docs/wizard-avance.md` (9 étapes, slots, filtres, options, formats d'édition, syntaxe d'items) et son entrée d'index
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04-02: Ajouter les contrôles wizard depuis le rendu réel (étapes, commandes, touches, identifiants d'écrans)
-- [ ] 04-03: Réduire `GUIDE_WIZARD.md` à un aiguillage corrigé et rediriger `README.md`
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 04-04: Ajouter le contrôle des renvois obsolètes, observé rouge sur l'état antérieur puis vert après correction
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-03: Réduire `GUIDE_WIZARD.md` à un aiguillage corrigé et rediriger `README.md`
 
 ### Phase 5: Base locale, hors-ligne et resynchronisation
 

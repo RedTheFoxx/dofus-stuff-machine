@@ -153,7 +153,7 @@ verrouillées et s'appliquent sans être rediscutées.
   code est le référentiel, la page s'y conforme. Aucun `db clear`, aucune suppression sous `.data/` ni
   `.doc-agent/`. Commits **locaux** uniquement, `git add` **par chemin explicite** (jamais
   `git add .`). Aucune publication, aucun déploiement distant.
-- **D-67:** La documentation est **en français**, comme les phases précédentes.
+- **D-67 [informational]:** La documentation est **en français**, comme les phases précédentes.
 
 ### Claude's Discretion
 
