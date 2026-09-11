@@ -19,3 +19,4 @@ Cette page est le point d'entrée unique de la documentation utilisateur de dofu
 | [Installation](installation.md) | Installer l'outil, vérifier, lancer CLI et web |
 | [Parcours simplifié](parcours-simplifie.md) | Obtenir un stuff en 3 questions, lire puis sauvegarder le résultat |
 | [CLI](cli.md) | Commandes, options et exemples de fetcher.py |
+| [Wizard avancé](wizard-avance.md) | Les 9 étapes du wizard, ses filtres, ses formats et ses touches |
