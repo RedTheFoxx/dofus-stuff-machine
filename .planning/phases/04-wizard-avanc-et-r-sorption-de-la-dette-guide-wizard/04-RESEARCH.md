@@ -1117,7 +1117,23 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
 | A5 | `docs/wizard-avance.md` cite les libellés de slots/filtres **sans** la forme entre crochets `[ON ]`/`[OFF]` | Pitfall 5 | Une assertion sur `[ON ]` (espace avant `]`) ferait rougir la page si elle écrit `[ON]` |
 | A6 | La page ne documente **pas** le niveau `-5` / la durée négative comme des entrées valides (le code ne les borne pas, mais les présenter comme normales serait trompeur) | § *Les 11 options* | La page doit rester « telle que le code l'applique » (critère 2) sans transformer une absence de borne en mode d'emploi |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+**Statut : les six questions sont RESOLVED par le jeu de plans de la phase 4 (`04-01` a `04-04`).**
+Aucune n'est restee ouverte et aucune n'a ete renvoyee au porteur du projet : le lieu d'arbitrage de
+chacune est nomme ci-dessous, et sa resolution est reportee **inline** sous chaque question. Cette
+section ne tranche rien de neuf — elle **consigne** ce que les quatre `PLAN.md` ont deja decide, et
+chacune de ces resolutions s'adosse a une decision verrouillee de `04-CONTEXT.md` (D-46 a D-67), qui
+restent telles quelles.
+
+| # | Question | Resolution retenue et lieu d'arbitrage |
+|---|----------|----------------------------------------|
+| 1 | Egalite ou contenance pour les libelles de menu du detecteur ? | **Contenance par mot significatif** ; la recommandation d'egalite stricte est **ecartee** (D-47 prescrit les formes abregees, donc l'egalite stricte rendrait le vert du critere 5 inatteignable). Arbitre par `04-04-PLAN.md` tache 1, `_renvois_au_menu`. |
+| 2 | Forme exacte de la copie figee ? | **Fichier** `tests/fixtures/guide-wizard-obsolete.md` (recommandation adoptee telle quelle), annonce en en-tete HTML comme piece de test et signale par le **meme** detecteur. Arbitre par `04-04-PLAN.md` tache 1. |
+| 3 | Conversion du renvoi de la ligne 256, qui couvre deux cibles ? | Adoptee et **elargie** : les **deux** renvois en prose (~lignes 5 et 256) deviennent de vrais liens vers `wizard-avance.md` ; la clause « base locale » n'est pas liee, les mots exiges restent litteraux. Arbitre par `04-03-PLAN.md` tache 2. |
+| 4 | Le controle de la ligne 140 doit-il exister, et a quel perimetre ? | Adoptee : ancrage **par etape** au rendu, assertion `Precedent`/`Suivant` **scope aux etapes 2 a 8**, et la ligne ~140 reste **inchangee** (D-64). Arbitre par `04-02-PLAN.md` tache 2, `test_touches_et_commandes_par_etape`. |
+| 5 | `GUIDE_WIZARD.md` et `README.md` couverts par des controles de liens ? | Adoptee et **renforcee** : liens de l'aiguillage exiges et existants, `README.md` sans `GUIDE_WIZARD` avec un seul lien vers le sommaire, et toute cible de l'aiguillage **declaree** et **existante**. Arbitre par `04-03-PLAN.md` taches 1 et 2. |
+| 6 | Le lancement `GO` doit-il etre prouve ? | Tranchee par la **seconde branche** de la recommandation : `GO` **n'est jamais poste**, seule sa citation au rendu est controlee ; la garde `ast` du harnais refuse tout appel portant `"cmd": "GO"`. Arbitre par `04-02-PLAN.md` tache 2 et `04-01-PLAN.md` tache 1. |
 
 1. **Égalité ou contenance pour les libellés de menu du détecteur ?**
    - Ce qu'on sait : D-47 prescrit `4. OPTIMISATION`, `3. PANOPLIES`, `5. SYSTEME` ; le rendu donne
@@ -1128,6 +1144,19 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
    - Recommandation : **citer les libellés rendus complets** dans l'aiguillage et exiger l'égalité
      stricte par numéro — c'est plus fort, plus simple, et satisfait D-47 sur le fond (les bons
      numéros), au prix d'une légère reformulation des libellés dans le fichier cible.
+   - **Resolution (decidee par le jeu de plans) :** la **contenance par mot significatif** a ete
+     retenue — la recommandation d'egalite stricte ci-dessus est **ecartee**, et le plan dit pourquoi.
+     `04-04-PLAN.md` tache 1 (`_renvois_au_menu`) juge un jeton `N. LIBELLE` fautif si son numero
+     n'existe pas parmi les libelles mesures au rendu de `GET /`, ou si le libelle lu ne partage
+     **aucun** mot significatif (longueur >= 4, hors mots-outils `LISTE`, `DES`, `DE`, `LA`, `LE`,
+     `LES`) avec le libelle reellement rendu de ce numero. La raison est consignee au plan et n'est pas
+     contournable : D-47 **prescrit** les formes abrogees `4. OPTIMISATION` et `3. PANOPLIES` ; une
+     egalite stricte declarerait fautif l'aiguillage corrige que la phase 3 exige et rendrait le
+     **vert du critere 5 inatteignable**. La regle attrape malgre tout les trois inversions reelles du
+     fichier (`3. OPTIMISATION DE STUFF`, `4. SYSTEME`, `4. GESTION DE LA BASE`). Limite de precision
+     bornee et **ecrite** dans la docstring du detecteur : les jetons sont juges contre les libelles de
+     **premier niveau** du rendu, si bien qu'un renvoi vers un sous-menu portant le meme numero serait
+     rapporte forme (a) — dit plutot que passe sous silence (D-26).
 
 2. **Quelle forme exacte pour la copie figée ?**
    - Ce qu'on sait : D-59 impose qu'elle soit un artefact de `tests/` et que le **même** détecteur la
@@ -1136,6 +1165,15 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
      une constante dans le module.
    - Recommandation : fichier de fixture, avec en en-tête un commentaire HTML rappelant qu'il s'agit
      d'un **copie figée d'un état obsolète** et non d'une page de documentation.
+   - **Resolution (decidee par le jeu de plans) :** **fichier de fixture**, recommandation adoptee
+     telle quelle. `04-04-PLAN.md` tache 1 cree `tests/fixtures/guide-wizard-obsolete.md` (UTF-8 sans
+     BOM, fins de ligne CRLF comme les fichiers mesures du depot), ouvert par un commentaire HTML qui
+     annonce qu'il s'agit d'un extrait fige pour test et **non** d'une page de documentation.
+     `_lire_fixture()` le lit en UTF-8 explicite et leve une `AssertionError` localisante s'il manque —
+     jamais un `skip` silencieux — et `test_copie_figee_signalee_par_le_detecteur` exige qu'il soit
+     signale par le **meme** detecteur, avec au moins trois constats couvrant les trois formes
+     nommees. La copie est **partielle et annoncee comme telle** : les extraits couverts par le wizard
+     avance, pas les 330 lignes du guide.
 
 3. **Comment convertir le renvoi de la ligne 256, qui couvre deux cibles ?**
    - Ce qu'on sait : la phrase nomme « les réglages avancés (les écrans du wizard) » **et** « la base
@@ -1145,6 +1183,17 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
      décrits dans [la page du wizard avancé](wizard-avance.md) »), conserver littéralement les mots
      `réglages avancés` et `base locale` (exigés par `RENVOIS_SANS_LIEN`) et n'introduire **aucun**
      nombre de trois chiffres dans la section des limites.
+   - **Resolution (decidee par le jeu de plans) :** adoptee, et **elargie aux deux renvois**.
+     `04-03-PLAN.md` tache 2 convertit les **deux** renvois en prose sans lien de
+     `docs/parcours-simplifie.md` (~lignes 5 et 256) en **vrais liens markdown** vers
+     `docs/wizard-avance.md`, dans le meme commit que la cible (D-63) : la question ne portait que sur
+     la ligne 256, l'arbitrage porte sur les deux, parce que D-63 les nomme tous les deux. La clause
+     « base locale » **n'est pas liee** — `base-locale.md` n'existe toujours pas et un lien vers elle
+     serait mort. Les mots `reglages avances` et `base locale`, exiges par `RENVOIS_SANS_LIEN`,
+     restent litteralement presents, aucun nombre de trois chiffres n'entre dans la section des
+     limites, et l'affirmation de la ligne ~140 n'est pas touchee (D-64). L'hypothese **A4** est ainsi
+     confirmee : le renvoi de la ligne 256 est attache a la seule clause « wizard ». Le controle vit
+     dans `test_lien_wizard_avance_legitime` (constat `MOTIF_LIEN_D63`).
 
 4. **Le contrôle de la ligne 140 doit-il exister, et à quel périmètre ?**
    - Ce qu'on sait : le rendu donne `Page prec`/`Suivant` à l'étape 1 et `Precedent`/`Page suiv` au
@@ -1153,12 +1202,30 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
      à citer les libellés par étape dans `docs/wizard-avance.md` ?
    - Recommandation : ancrer **par étape** dans le test du wizard (source de vérité = rendu), et si un
      contrôle porte sur la ligne 140, le scoper explicitement aux étapes intermédiaires — jamais aux 9.
+   - **Resolution (decidee par le jeu de plans) :** adoptee sur ses deux volets. `04-02-PLAN.md`
+     tache 2 ecrit `test_touches_et_commandes_par_etape` : les couples touche/libelle sont ancres
+     **par etape**, sur un client neuf, contre le rendu — l'etape 1 porte `Page prec`/`Suivant`, les
+     etapes 2 a 8 `Precedent`/`Suivant`, l'etape 9 `Precedent`/`Page suiv`, et `ESC`/`Retour` sur les
+     neuf. L'assertion `Precedent`/`Suivant` est **scope aux etapes 2 a 8** : un controle qui les
+     exigerait sur les neuf contredirait le rendu des extremites. La ligne ~140 de
+     `docs/parcours-simplifie.md` reste **inchangee**, donc vraie (D-64) — c'est `docs/wizard-avance.md`
+     qui porte la precision par etape. L'hypothese **A3** est confirmee.
 
 5. **`GUIDE_WIZARD.md` et `README.md` doivent-ils être couverts par des contrôles de liens ?**
    - Ce qu'on sait : aujourd'hui, aucun test ne lit `GUIDE_WIZARD.md` ; `test_docs_structure.py` ne
      parcourt que `docs/**`, et `test_readme_links_to_sommaire` ne vérifie que le lien du sommaire.
    - Recommandation : le nouveau module vérifie (a) les deux liens de l'aiguillage résolvent, (b)
      `README.md` ne contient plus `](GUIDE_WIZARD.md)`.
+   - **Resolution (decidee par le jeu de plans) :** adoptee et **renforcee**. `04-03-PLAN.md` tache 1
+     ecrit `test_aiguillage_et_readme` : sur `GUIDE_WIZARD.md`, un lien markdown dont la cible est
+     `docs/wizard-avance.md` **et** un lien dont la cible est `docs/sommaire.md` sont exiges, et chaque
+     cible doit exister depuis la racine du depot (constat `MOTIF_LIEN_AIGUILLAGE`) ; sur `README.md`,
+     aucune occurrence de `GUIDE_WIZARD` ni de `wizard-avance`, et exactement **un** lien markdown vers
+     `docs/sommaire.md` (constat `MOTIF_LIEN_PRODUIT`) — la recommandation (b) est donc satisfaite au
+     sens large, la ligne « Guide detaille » etant supprimee sans texte de remplacement (D-62).
+     `04-03-PLAN.md` tache 2 ajoute a cote `test_lien_wizard_avance_legitime` : toute cible de lien de
+     l'aiguillage vers `docs/` doit etre **declaree** dans `LIENS_LEGITIMES_VERS_L_AIGUILLAGE` (constat
+     `MOTIF_LIEN_NON_DECLARE`) **et** exister sur disque (constat `MOTIF_LIEN_MORT`).
 
 6. **Le lancement `GO` doit-il être prouvé ?**
    - Ce qu'on sait : `GO` exécute réellement le solveur ; la phase 3 a patché l'étape de calcul pour
@@ -1167,6 +1234,15 @@ elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur 
      `/optimize/result`) avec le solveur patché, ou ne pas le prouver du tout et se contenter de citer
      le libellé rendu (`GO = LANCER`), qui vient du corps du récapitulatif. Ne jamais poster `GO` pour
      observer autre chose.
+   - **Resolution (decidee par le jeu de plans) :** la **seconde branche** de la recommandation est
+     retenue — `GO` **n'est jamais poste**. `04-02-PLAN.md` tache 2 l'ecrit comme une exigence : seule
+     la citation des libelles du corps du recapitulatif est controlee (`GO = LANCER`,
+     `RESET = REINITIALISER`, `1-8 = RETOUR ECRAN`, `SAVES = STUFFS SAUVEGARDES`, tous lus au rendu),
+     et les commandes prouvees par l'action sont `RESET`, `SAVES` et les chiffres, jamais `GO`. La
+     branche « POST puis redirection vers le resultat » n'est pas retenue : la garde `ast` de
+     `04-01-PLAN.md` tache 1 (`test_garde_de_cloture_du_harnais`) refuse tout appel dont l'argument
+     nomme `data` porte la paire `"cmd": "GO"`, et l'execution reelle du solveur reste couverte,
+     patchee, par `tests/test_web.py`.
 
 ## Environment Availability
 
