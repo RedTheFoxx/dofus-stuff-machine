@@ -22,7 +22,7 @@ SOURCE_CLI = "dofus_stuff/cli.py"
 
 # Bloc « Source de vérité » de la page d'installation (D-01, D-03).
 TITRE_SOURCE = "## Source de vérité"
-CHEMIN_CITE = re.compile(r"`(?P<chemin>[\w./-]+\.(?:py|toml))`")
+CHEMIN_CITE = re.compile(r"`(?P<chemin>[\w./-]+\.(?:py|toml|js|md|json|sql))`")
 
 # Section de lancement de l'interface web : la page y cite la surface d'entree du parseur web.
 TITRE_LANCEMENT_WEB = "## Lancement de l'interface web"
@@ -133,19 +133,19 @@ def _lignes_de_code(texte: str) -> list[str]:
 
 
 def test_sources_de_verite_exist(docs_dir: Path) -> None:
-    """Chaque chemin cité par le bloc « Source de vérité » de la page existe sur disque."""
+    """Chaque chemin cité par la page existe sur disque, et le bloc « Source de vérité » en cite."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
-    corps = _section(texte, TITRE_SOURCE)
-    chemins = sorted(set(CHEMIN_CITE.findall(corps)))
-    assert chemins, (
-        f"{PAGE} : aucun chemin .py ni .toml trouvé dans la section « {TITRE_SOURCE} » ; "
+    bloc = _section(texte, TITRE_SOURCE)
+    assert sorted(set(CHEMIN_CITE.findall(bloc))), (
+        f"{PAGE} : aucun chemin de code trouvé dans la section « {TITRE_SOURCE} » ; "
         f"attendu au moins un chemin réel du code ({PAGE})"
     )
+    chemins = sorted(set(CHEMIN_CITE.findall(texte)))
     manquants = [chemin for chemin in chemins if not (RACINE_DEPOT / chemin).exists()]
     assert not manquants, (
-        f"{PAGE} : chemin(s) cité(s) comme source de vérité mais absent(s) du dépôt : "
+        f"{PAGE} : chemin(s) cité(s) comme source mais absent(s) du dépôt : "
         f"{', '.join(manquants)} ; attendu un chemin existant depuis la racine du dépôt "
-        f"(section « {TITRE_SOURCE} »)"
+        f"(page {PAGE}, source « {TITRE_SOURCE} » comprise)"
     )
 
 
