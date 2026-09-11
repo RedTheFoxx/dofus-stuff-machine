@@ -514,6 +514,22 @@ def test_normalisation_insensible_aux_accents_et_casse(normalize) -> None:
     )
 
 
+def _nom_page_injectee(docs_dir: Path) -> str:
+    """Nom de page absent de docs/ et du sommaire, pour que l'injection reste une derive (critere 5).
+
+    Le nom est derive de l'arbre analyse et jamais code en dur : une page livree par une phase
+    ulterieure (le glossaire, par exemple) ne peut donc pas rendre cette mutation faussement rouge.
+    """
+    connus = {page.name for page in _pages(docs_dir)}
+    connus |= {Path(cible).name for _, cible in pages_listees(docs_dir)}
+    nom = "page-injectee-mutation.md"
+    rang = 1
+    while nom in connus:
+        rang += 1
+        nom = f"page-injectee-mutation-{rang}.md"
+    return nom
+
+
 def test_mutation_detecte_les_trois_derives(tmp_path: Path, docs_dir: Path, normalize) -> None:
     """Trois derives injectees dans une copie de docs/ sont detectees, l'arbre livre restant sain (critere 5)."""
     copie = tmp_path / "docs"
@@ -545,14 +561,15 @@ def test_mutation_detecte_les_trois_derives(tmp_path: Path, docs_dir: Path, norm
     )
 
     # Derive (b) : page presente dans la copie mais absente de l'index du sommaire.
-    (copie / "glossaire.md").write_text(
-        "# Glossaire\r\n\r\nPage injectee par le test de mutation.\r\n", encoding="utf-8"
+    page_injectee = _nom_page_injectee(copie)
+    (copie / page_injectee).write_text(
+        "# Page injectee\r\n\r\nPage injectee par le test de mutation.\r\n", encoding="utf-8"
     )
     index = problemes_index(copie)
-    assert any("glossaire.md" in probleme for probleme in index), (
-        "copie de docs/ : la page glossaire.md non listee dans sommaire.md n'est pas "
-        "detectee par problemes_index() ; attendu un probleme nommant glossaire.md "
-        "(critere 5, GARD-01)\n" + "\n".join(index)
+    assert any(page_injectee in probleme for probleme in index), (
+        f"copie de docs/ : la page {page_injectee} non listee dans sommaire.md n'est pas "
+        f"detectee par problemes_index() ; attendu un probleme nommant {page_injectee} "
+        f"(critere 5, GARD-01)\n" + "\n".join(index)
     )
 
     # Derive (c) : H1 divergent du libelle d'index, dans la copie seulement.
@@ -579,8 +596,8 @@ def test_mutation_detecte_les_trois_derives(tmp_path: Path, docs_dir: Path, norm
         f"{livree.as_posix()} ; attendu un arbre livre intact, la mutation ne s'appliquant "
         f"qu'a {copie.as_posix()} (T-01-07, critere 5)"
     )
-    assert not (docs_dir / "glossaire.md").exists(), (
-        f"docs/glossaire.md : page injectee presente dans l'arbre livre : "
-        f"{(docs_dir / 'glossaire.md').as_posix()} ; attendu cette page uniquement dans la "
+    assert not (docs_dir / page_injectee).exists(), (
+        f"docs/{page_injectee} : page injectee presente dans l'arbre livre : "
+        f"{(docs_dir / page_injectee).as_posix()} ; attendu cette page uniquement dans la "
         f"copie jetable, jamais sous docs/ (T-01-07, critere 5)"
     )
