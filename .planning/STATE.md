@@ -3,11 +3,11 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Wizard avancé et résorption de la dette `GUIDE_WIZARD`
 status: planning
-stopped_at: Phase 3 complete, ready to plan Phase 4
-last_updated: "2026-09-11T17:40:57.071Z"
+stopped_at: Phase 4 context gathered
+last_updated: "2026-09-11T17:46:44.732Z"
 last_activity: 2026-09-11
 last_activity_desc: Phase 3 complete, transitioned to Phase 4
-state_head: d316ceff5bfba57e3fb0c92216fe87478ac999dd
+state_head: d278ad43e8af5aabf4e7553a13d6ab22b84440da
 progress:
   total_phases: 6
   completed_phases: 3
@@ -155,6 +155,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T17:23:48.113Z
-Stopped at: Phase 3 complete, ready to plan Phase 4
-Resume file: None
+Last session: 2026-09-11T17:46:44.684Z
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard/04-CONTEXT.md
