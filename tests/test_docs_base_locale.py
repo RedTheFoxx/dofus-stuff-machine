@@ -92,6 +92,8 @@ TITRE_CLI = "## Le mode hors-ligne de la ligne de commande"
 TITRE_CHAMPS_CLI = "## L'état de la base en ligne de commande"
 TITRE_CHAMPS_WEB = "## L'état de la base dans l'interface web"
 TITRE_CREATION = "## Le premier contact crée la base"
+TITRE_REFUS = "## La synchronisation refuse le mode hors-ligne"
+TITRE_SYNCHRO_WEB = "## L'écran de synchronisation du web contacte l'API"
 TITRE_SOURCE = "## Source de vérité"
 
 TITRES_SECTION_ATTENDUS = (
@@ -103,6 +105,8 @@ TITRES_SECTION_ATTENDUS = (
     TITRE_CHAMPS_CLI,
     TITRE_CHAMPS_WEB,
     TITRE_CREATION,
+    TITRE_REFUS,
+    TITRE_SYNCHRO_WEB,
     TITRE_SOURCE,
 )
 
@@ -154,6 +158,28 @@ MARQUES_CREATION = ("cree", "creation", "cree le fichier", "cree la base")
 # corps entier, qui confondrait le libelle d'une ligne avec le nom d'un fichier cite en prose.
 LIBELLE_FICHIER_RENDU = "FICHIER :"
 
+# Marques du cas hors-ligne de l'ecran de synchronisation, comparees normalisees : la section doit dire
+# ce cas **explicitement**, un lecteur pouvant conclure du mode hors-ligne du web que cet ecran ne
+# contacte pas l'API (D-79).
+MARQUES_HORS_LIGNE = (
+    "meme hors-ligne",
+    "y compris hors-ligne",
+    "quel que soit le mode hors-ligne",
+)
+
+# Marques d'un code de retour non nul, comparees normalisees : la section du refus doit dire que la
+# commande s'arrete, pas seulement qu'un message s'affiche (D-78).
+MARQUES_CODE_RETOUR = ("code de retour 1", "code de retour", "code 1")
+
+# Message de refus de `db sync --offline` et phrase du corps de confirmation de l'ecran de
+# synchronisation : deux litteraux **releves sur le code** (`dofus_stuff/cli.py:346` et
+# `dofus_stuff/web/routes.py:794` de la recherche), pins comme constantes du module et exiges des deux
+# cotes — du code, lu par `ast`, et de la page ou du rendu (patron du plan 05-01, D-71/D-72). Une page
+# qui les paraphraserait rougit, et un code qui les renommerait rougit aussi.
+MESSAGE_REFUS = "Erreur : --offline incompatible avec db sync"
+PHRASE_SYNCHRO = "CETTE OPERATION CONTACTE L'API DOFUSDUDE"
+INVITE_CONFIRMATION = "CONFIRMER ? (O=OUI / N=NON)"
+
 # Chemin d'ecran cite entre accents graves : un jeton qui commence par une barre oblique est un chemin de
 # route, jamais un chemin de fichier du depot (ceux-ci passent par `CHEMIN_CITE`). Chaque chemin cite doit
 # etre declare par un decorateur `get`/`post` de `dofus_stuff/web/routes.py` (D-76) : la page ne nomme
@@ -194,6 +220,8 @@ MOTIF_CONFIRMATION = "confirmation d une action destructive"
 MOTIF_CRLF = "fins de ligne"
 MOTIF_CREATION = "creation de la base par le premier contact"
 MOTIF_ROUTE = "chemin d ecran cite par la page"
+MOTIF_REFUS = "refus de la synchronisation hors-ligne"
+MOTIF_SYNCHRO_WEB = "synchronisation web hors-ligne"
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -291,6 +319,98 @@ def _routes_declarees() -> set[str]:
             if isinstance(premier, ast.Constant) and isinstance(premier.value, str):
                 chemins.add(premier.value)
     return chemins
+
+
+def _litteraux_du_module(arbre: ast.AST) -> set[str]:
+    """Litteraux de chaine d'un module produit, lus par `ast`.
+
+    C'est le mecanisme le plus faible des trois employes par ce module — un litteral dit ce que le code
+    **ecrit**, pas ce qu'il rend — mais la seule route possible ici : `main()` n'est jamais execute
+    (D-15), le refus hors-ligne de la ligne de commande n'a donc aucun rendu observable. La docstring du
+    test le dit, et le controle voisin lit en plus la **structure** du refus (l'appel reseau ne doit pas
+    en descendre), pour que le litteral seul ne porte pas toute la preuve.
+    """
+    return {
+        noeud.value
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str)
+    }
+
+
+def _litteraux_de_fonction(arbre: ast.AST, nom: str) -> set[str]:
+    """Litteraux de chaine d'une fonction nommee, lus par `ast` ; ensemble vide si elle est absente.
+
+    Sert a lire l'ecran de synchronisation dans `dofus_stuff/web/routes.py` et non dans tout le fichier :
+    un litteral retrouve ailleurs ne dirait pas que c'est **cet** ecran qui l'annonce.
+    """
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, (ast.FunctionDef, ast.AsyncFunctionDef)) and noeud.name == nom:
+            return {
+                enfant.value
+                for enfant in ast.walk(noeud)
+                if isinstance(enfant, ast.Constant) and isinstance(enfant.value, str)
+            }
+    return set()
+
+
+def _constats_bloc_refus(arbre: ast.AST) -> list[str]:
+    """Constats sur le bloc de refus hors-ligne de `main` : present, sortant en 1, sans reseau.
+
+    Le refus est lu **par structure**, jamais par texte : un `if` dont le test est l'attribut `offline`
+    et dont le corps porte un `return` de valeur 1. Exiger en plus qu'aucun appel de synchronisation du
+    produit ne soit descendant de ce corps encode la propriete qui compte — le refus **precede** l'appel
+    reseau, il ne le suit pas — et c'est ce fait qui rend la synchronisation inatteignable quand
+    l'option est donnee (D-78).
+    """
+    constats: list[str] = []
+    fonctions = [
+        noeud
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.FunctionDef) and noeud.name == APPEL_PRODUIT
+    ]
+    if not fonctions:
+        return [
+            f"{MOTIF_REFUS} : la fonction {APPEL_PRODUIT} est introuvable dans {SOURCE_CLI} ; attendu "
+            f"le point d'entree de la ligne de commande, ou le refus hors-ligne est ecrit ({SOURCE_CLI})"
+        ]
+
+    refus: list[tuple[int, list[str]]] = []
+    for noeud in ast.walk(fonctions[0]):
+        if not isinstance(noeud, ast.If):
+            continue
+        test = noeud.test
+        if not (isinstance(test, ast.Attribute) and test.attr == "offline"):
+            continue
+        sorties = [
+            enfant
+            for enfant in ast.walk(noeud)
+            if isinstance(enfant, ast.Return)
+            and isinstance(enfant.value, ast.Constant)
+            and enfant.value.value == 1
+        ]
+        if not sorties:
+            continue
+        appels = sorted(
+            {_nom_appele(enfant) for enfant in ast.walk(noeud) if isinstance(enfant, ast.Call)}
+            & set(APPELS_SYNCHRO_PRODUIT)
+        )
+        refus.append((noeud.lineno, appels))
+
+    if not refus:
+        constats.append(
+            f"{MOTIF_REFUS} : aucun bloc `if <args>.offline:` portant un `return 1` dans "
+            f"{APPEL_PRODUIT} ; attendu le refus hors-ligne de la synchronisation, ecrit avant l'appel "
+            f"reseau ({SOURCE_CLI}, D-78)"
+        )
+        return constats
+    for ligne, appels in refus:
+        if appels:
+            constats.append(
+                f"{MOTIF_REFUS} : le bloc de refus ligne {ligne} porte l'appel reseau "
+                f"{', '.join(appels)} ; attendu un refus qui precede l'appel reseau, la synchronisation "
+                f"etant inatteignable quand l'option est donnee ({SOURCE_CLI}, D-78)"
+            )
+    return constats
 
 
 def _imports_du_module(arbre: ast.AST) -> set[str]:
@@ -1169,4 +1289,173 @@ def test_le_premier_contact_cree_la_base(
         + f" ; attendu le dossier puis le fichier crees par le premier contact, mesures sous "
         f"`tmp_path` sur la ligne de commande et sur l'ecran web, et cites par la section "
         f"« {TITRE_CREATION} » ({SOURCE_DATABASE}, {SOURCE_CLI}, {SOURCE_ROUTES})"
+    )
+
+
+def test_le_refus_de_la_synchronisation(docs_dir: Path, section, normalize) -> None:
+    """Le refus de `db sync` en mode hors-ligne est lu dans le code, jamais execute (D-78, D-15).
+
+    Trois ancrages, du plus faible au plus fort : le **litteral** du message de refus, lu par `ast` dans
+    `dofus_stuff/cli.py` (faible : il dit ce que le code ecrit) ; la **structure** du refus — un bloc
+    `if args.offline:` portant un `return 1`, dont **aucun** appel de synchronisation ne descend, donc un
+    refus qui precede l'appel reseau ; et la **sonde publique** du parseur, `parse_args(["--offline",
+    "db", "sync"])`, qui prouve que la forme refusee est bien celle que le parseur analyse. `main()`
+    n'est jamais execute : la synchronisation n'est jamais lancee, et aucune socket n'est ouverte.
+
+    Limite honnete : le rendu du refus (sa sortie reelle sur `stderr` et son code de retour observe) n'est
+    pas mesure ici — cela demanderait d'executer `main()`. Ce controle lit le litteral, la structure et
+    l'analyse des arguments, et il ne revendique rien de plus (D-85).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_REFUS, PAGE)
+    constats: list[str] = []
+
+    # 1. Le message de refus, produit par le code (lecture par `ast`, `main()` jamais execute).
+    arbre = ast.parse((RACINE_DEPOT / SOURCE_CLI).read_text(encoding="utf-8"))
+    if MESSAGE_REFUS not in _litteraux_du_module(arbre):
+        constats.append(
+            f"{MOTIF_REFUS} : le message « {MESSAGE_REFUS} » n'est plus produit par {SOURCE_CLI} ; "
+            f"attendu le message reel du refus, lu par ast et jamais recopie de memoire (D-78)"
+        )
+
+    # 2. Le refus precede l'appel reseau, et il sort en 1.
+    constats += _constats_bloc_refus(arbre)
+
+    # 3. La forme refusee est analysee par le parseur public — la commande est analysee, jamais executee.
+    analyse = parseur_cli().parse_args(["--offline", "db", "sync"])
+    if analyse.offline is not True or analyse.db_command != "sync":
+        constats.append(
+            f"{MOTIF_REFUS} : la surface ligne de commande — "
+            f"`parse_args([\"--offline\", \"db\", \"sync\"])` rend offline={analyse.offline!r} et "
+            f"db_command={analyse.db_command!r} ; attendu offline=True et db_command='sync', la forme "
+            f"refusee etant celle que le parseur public analyse ({SOURCE_CLI})"
+        )
+
+    # 4. La page cite le message verbatim et dit que la commande s'arrete.
+    if MESSAGE_REFUS not in corps:
+        constats.append(
+            f"{MOTIF_REFUS} : la section « {TITRE_REFUS} » ne cite pas le message « {MESSAGE_REFUS} » ; "
+            f"attendu le message reel du code, cite verbatim et jamais paraphrase ({SOURCE_CLI}, D-78)"
+        )
+    if not any(normalize(marque) in normalize(corps) for marque in MARQUES_CODE_RETOUR):
+        constats.append(
+            f"{MOTIF_REFUS} : la section « {TITRE_REFUS} » ne dit pas que la commande sort avec un code "
+            f"de retour non nul (attendu au moins une de : {', '.join(MARQUES_CODE_RETOUR)}) ; attendu "
+            f"l'arret de la commande, pas seulement l'affichage d'un message ({SOURCE_CLI})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur le refus de la synchronisation hors-ligne : "
+        + " ; ".join(constats)
+        + f" ; attendu le message reel de {SOURCE_CLI} cite verbatim par la section "
+        f"« {TITRE_REFUS} », un bloc de refus qui precede l'appel reseau, et la forme "
+        f"`--offline db sync` analysee par le parseur public, `main()` n'etant jamais execute"
+    )
+
+
+def test_la_synchronisation_web_contacte_l_api(docs_dir: Path, section, client, normalize) -> None:
+    """L'ecran web de synchronisation contacte l'API, meme hors-ligne — lu sans jamais poster (D-79).
+
+    Le fait est adosse a trois sources : le litteral `offline=False` de l'appel de synchronisation, lu
+    par `ast` dans `dofus_stuff/web/routes.py` — c'est lui qui prouve que l'ecran ne suit pas le mode
+    hors-ligne de l'interface ; la phrase d'annonce du corps de confirmation, retrouvee dans le **corps
+    rendu** de `GET /db/sync`, comparee apres `normalize` (l'apostrophe sort en `&#39;` dans le HTML) ;
+    et la citation de cette phrase par la section.
+
+    L'ecran se lit en **`GET` seulement** : poster une confirmation sur `/db/sync` declenche
+    `ensure_up_to_date(force=True, offline=False, ...)` — reseau **et** ecriture —, et poster sur
+    `/db/clear` vide la base. Ce module ne poste jamais ; le controle le verifie sur son propre texte par
+    `ast`, et la garde de cloture du module refuse deja toute paire de confirmation (`D-81`, Pitfall 6).
+
+    Limite honnete : ce controle lit un appel et un rendu de confirmation. Il ne declenche aucune
+    synchronisation et ne mesure donc pas le contact reseau lui-meme (D-85).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_SYNCHRO_WEB, PAGE)
+    constats: list[str] = []
+
+    # 1. L'appel de synchronisation de l'ecran porte `offline=False` en dur.
+    arbre = ast.parse((RACINE_DEPOT / SOURCE_ROUTES).read_text(encoding="utf-8"))
+    appels = [
+        noeud
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Call) and _nom_appele(noeud).endswith("ensure_up_to_date")
+    ]
+    if not appels:
+        constats.append(
+            f"{MOTIF_SYNCHRO_WEB} : aucun appel a `ensure_up_to_date` dans {SOURCE_ROUTES} ; attendu "
+            f"l'appel de synchronisation de l'ecran, dont le mode hors-ligne ne s'applique pas (D-79)"
+        )
+    for noeud in appels:
+        valeur: ast.expr | None = None
+        for mot in noeud.keywords:
+            if mot.arg == "offline":
+                valeur = mot.value
+        if isinstance(valeur, ast.Constant) and valeur.value is False:
+            continue
+        constats.append(
+            f"{MOTIF_SYNCHRO_WEB} : l'appel `ensure_up_to_date` ligne {noeud.lineno} de {SOURCE_ROUTES} "
+            f"ne porte pas `offline=False` "
+            f"({ast.unparse(valeur) if valeur is not None else 'argument nomme offline absent'}) ; "
+            f"attendu le litteral False, l'ecran de synchronisation contactant l'API quel que soit le "
+            f"mode hors-ligne de l'interface (D-79)"
+        )
+
+    # 2. La phrase d'annonce et l'invite de confirmation : lues dans l'ecran, retrouvees dans le rendu.
+    litteraux_ecran = _litteraux_de_fonction(arbre, "db_sync_confirm")
+    reponse = client.get("/db/sync")
+    if reponse.status_code != 200:
+        constats.append(
+            f"{MOTIF_SYNCHRO_WEB} : `GET /db/sync` rend le statut {reponse.status_code} ; attendu 200, "
+            f"l'ecran de confirmation etant ce que cette section decrit ({SOURCE_ROUTES})"
+        )
+        rendu: list[str] = []
+    else:
+        rendu = [normalize(ligne) for ligne in _lignes_du_corps(reponse)]
+    for phrase, nature in (
+        (PHRASE_SYNCHRO, "la phrase d'annonce du corps de confirmation"),
+        (INVITE_CONFIRMATION, "l'invite de confirmation"),
+    ):
+        if phrase not in litteraux_ecran:
+            constats.append(
+                f"{MOTIF_SYNCHRO_WEB} : {nature} « {phrase} » n'est plus portee par l'ecran de "
+                f"synchronisation de {SOURCE_ROUTES} ; attendu le litteral que l'ecran rend (D-79)"
+            )
+        if not any(normalize(phrase) in ligne for ligne in rendu):
+            constats.append(
+                f"{MOTIF_SYNCHRO_WEB} : {nature} « {phrase} » n'apparait pas dans le corps rendu par "
+                f"`GET /db/sync` ; attendu le rendu de l'ecran de confirmation, lu sur les lignes du "
+                f"corps et compare apres normalisation ({SOURCE_ROUTES}, D-11)"
+            )
+
+    # 3. La page cite la phrase de l'ecran et dit explicitement le cas hors-ligne.
+    if normalize(PHRASE_SYNCHRO) not in normalize(corps):
+        constats.append(
+            f"{MOTIF_SYNCHRO_WEB} : la section « {TITRE_SYNCHRO_WEB} » ne cite pas la phrase "
+            f"« {PHRASE_SYNCHRO} » ; attendu la phrase du corps de confirmation telle que l'ecran la "
+            f"rend ({SOURCE_ROUTES}, D-79)"
+        )
+    if not any(normalize(marque) in normalize(corps) for marque in MARQUES_HORS_LIGNE):
+        constats.append(
+            f"{MOTIF_SYNCHRO_WEB} : la section « {TITRE_SYNCHRO_WEB} » ne dit pas le cas hors-ligne "
+            f"(attendu au moins une de : {', '.join(MARQUES_HORS_LIGNE)}) ; attendu le fait que le mode "
+            f"hors-ligne de l'interface ne s'applique pas a cet ecran ({SOURCE_ROUTES}, D-79)"
+        )
+
+    # 4. Ce module ne poste jamais : l'ecran se lit en GET seulement.
+    arbre_module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    for noeud in ast.walk(arbre_module):
+        if isinstance(noeud, ast.Call) and _nom_appele(noeud) == "post":
+            constats.append(
+                f"{MOTIF_SYNCHRO_WEB} : le module d'ancrage appelle `post` ligne {noeud.lineno} ; attendu "
+                f"des lectures en GET seulement, poster une confirmation sur /db/sync declenchant "
+                f"`ensure_up_to_date(offline=False)` — reseau et ecriture ({SOURCE_ROUTES}, D-81)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'ecran de synchronisation du web : "
+        + " ; ".join(constats)
+        + f" ; attendu `offline=False` dans l'appel de {SOURCE_ROUTES}, la phrase d'annonce retrouvee "
+        f"dans le rendu de `GET /db/sync` et citee par la section « {TITRE_SYNCHRO_WEB} », le cas "
+        f"hors-ligne dit explicitement, et aucun POST emis par ce module"
     )

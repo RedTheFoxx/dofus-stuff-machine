@@ -106,6 +106,22 @@ La conséquence pratique est qu'un état affiché ne prouve pas que la base est 
 
 Autrement dit : voir une base locale exister ne dit rien de son contenu. Pour la remplir, il faut une synchronisation — et la surface des commandes est décrite par [la page CLI](cli.md).
 
+## La synchronisation refuse le mode hors-ligne
+
+La synchronisation a besoin du réseau : comparer la version du jeu et récupérer le catalogue supposent l'un et l'autre l'API. La commande de synchronisation refuse donc le mode hors-ligne, et elle le dit avec ce message, écrit dans `dofus_stuff/cli.py` :
+
+> `Erreur : --offline incompatible avec db sync`
+
+La commande sort alors avec un code de retour non nul : rien n'est synchronisé, et la base locale reste telle qu'elle était. Le piège est l'ordre des arguments — l'option globale s'écrit **avant** la sous-commande, et la forme fautive la place après : le refus vise la forme `--offline db sync`. Le détail des sous-commandes et de leurs options appartient à [la page CLI](cli.md).
+
+## L'écran de synchronisation du web contacte l'API
+
+C'est le seul endroit où le mode hors-ligne ne s'applique pas. L'écran de synchronisation, au chemin `/db/sync`, annonce d'abord ce qu'il va faire, avant de demander une confirmation :
+
+> CETTE OPERATION CONTACTE L'API DOFUSDUDE
+
+La suite de l'écran prévient que l'opération peut prendre plusieurs minutes, puis attend la confirmation. Le fait à retenir est que confirmer lance réellement la synchronisation, **même hors-ligne** : le mode hors-ligne règle le démarrage de l'interface — ne pas contacter l'API au démarrage — et non cette demande explicite. Une interface ouverte hors-ligne peut donc contacter l'API dès que vous confirmez cet écran.
+
 ## Source de vérité
 
 - `dofus_stuff/database.py` : nom du fichier de la base (`DB_NAME`), dossier par défaut (`DEFAULT_DATA_DIR`), clés de la table `meta`, catégories stockées (`ITEM_KINDS`) et schéma créé à l'ouverture.
