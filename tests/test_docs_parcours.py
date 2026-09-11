@@ -27,20 +27,24 @@ Limite nommee (plan 03-04) : le balayage des hypotheses de l'outil couvre les bo
 de bordure des paliers (1, 39, 40, 99, 100, 149, 150, 200), jamais les 200 niveaux : la cible PA/PM
 ne depend que du palier, et le balayage complet n'apporterait rien de plus. Les appels du balayage
 sont purs — `recommendation_spec` construit une specification sans rien resoudre — donc ce module ne
-lance aucun solveur pour prouver les hypotheses : la seule resolution reelle de ce module reste celle
-du rendu du resultat, sur la fixture.
+lance aucun solveur pour prouver les hypotheses : les seules resolutions reelles de ce module sont
+celles du rendu du resultat, sur la fixture (pagination, puis empreinte de la base locale). L'en-tete
+rendu des trois ecrans de questions est relu par `_entete` et exige de la page, sans etre recopie de
+memoire (RF-2 de `03-REVIEW-FIX.md`, DOCS-04).
 """
 
 from __future__ import annotations
 
 import ast
 import base64
+import hashlib
 import importlib
 import re
 from pathlib import Path
 from unittest.mock import patch
 
 import msgpack
+import pytest
 
 from dofus_stuff.model.solver_spec import capital_spent, total_capital_for_level
 from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS, recommendation_spec
@@ -2405,4 +2409,326 @@ def test_limites_ancrees_sur_le_code(docs_dir: Path, section, normalize) -> None
         + f" ; attendu les limites du critere 4 adossees a {SOURCE_SCORE}, {SOURCE_CANDIDATES}, "
         f"{SOURCE_RECOMMEND}, {SOURCE_ROUTES} et {SOURCE_API}, sans aucun nombre de catalogue et sans "
         f"lien vers une page inexistante"
+    )
+
+
+# --- Cloture de la page et empreinte de la base locale (plan 03-04, tache 3) ---
+#
+# Les neuf sections de niveau 2 de la page, dans l'ordre attendu. La comparaison est normalisee (D-11)
+# et toute derive (section manquante, renommee ou deplacee) est nommee par MOTIF_SECTION, seule
+# constante de motif du controle : un motif ecrit en clair dans la ligne d'assertion serait trouve par
+# la morsure sans qu'aucun message n'ait ete produit (regle posee au plan 03-03, tache 2).
+TITRES_PAGE = (
+    TITRE_CLASSE,
+    TITRE_ELEMENTS,
+    TITRE_NIVEAU,
+    TITRE_RESULTAT,
+    TITRE_CORRESPONDANCE,
+    TITRE_SAUVEGARDE,
+    TITRE_SUPPOSE,
+    TITRE_LIMITES,
+    TITRE_SOURCE,
+)
+MOTIF_SECTION = "section de niveau 2 manquante ou renommee"
+MOTIF_CRLF = "CRLF"
+MOTIF_LIEN_EXTERNE = "lien externe"
+MOTIF_LIENS_INEXISTANTS = "lien vers une page inexistante"
+
+# Marqueurs de format de la page, lus sur les octets et jamais sur un texte re-encode (D-01, T-21) :
+# la convention CRLF sans BOM a deja ete prise defaut dans les phases precedentes.
+BOM_UTF8 = b"\xef\xbb\xbf"
+FRAGMENT_H1 = "# "
+FRAGMENT_LIEN_EXTERNE = "](http"
+LIGNE_RETOUR = "[Retour au sommaire](sommaire.md)"
+
+# Base locale du depot : lue pour y prendre une empreinte, jamais modifiee (T-17). La mesure locale de
+# ce module est nommee pour ce qu'elle mesure : `tests/conftest.py` construit sa propre base sous
+# `tmp_path/data`, aucun test de la suite n'ouvre ce chemin, donc cette re-mesure ne peut pas detecter
+# une ecriture faite par un autre module. Le controle qui possede ce pouvoir est la mesure avant/apres
+# autour de la suite entiere, executee par la verification du plan.
+BASE_LOCALE = (".data", "dofus.sqlite3")
+MOTIF_BASE_ABSENTE = "base locale absente : la mesure d'empreinte n'a pas d'objet"
+MOTIF_EMPREINTE_CHANGEE = "empreinte de la base locale changee"
+MOTIF_RENDU_ABSENT = "rendu du resultat absent"
+COMPOSANTES_EMPREINTE = ("taille", "mtime_ns", "sha256")
+
+
+def _empreinte(chemin: Path) -> tuple[int, int, str]:
+    """Empreinte `(taille, mtime_ns, sha256)` d'un fichier, pour comparer deux instants (V15).
+
+    Le SHA-256 porte le contenu et `mtime_ns` porte la modification a contenu identique : les trois
+    composantes sont rendues pour qu'un ecart dise laquelle a bouge, et la mesure se demontre
+    discriminante sur une copie dans un dossier temporaire, jamais sur le fichier du depot (T-17).
+    """
+    octets = chemin.read_bytes()
+    return (len(octets), chemin.stat().st_mtime_ns, hashlib.sha256(octets).hexdigest())
+
+
+def test_page_complete_et_sans_derive(docs_dir: Path, sections, normalize) -> None:
+    """La page porte ses neuf sections dans l'ordre, un H1, la ligne de retour et des octets CRLF (V14).
+
+    Controle de cloture : il ne relit pas le contenu des sections (couvert par les autres tests du
+    module), il verifie la forme du document entier — les neuf sections epinglees dans l'ordre, un
+    seul titre de niveau 1, la derniere ligne non vide, l'absence de bloc de commandes et de lien
+    externe, l'absence de lien vers une page inexistante, et des octets en CRLF sans BOM.
+    """
+    chemin = docs_dir / PAGE
+    octets = chemin.read_bytes()
+    texte = octets.decode("utf-8")
+    constats: list[str] = []
+
+    # 1. Les neuf sections attendues, dans l'ordre, comparees normalisees (D-11).
+    titres = [titre for titre, _ in sections(texte) if titre is not None]
+    if len(titres) != len(TITRES_PAGE):
+        constats.append(
+            f"{PAGE} : {MOTIF_SECTION} — la page porte {len(titres)} section(s) de niveau 2 au lieu "
+            f"de {len(TITRES_PAGE)} ; attendu exactement, dans l'ordre : {', '.join(TITRES_PAGE)}"
+        )
+    for index, attendu in enumerate(TITRES_PAGE):
+        trouve = titres[index] if index < len(titres) else ""
+        if normalize(attendu.strip().lstrip("#").strip()) != normalize(trouve):
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — section {index + 1} attendue « {attendu} », section "
+                f"trouvee « {trouve} » ; attendu les neuf sections du parcours dans cet ordre, telles "
+                f"que rendues par les ecrans ({len(titres)} section(s) lue(s) dans la page)"
+            )
+
+    # 2. Un seul titre de niveau 1 : la page s'ouvre sur son titre, et rien d'autre.
+    h1 = [ligne for ligne in texte.splitlines() if ligne.startswith(FRAGMENT_H1)]
+    if len(h1) != 1:
+        constats.append(
+            f"{PAGE} : la page porte {len(h1)} titre(s) de niveau 1 ({', '.join(h1)}) ; attendu un "
+            f"seul titre de niveau 1, celui de la page"
+        )
+
+    # 3. La page se termine par la ligne de retour au sommaire.
+    remplies = [ligne.strip() for ligne in texte.splitlines() if ligne.strip()]
+    derniere = remplies[-1] if remplies else ""
+    if derniere != LIGNE_RETOUR:
+        constats.append(
+            f"{PAGE} : la derniere ligne non vide vaut « {derniere} » ; attendu « {LIGNE_RETOUR} », "
+            f"la ligne de retour au sommaire rendue par toutes les pages de `docs/`"
+        )
+
+    # 4. Aucun bloc de commandes (D-37), aucun lien externe (D-01), aucun lien vers une page absente.
+    if BALISE_COMMANDE in texte:
+        constats.append(
+            f"{PAGE} : la page porte un bloc de commandes « {BALISE_COMMANDE} » ; attendu aucun bloc "
+            f"de ce genre sur toute la page — la surface de commandes appartient a la page CLI "
+            f"(D-37, D-01)"
+        )
+    if FRAGMENT_LIEN_EXTERNE in texte:
+        constats.append(
+            f"{PAGE} : {MOTIF_LIEN_EXTERNE} — la page porte « {FRAGMENT_LIEN_EXTERNE} », un lien "
+            f"sortant du depot ; attendu aucun lien externe sur toute la page (D-01)"
+        )
+    for page_cible in PAGES_INEXISTANTES:
+        if f"]({page_cible})" in texte:
+            constats.append(
+                f"{PAGE} : {MOTIF_LIENS_INEXISTANTS} — la page lie « {page_cible} », qui n'existe pas "
+                f"encore ; attendu un renvoi en prose, l'ajout du lien appartenant a la phase qui "
+                f"cree cette page (D-44)"
+            )
+
+    # 5. Octets en CRLF sans BOM, lus en binaire : un texte re-encode ne dirait rien de l'encodage.
+    fins = octets.count(b"\n")
+    crlf = octets.count(b"\r\n")
+    if octets.startswith(BOM_UTF8):
+        constats.append(
+            f"{PAGE} : les octets portent un BOM UTF-8 ; attendu un fichier sans BOM, comme les "
+            f"autres pages de `docs/` (D-01)"
+        )
+    if fins != crlf:
+        constats.append(
+            f"{PAGE} : {MOTIF_CRLF} — les octets portent {fins} fin(s) de ligne pour {crlf} CRLF ; "
+            f"attendu autant de CRLF que de fins de ligne, une conversion en LF ayant deja ete prise "
+            f"en defaut dans les phases precedentes (T-21)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats de cloture de la page : "
+        + " ; ".join(constats)
+        + f" ; attendu une page complete et conforme : les neuf sections epinglees dans l'ordre, un "
+        f"seul titre de niveau 1, la ligne de retour en dernier, aucun bloc de commandes, aucun lien "
+        f"externe ni vers une page inexistante, et des octets en CRLF sans BOM"
+    )
+
+
+def test_data_locale_non_modifiee_autour_des_rendus(app) -> None:
+    """La base locale du depot est intacte autour des rendus reels de ce module (V15, T-17, T-18).
+
+    Limite mesuree, ecrite ici pour ne pas etre lue comme une preuve plus large qu'elle ne l'est :
+    `tests/conftest.py` construit sa propre base sous `tmp_path/data` et aucun test de la suite
+    n'ouvre `.data/dofus.sqlite3`, donc cette re-mesure locale ne peut pas detecter une ecriture faite
+    par un **autre** module ; elle prouve que **ce module** n'y touche pas pendant qu'il resout
+    reellement un stuff. Le controle qui possede ce pouvoir est la mesure avant/apres autour de la
+    suite entiere, executee par la verification du plan. Le fichier est lu, jamais modifie : la
+    morsure de la mesure se demontre sur une copie dans un dossier temporaire (T-17).
+
+    Le rendu a lieu entre les deux empreintes, et son succes est exige (T-18) : une re-mesure prise
+    sans qu'aucune resolution n'ait tourne ne dirait rien, et un `skip` explicite remplace un faux
+    vert quand la base est absente.
+    """
+    chemin = RACINE_DEPOT.joinpath(*BASE_LOCALE)
+    if not chemin.exists():
+        pytest.skip(MOTIF_BASE_ABSENTE)
+
+    avant = _empreinte(chemin)
+    constats: list[str] = []
+
+    # 1. Resolution reelle sur la fixture : la boucle complete du parcours simplifie, etape 3 comprise.
+    client = _client_etape(app, "niveau")
+    reponse = client.post("/optimize/quick/niveau", data={"cmd": NIVEAU_RESULTAT})
+    cible = reponse.headers.get("Location", "")
+    if reponse.status_code != 302 or not cible.endswith("/optimize/result"):
+        constats.append(
+            f"{PAGE} : {MOTIF_RENDU_ABSENT} — le calcul du niveau {NIVEAU_RESULTAT} repond "
+            f"{reponse.status_code} vers « {cible} » ; attendu une redirection vers "
+            f"« /optimize/result », sans quoi la seconde empreinte serait prise sans qu'aucun calcul "
+            f"n'ait eu lieu (T-18)"
+        )
+    else:
+        rendu = client.get("/optimize/result")
+        trouve = MOTIF_PAGE_STATUT.search(_statut(rendu))
+        total = int(trouve.group("total")) if trouve is not None else 1
+        lignes: list[str] = []
+        for numero in range(1, total + 1):
+            lignes.extend(_lignes_du_corps(client.get(f"/optimize/result?page={numero}")))
+        # Comparaison brute, comme `test_pagination_et_emplacement_du_calcul` : les accents des
+        # lignes du corps sont rendus tels quels, seule la charge utile `data-stuff-payload` les
+        # echappe. Les diagnostics tombent sur la derniere page du resultat, donc les pages sont
+        # concatenees avant la recherche, jamais indexees sur un numero de page fixe (ECR-2).
+        manquants = [
+            marqueur
+            for marqueur in MARQUEURS_DIAGNOSTICS
+            if not any(marqueur in ligne for ligne in lignes)
+        ]
+        if rendu.status_code != 200 or manquants:
+            constats.append(
+                f"{PAGE} : {MOTIF_RENDU_ABSENT} — l'ecran du resultat repond {rendu.status_code} et "
+                f"ne porte pas les diagnostics attendus ({', '.join(manquants) or 'aucun manquant'}) "
+                f"; attendu un resultat reellement resolu sur la fixture, sinon la mesure "
+                f"d'empreinte n'encadre rien"
+            )
+
+    # 2. Empreinte apres le rendu : identique, composante par composante.
+    apres = _empreinte(chemin)
+    if apres != avant:
+        changees = [
+            nom
+            for nom, valeur_avant, valeur_apres in zip(COMPOSANTES_EMPREINTE, avant, apres)
+            if valeur_avant != valeur_apres
+        ]
+        constats.append(
+            f"{PAGE} : {MOTIF_EMPREINTE_CHANGEE} — {chemin} : avant=(taille {avant[0]}, mtime_ns "
+            f"{avant[1]}, sha256 {avant[2]}) apres=(taille {apres[0]}, mtime_ns {apres[1]}, sha256 "
+            f"{apres[2]}) ; composante(s) changee(s) : {', '.join(changees)} ; attendu une base "
+            f"locale identique avant et apres les rendus de ce module, la base etant lue et jamais "
+            f"modifiee (T-17)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la base locale autour des rendus : "
+        + " ; ".join(constats)
+        + f" ; attendu {chemin} intacte avant et apres un rendu reel du resultat, mesure locale "
+        f"nommee pour ce qu'elle mesure"
+    )
+
+
+# --- En-tete rendu des trois ecrans de questions, cite par la page (RF-2 de 03-REVIEW-FIX) ---
+#
+# L'en-tete est lu dans le rendu (`_entete`, introduit au plan 03-03) et jamais recopie de memoire :
+# le code de programme et le titre cites par la page sont ceux que la ligne d'en-tete rend. Le
+# controle ferme l'ecart releve par RF-2 : `OPT-SIMPLE` et « RECOMMANDATION DE STUFF » etaient rendus
+# mais cites par aucune page et asserte par aucun controle, alors que `.claude/CLAUDE.md` les
+# rattache a cette page (DOCS-04).
+
+MOTIF_PGM = re.compile(r"PGM:\s*(?P<code>[A-Z0-9-]+)")
+MOTIF_TITRE_PROGRAMME = re.compile(r"\*\*\s*(?P<titre>[^*]+?)\s*\*\*")
+ETAPES_QUESTIONS = ("classe", "elements", "niveau")
+MOTIF_ENTETE_CITE = "en-tete rendu des trois questions non cite"
+
+
+def _cite_en_mot_entier(fragment: str, texte: str) -> bool:
+    """Le fragment est cite comme mot entier de la page, pas comme morceau d'un libelle plus long.
+
+    Mesure : un code de programme rendu `OPT-SIMPL` ne doit pas etre satisfait par la citation du code
+    `OPT-SIMPLE` de la page, ou la recherche par sous-chaine trouverait le fragment court dans le
+    fragment long et laisserait passer la derive.
+    """
+    return re.search(rf"(?<![\w-]){re.escape(fragment)}(?![\w-])", texte) is not None
+
+
+def test_entete_des_trois_ecrans_de_questions_cite(docs_dir: Path, app) -> None:
+    """La page cite le code de programme et le titre rendus par les trois ecrans de questions (RF-2).
+
+    Mesure : `_entete` rend `PGM: OPT-SIMPLE ... ** RECOMMANDATION DE STUFF ** ...` pour les trois
+    etapes. Le controle relit ces deux fragments dans le rendu, exige que les trois en-tetes les
+    portent a l'identique, puis exige que la page les cite. Aucun des deux fragments n'est ecrit en
+    clair dans la ligne d'assertion : un motif ecrit en clair y serait trouve sans qu'aucun message
+    n'ait ete produit (regle posee au plan 03-03, tache 2).
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+    entetes: dict[str, str] = {}
+
+    for etape in ETAPES_QUESTIONS:
+        rendu = _client_etape(app, etape).get(f"/optimize/quick/{etape}")
+        entetes[etape] = _entete(rendu)
+        if rendu.status_code != 200 or not entetes[etape]:
+            constats.append(
+                f"{PAGE} : l'en-tete de l'ecran « {etape} » est absent du rendu (statut "
+                f"{rendu.status_code}) ; attendu la ligne d'en-tete des trois ecrans de questions, "
+                f"construite par header_line ({SOURCE_SCREENS}:77-96) et posee par "
+                f"{SOURCE_ROUTES}:1006"
+            )
+
+    lus: list[tuple[str, str, str]] = []
+    for etape in ETAPES_QUESTIONS:
+        entete = entetes.get(etape, "")
+        if not entete:
+            continue
+        code = MOTIF_PGM.search(entete)
+        titre = MOTIF_TITRE_PROGRAMME.search(entete)
+        if code is None or titre is None:
+            constats.append(
+                f"{PAGE} : la ligne d'en-tete de l'etape « {etape} » vaut « {entete} » ; attendu un "
+                f"code de programme et un titre, construits par header_line "
+                f"({SOURCE_SCREENS}:77-96)"
+            )
+            continue
+        lus.append((etape, code.group("code"), titre.group("titre")))
+
+    codes = sorted({code for _, code, _ in lus})
+    titres = sorted({titre for _, _, titre in lus})
+    if lus and (len(codes) != 1 or len(titres) != 1):
+        details = ", ".join(f"{etape} rend « {code} » / « {titre} »" for etape, code, titre in lus)
+        constats.append(
+            f"{PAGE} : les ecrans de questions ne portent pas le meme en-tete ({details}) ; attendu "
+            f"un seul code de programme et un seul titre pour les trois etapes, comme rendu par "
+            f"{SOURCE_ROUTES}:1006"
+        )
+    if len(codes) == 1 and len(titres) == 1:
+        code, titre = codes[0], titres[0]
+        if not _cite_en_mot_entier(code, texte):
+            constats.append(
+                f"{PAGE} : {MOTIF_ENTETE_CITE} — la page ne cite pas « {code} », le code de programme "
+                f"rendu par la ligne d'en-tete des trois ecrans de questions "
+                f"({SOURCE_ROUTES}:1006) ; attendu ce code cite la ou la page decrit ces ecrans "
+                f"(.claude/CLAUDE.md, DOCS-04)"
+            )
+        titre_rendu = f"** {titre} **"
+        if titre_rendu not in texte:
+            constats.append(
+                f"{PAGE} : {MOTIF_ENTETE_CITE} — la page ne cite pas « {titre_rendu} », le titre "
+                f"rendu par la ligne d'en-tete des trois ecrans de questions "
+                f"({SOURCE_ROUTES}:1006) ; attendu ce titre cite la ou la page decrit ces ecrans "
+                f"(.claude/CLAUDE.md, DOCS-04)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'en-tete cite : "
+        + " ; ".join(constats)
+        + f" ; attendu une page qui cite le code de programme et le titre que la ligne d'en-tete des "
+        f"trois ecrans de questions rend, lus dans le rendu et jamais recopies de memoire"
     )

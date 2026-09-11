@@ -6,7 +6,7 @@ Toutes les affirmations de cette page viennent du rendu réel de la vue web. La 
 
 ## Question 1/3 : la classe
 
-L'écran s'ouvre sur le menu des dix-neuf classes, chacune accompagnée de son numéro. Le titre du programme affiché en haut d'écran est `** RECOMMANDATION DE STUFF **`.
+L'écran s'ouvre sur le menu des dix-neuf classes, chacune accompagnée de son numéro. Les trois écrans de questions sont ceux du programme `OPT-SIMPLE` : leur ligne d'en-tête affiche `PGM: OPT-SIMPLE` à gauche et le titre `** RECOMMANDATION DE STUFF **` au centre, comme les trois écrans rendus par la même page de programme.
 
 ```text
 VOTRE STUFF EN 3 CHOIX
