@@ -2358,3 +2358,41 @@ def test_renvois_legitimes_non_signales(docs_dir: Path, app, normalize) -> None:
         f"signalee (D-58, D-60)"
     )
 
+
+def test_aiguillage_sans_renvoi_obsolete(docs_dir: Path, app, normalize) -> None:
+    """`GUIDE_WIZARD.md` ne porte aucun renvoi obsolete — **ROUGE jusqu'au plan 04-03** (WIZ-03).
+
+    Ce test applique le detecteur au fichier **livre**, sans le modifier : c'est l'etat rouge du
+    critere 5 (D-59a). Le fichier est encore l'ancien guide, il cite donc encore le menu `3` pour
+    l'optimisation, presente `F7` comme les armes a distance et annonce une arrivee « directe » dans
+    le wizard. La correction appartient au plan 04-03 (vague 4), qui produira le vert ; **ce plan ne
+    touche jamais le fichier** et le controle n'est jamais affaibli pour obtenir un vert.
+
+    Ce que le test prouve quand il passe : le detecteur ne signale **rien** sur l'aiguillage corrige.
+    Il ne prouve pas — et ne revendique pas — qu'aucun autre renvoi obsolete n'existe ailleurs :
+    trois formes nommees sont couvertes, aucune exhaustivite n'est revendiquee (D-58/D-26). Chaque
+    constat relaie la valeur fautive, la valeur attendue lue au rendu et le **fichier de code
+    producteur** (`{SOURCE_ROUTES}` pour le menu et l'arrivee, `{SOURCE_SPEC}` pour le couple
+    `F6`/`F7`), un constat sans producteur etant un defaut de forme a corriger (D-13, D-65).
+    """
+    chemin = RACINE_DEPOT / GUIDE_WIZARD
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : aiguillage introuvable ({chemin}) ; attendu le fichier de la racine "
+            f"que le perimetre WIZ-03 designe, decrit par .planning/PROJECT.md"
+        )
+    texte = chemin.read_text(encoding="utf-8")
+    faits = _faits_du_rendu(app, normalize)
+    constats = renvois_obsoletes(texte, faits)
+
+    assert not constats, (
+        f"{GUIDE_WIZARD} : renvois obsoletes signales sur la page controlee : "
+        + " ; ".join(constats)
+        + f" ; attendu un aiguillage sans renvoi vers un menu, un filtre ou une arrivee disparus, "
+        f"chaque constat nommant sa valeur fautive, la valeur attendue lue au rendu et son fichier "
+        f"de code producteur ({SOURCE_ROUTES} pour le menu et l'arrivee, {SOURCE_SPEC} pour le "
+        f"couple F6/F7) — {LIMITE_HONNETE} ; le vert de ce controle appartient au plan 04-03, qui "
+        f"corrige l'aiguillage, jamais a un affaiblissement du detecteur"
+    )
+
+
