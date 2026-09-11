@@ -94,6 +94,7 @@ TITRE_CHAMPS_WEB = "## L'état de la base dans l'interface web"
 TITRE_CREATION = "## Le premier contact crée la base"
 TITRE_REFUS = "## La synchronisation refuse le mode hors-ligne"
 TITRE_SYNCHRO_WEB = "## L'écran de synchronisation du web contacte l'API"
+TITRE_DESTRUCTRICES = "## Les commandes destructrices"
 TITRE_SOURCE = "## Source de vérité"
 
 TITRES_SECTION_ATTENDUS = (
@@ -107,6 +108,7 @@ TITRES_SECTION_ATTENDUS = (
     TITRE_CREATION,
     TITRE_REFUS,
     TITRE_SYNCHRO_WEB,
+    TITRE_DESTRUCTRICES,
     TITRE_SOURCE,
 )
 
@@ -180,6 +182,64 @@ MESSAGE_REFUS = "Erreur : --offline incompatible avec db sync"
 PHRASE_SYNCHRO = "CETTE OPERATION CONTACTE L'API DOFUSDUDE"
 INVITE_CONFIRMATION = "CONFIRMER ? (O=OUI / N=NON)"
 
+# Les deux commandes destructrices du critere 4. Le motif de `db clear` est celui deja employe par
+# `tests/test_docs_structure.py:20` et `tests/test_docs_wizard.py:186` : le meme motif partout, pour que
+# les pages qui le portent ne divergent pas. La seconde commande n'est pas une commande Python — son
+# effet est du JavaScript —, elle est donc un **jeton** exige au rendu de l'ecran des sauvegardes et dans
+# le fichier du terminal.
+COMMANDE_DESTRUCTRICE = re.compile(r"\bdb\s+clear\b")
+JETON_PURGE = "PURGE OUI"
+
+# Balise du bloc de commandes de la console, deja epinglee par `tests/test_docs_parcours.py:1481` sous ce
+# nom : aucune commande destructrice ne doit apparaitre dans un exemple recopiable (D-80).
+BALISE_COMMANDE = BALISE_CONSOLE
+
+# Marques du caractere destructeur, comparees normalisees : l'avertissement doit porter sur la **meme
+# ligne** que la commande (D-80). La marque est exigee de **chaque** ligne porteuse, jamais d'une autre
+# ligne de la page.
+MARQUES_DESTRUCTRICES = ("destruct", "detruit", "irreversible", "danger", "attention")
+
+# Cibles distinctes des deux commandes (Pitfall 7) : la premiere vide la base SQLite, la seconde supprime
+# les sauvegardes du navigateur. Une page qui reprendrait la formulation « de la base » pour la seconde
+# serait fausse, et le controle le dit.
+MARQUES_BASE = ("base locale", "dofus.sqlite3", "sqlite")
+MARQUES_SAUVEGARDES = ("sauvegardes", "navigateur")
+
+# Marques du fait que ces commandes ne sont l'etape d'aucun parcours (D-80).
+MARQUES_HORS_PARCOURS = ("aucun parcours", "aucune etape")
+
+# Marques du fait que `clear` vide les tables sans supprimer le fichier (D-81) : la nuance est ce qui
+# distingue « la base est vide » de « la base a disparu », et la page doit la porter.
+MARQUES_FICHIER_CONSERVE = (
+    "le fichier n'est pas supprime",
+    "fichier conserve",
+    "ne supprime pas le fichier",
+)
+
+# Les deux instructions de suppression de `Database.clear`, lues par `ast` dans le code (D-81).
+SUPPRESSION_ITEMS = "DELETE FROM items"
+SUPPRESSION_META = "DELETE FROM meta"
+
+# Traitement de `PURGE OUI` dans le JavaScript de l'ecran des sauvegardes : la comparaison du libelle, et
+# l'appel qui retire la cle des sauvegardes du navigateur. Litteraux du fichier, jamais executes — aucun
+# navigateur n'est lance et aucun JavaScript n'est compile (A2 de la recherche, D-85).
+COMPARAISON_PURGE = re.compile(r"""upper\s*===\s*["']PURGE OUI["']""")
+RETRAIT_SAUVEGARDES = re.compile(r"localStorage\.removeItem\(\s*SAVES_KEY\s*\)")
+
+# Perimetre du critere 4, ecrit noir sur blanc dans le module (D-87, Pitfall 8) : le controle porte sur la
+# page de ce depot et sur ce module. L'occurrence de `README.md` ligne 80 — seule du depot ou une commande
+# destructrice figure dans un bloc de commandes sans avertissement — est **hors du mandat de reecriture**
+# de cette phase (D-87 limite le travail du README a la resolution de ses renvois) : elle est consignee
+# pour la phase 6, proprietaire de la completude, et **aucun** constat de ce module ne rougit a cause
+# d'elle. La docstring de `test_commandes_destructrices` cite cette constante, et le controle verifie cette
+# citation.
+LIMITE_PERIMETRE = (
+    "Ce controle porte sur docs/base-locale.md et sur ce module. L'occurrence de README.md ligne 80, "
+    "seule du depot ou une commande destructrice figure dans un bloc de commandes sans avertissement, "
+    "est hors du mandat de reecriture de cette phase (D-87) : elle est consignee pour la phase 6, "
+    "proprietaire de la completude, et aucun constat de ce controle ne la mentionne."
+)
+
 # Chemin d'ecran cite entre accents graves : un jeton qui commence par une barre oblique est un chemin de
 # route, jamais un chemin de fichier du depot (ceux-ci passent par `CHEMIN_CITE`). Chaque chemin cite doit
 # etre declare par un decorateur `get`/`post` de `dofus_stuff/web/routes.py` (D-76) : la page ne nomme
@@ -222,6 +282,9 @@ MOTIF_CREATION = "creation de la base par le premier contact"
 MOTIF_ROUTE = "chemin d ecran cite par la page"
 MOTIF_REFUS = "refus de la synchronisation hors-ligne"
 MOTIF_SYNCHRO_WEB = "synchronisation web hors-ligne"
+MOTIF_DESTRUCTRICES = "commandes destructrices"
+MOTIF_EFFET = "effet de la commande destructrice"
+MOTIF_EXEMPLE = "bloc de commandes"
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -410,6 +473,56 @@ def _constats_bloc_refus(arbre: ast.AST) -> list[str]:
                 f"{', '.join(appels)} ; attendu un refus qui precede l'appel reseau, la synchronisation "
                 f"etant inatteignable quand l'option est donnee ({SOURCE_CLI}, D-78)"
             )
+    return constats
+
+
+def _constats_effet_clear(arbre: ast.AST) -> list[str]:
+    """Effet de la commande destructrice, lu par `ast` dans `Database.clear` sans jamais l'executer.
+
+    Les deux litteraux de suppression disent ce que la commande detruit, et l'absence de tout appel dont
+    le nom figure dans `APPELS_SUPPRESSION` dit ce qu'elle **ne** detruit pas : le fichier de la base
+    reste sur le disque. La distinction est exactement celle que Pitfall 7 signale comme confusion
+    possible entre les deux commandes destructrices.
+    """
+    constats: list[str] = []
+    fonctions = [
+        noeud
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.FunctionDef) and noeud.name == "clear"
+    ]
+    if not fonctions:
+        return [
+            f"{MOTIF_EFFET} : la methode `clear` est introuvable dans {SOURCE_DATABASE} ; attendu le "
+            f"vidage des deux tables, lu par ast et jamais execute (D-81)"
+        ]
+
+    methode = fonctions[0]
+    litteraux = {
+        noeud.value
+        for noeud in ast.walk(methode)
+        if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str)
+    }
+    for attendu in (SUPPRESSION_ITEMS, SUPPRESSION_META):
+        if attendu not in litteraux:
+            constats.append(
+                f"{MOTIF_EFFET} : la methode `clear` de {SOURCE_DATABASE} ne porte plus "
+                f"« {attendu} » ; attendu les deux instructions de suppression des tables `items` puis "
+                f"`meta`, le fichier de la base etant vide et non supprime (D-81)"
+            )
+    suppressions = sorted(
+        {
+            _nom_appele(noeud)
+            for noeud in ast.walk(methode)
+            if isinstance(noeud, ast.Call)
+        }
+        & set(APPELS_SUPPRESSION)
+    )
+    if suppressions:
+        constats.append(
+            f"{MOTIF_EFFET} : la methode `clear` de {SOURCE_DATABASE} appelle "
+            f"{', '.join(suppressions)} ; attendu aucun appel de suppression, le fichier de la base "
+            f"n'etant jamais efface par cette commande (D-81)"
+        )
     return constats
 
 
@@ -1458,4 +1571,168 @@ def test_la_synchronisation_web_contacte_l_api(docs_dir: Path, section, client, 
         + f" ; attendu `offline=False` dans l'appel de {SOURCE_ROUTES}, la phrase d'annonce retrouvee "
         f"dans le rendu de `GET /db/sync` et citee par la section « {TITRE_SYNCHRO_WEB} », le cas "
         f"hors-ligne dit explicitement, et aucun POST emis par ce module"
+    )
+
+
+def test_commandes_destructrices(
+    docs_dir: Path, section, client, normalize, lignes_exemple
+) -> None:
+    """Les deux commandes destructrices sont signalees sur leur ligne et hors de tout parcours.
+
+    Perimetre declare : le controle porte sur la page de ce depot et sur ce module, et il est ecrit noir
+    sur blanc dans la constante `LIMITE_PERIMETRE`, que cette docstring cite. L'occurrence de `README.md`
+    ligne 80, seule du depot ou une commande destructrice figure dans un bloc de commandes sans
+    avertissement, appartient a la phase 6 (D-87) et aucun constat d'ici ne la mentionne (Pitfall 8,
+    A3).
+
+    Trois lectures, aucune execution. La reconnaissance est faite **ligne a ligne** sur le texte entier
+    de la page (D-80) : chaque ligne qui porte une commande doit avertir sur elle-meme, meme si une autre
+    ligne de la page porte deja l'avertissement. Les cibles sont distinguees (Pitfall 7) : la premiere
+    commande vide la base SQLite, la seconde supprime les sauvegardes du navigateur. Et l'effet de
+    chacune est **lu** — les deux instructions de suppression de `Database.clear` par `ast`, le libelle
+    de la seconde commande sur la ligne de statut rendue par `GET /saves`, et son traitement dans
+    `dofus_stuff/web/static/js/terminal.js` — jamais execute.
+
+    Limite honnete : l'execution JavaScript de la seconde commande n'est pas observable en processus.
+    Aucun navigateur n'est lance et aucun JavaScript n'est compile : ce qui est verifie est le libelle
+    rendu et le texte du fichier qui le traite, pas le retrait effectif de la cle (A2 de la recherche,
+    D-85).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_DESTRUCTRICES, PAGE)
+    lignes = texte.splitlines()
+    constats: list[str] = []
+
+    # 1. Reconnaissance ligne a ligne (D-80) : chaque ligne porteuse porte son propre avertissement.
+    porteuses = {
+        "db clear": [
+            numero
+            for numero, ligne in enumerate(lignes, start=1)
+            if COMMANDE_DESTRUCTRICE.search(ligne)
+        ],
+        JETON_PURGE: [
+            numero for numero, ligne in enumerate(lignes, start=1) if JETON_PURGE in ligne
+        ],
+    }
+    for jeton, numeros in porteuses.items():
+        if not numeros:
+            constats.append(
+                f"{MOTIF_DESTRUCTRICES} : la page ne porte pas la commande « {jeton} » ; attendu la "
+                f"commande signalee comme destructrice, chaque ligne porteuse avertissant sur elle-meme "
+                f"({PAGE}, D-80)"
+            )
+            continue
+        for numero in numeros:
+            ligne = lignes[numero - 1]
+            if not any(
+                normalize(marque) in normalize(ligne) for marque in MARQUES_DESTRUCTRICES
+            ):
+                constats.append(
+                    f"{MOTIF_DESTRUCTRICES} : la ligne {numero} de {PAGE} porte « {jeton} » sans "
+                    f"avertissement : « {ligne.strip()} » ; attendu une marque de caractere destructeur "
+                    f"sur la meme ligne que la commande (au moins une de : "
+                    f"{', '.join(MARQUES_DESTRUCTRICES)}) (D-80)"
+                )
+
+    # 2. Cibles distinctes (Pitfall 7) : chaque ligne porteuse nomme ce que sa commande detruit.
+    for jeton, marques, cible, source in (
+        ("db clear", MARQUES_BASE, "la base locale", SOURCE_DATABASE),
+        (JETON_PURGE, MARQUES_SAUVEGARDES, "les sauvegardes du navigateur", SOURCE_TERMINAL_JS),
+    ):
+        for numero in porteuses[jeton]:
+            ligne = lignes[numero - 1]
+            if not any(normalize(marque) in normalize(ligne) for marque in marques):
+                constats.append(
+                    f"{MOTIF_DESTRUCTRICES} : la ligne {numero} de {PAGE} porte « {jeton} » sans "
+                    f"nommer {cible} (attendu au moins une de : {', '.join(marques)}) ; attendu la cible "
+                    f"que cette commande detruit reellement ({source}, Pitfall 7)"
+                )
+
+    # 3. Hors de tout parcours, et hors de tout exemple recopiable (D-80).
+    if not any(normalize(marque) in normalize(corps) for marque in MARQUES_HORS_PARCOURS):
+        constats.append(
+            f"{MOTIF_DESTRUCTRICES} : la section « {TITRE_DESTRUCTRICES} » ne dit pas que ces commandes "
+            f"ne sont l'etape d'aucun parcours (attendu au moins une de : "
+            f"{', '.join(MARQUES_HORS_PARCOURS)}) ; attendu la mise hors parcours des deux commandes "
+            f"({PAGE}, D-80)"
+        )
+    if BALISE_COMMANDE in texte:
+        constats.append(
+            f"{MOTIF_EXEMPLE} : la page porte un bloc de commandes « {BALISE_COMMANDE} » ; attendu "
+            f"aucun bloc de ce genre, une commande destructrice ne devant jamais figurer dans un exemple "
+            f"recopiable ({PAGE}, D-80)"
+        )
+    for ligne in lignes_exemple(texte):
+        for jeton in ("db clear", JETON_PURGE):
+            porte = (
+                COMMANDE_DESTRUCTRICE.search(ligne) is not None
+                if jeton == "db clear"
+                else JETON_PURGE in ligne
+            )
+            if porte:
+                constats.append(
+                    f"{MOTIF_EXEMPLE} : une ligne d'exemple de {PAGE} porte « {jeton} » "
+                    f"(« {ligne} ») ; attendu aucune commande destructrice dans un bloc d'exemple, "
+                    f"meme marque ({PAGE}, D-80)"
+                )
+
+    # 4. Effet de la premiere commande, lu par `ast` et jamais execute (D-81).
+    arbre_base = ast.parse((RACINE_DEPOT / SOURCE_DATABASE).read_text(encoding="utf-8"))
+    constats += _constats_effet_clear(arbre_base)
+    for attendu in (SUPPRESSION_ITEMS, SUPPRESSION_META):
+        if attendu not in corps:
+            constats.append(
+                f"{MOTIF_EFFET} : la section « {TITRE_DESTRUCTRICES} » ne cite pas « {attendu} » ; "
+                f"attendu l'effet reel de la commande, tel que le code l'ecrit ({SOURCE_DATABASE}, "
+                f"D-80)"
+            )
+    if not any(normalize(marque) in normalize(corps) for marque in MARQUES_FICHIER_CONSERVE):
+        constats.append(
+            f"{MOTIF_EFFET} : la section « {TITRE_DESTRUCTRICES} » ne dit pas que le fichier n'est pas "
+            f"supprime (attendu au moins une de : {', '.join(MARQUES_FICHIER_CONSERVE)}) ; attendu "
+            f"l'effet exact de `clear`, qui vide les tables sans effacer le fichier de la base "
+            f"({SOURCE_DATABASE}, D-81)"
+        )
+
+    # 5. Effet de la seconde commande : le libelle au rendu, et son traitement dans le fichier JS.
+    reponse = client.get("/saves")
+    if reponse.status_code != 200:
+        constats.append(
+            f"{MOTIF_EFFET} : `GET /saves` rend le statut {reponse.status_code} ; attendu 200, l'ecran "
+            f"des sauvegardes etant celui qui porte le libelle de la seconde commande ({SOURCE_ROUTES})"
+        )
+    elif normalize(JETON_PURGE) not in normalize(_statut(reponse)):
+        constats.append(
+            f"{MOTIF_EFFET} : la ligne de statut rendue par `GET /saves` ne porte pas « {JETON_PURGE} » "
+            f"(« {_statut(reponse).strip()} ») ; attendu le libelle de la seconde commande au rendu de "
+            f"l'ecran des sauvegardes ({SOURCE_ROUTES})"
+        )
+    script = (RACINE_DEPOT / SOURCE_TERMINAL_JS).read_text(encoding="utf-8")
+    if COMPARAISON_PURGE.search(script) is None:
+        constats.append(
+            f"{MOTIF_EFFET} : le fichier {SOURCE_TERMINAL_JS} ne compare plus le libelle "
+            f"« {JETON_PURGE} » ; attendu le traitement de la commande, lu dans le fichier et jamais "
+            f"execute (D-85)"
+        )
+    if RETRAIT_SAUVEGARDES.search(script) is None:
+        constats.append(
+            f"{MOTIF_EFFET} : le fichier {SOURCE_TERMINAL_JS} ne retire plus la cle des sauvegardes du "
+            f"navigateur (`localStorage.removeItem(SAVES_KEY)`) ; attendu l'effet reel de la commande, "
+            f"lu dans la source et jamais execute (D-85)"
+        )
+
+    # 6. Le perimetre est declare, et ce controle ne rougit pas pour un fichier hors mandat (D-87).
+    if "LIMITE_PERIMETRE" not in (test_commandes_destructrices.__doc__ or ""):
+        constats.append(
+            f"{MOTIF_DESTRUCTRICES} : la docstring de ce test ne cite pas la constante "
+            f"`LIMITE_PERIMETRE` de ce module ; attendu le perimetre declare, ce controle portant sur "
+            f"{PAGE} et sur ce module ({PAGE}, D-87)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les commandes destructrices : "
+        + " ; ".join(constats)
+        + f" ; attendu chacune des deux commandes signalee sur sa propre ligne, avec la cible qu'elle "
+        f"detruit, hors de tout parcours et de tout bloc d'exemple, et son effet lu dans "
+        f"{SOURCE_DATABASE}, {SOURCE_ROUTES} et {SOURCE_TERMINAL_JS} sans jamais etre execute"
     )

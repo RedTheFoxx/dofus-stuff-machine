@@ -122,6 +122,16 @@ C'est le seul endroit où le mode hors-ligne ne s'applique pas. L'écran de sync
 
 La suite de l'écran prévient que l'opération peut prendre plusieurs minutes, puis attend la confirmation. Le fait à retenir est que confirmer lance réellement la synchronisation, **même hors-ligne** : le mode hors-ligne règle le démarrage de l'interface — ne pas contacter l'API au démarrage — et non cette demande explicite. Une interface ouverte hors-ligne peut donc contacter l'API dès que vous confirmez cet écran.
 
+## Les commandes destructrices
+
+Deux commandes du produit détruisent des données. Elles sont décrites ici pour être **reconnues**, jamais pour être lancées, et chacune est signalée sur sa propre ligne :
+
+`db clear` (et son second nom, l'alias de cache `cache clear`) est destructrice : elle vide entièrement la base locale en exécutant les deux instructions de suppression que le code porte, `DELETE FROM items` puis `DELETE FROM meta` — le fichier n'est pas supprimé du disque, mais les deux tables sont vidées et les entrées locales disparaissent ; le détail de la sous-commande appartient à [la page CLI](cli.md).
+
+PURGE OUI est destructrice : elle supprime les sauvegardes du navigateur pour cette interface.
+
+Ces deux commandes ne sont l'étape d'aucun parcours de cette page : aucune des deux n'est nécessaire pour lire, rechercher, optimiser ou sauvegarder un stuff, et elles sont décrites ici pour être reconnues au moment où on les croise, pas pour être suivies.
+
 ## Source de vérité
 
 - `dofus_stuff/database.py` : nom du fichier de la base (`DB_NAME`), dossier par défaut (`DEFAULT_DATA_DIR`), clés de la table `meta`, catégories stockées (`ITEM_KINDS`) et schéma créé à l'ouverture.
