@@ -26,6 +26,29 @@ AVANCE : personnaliser les réglages
 
 Le champ de saisie porte le libellé `CHOIX`, et la barre de touches affiche `ESC=Retour`.
 
+### Entrées acceptées
+
+| Saisie | Ce que l'outil fait |
+|--------|---------------------|
+| `Cra` | passe à l'étape 2 |
+| `crâ` | passe à l'étape 2 : accents et casse sont ignorés |
+| `1` | passe à l'étape 2 : le numéro 1 désigne Cra |
+| `19` | passe à l'étape 2 : le numéro 19 désigne Zobal |
+| `019` | passe à l'étape 2 : le zéro de tête est admis |
+| ` 3 ` | passe à l'étape 2 : les espaces autour sont retirés |
+
+Le nom de la classe est comparé après suppression des accents et de la casse : `Crâ` et `cra` désignent la même classe. Un numéro de 1 à 19 est accepté, avec ou sans zéro de tête, et les espaces placés autour de la saisie sont retirés avant la comparaison. Le début du nom ne suffit pas : la comparaison est une égalité, pas un préfixe, et `eliotrop` est refusé pour cette raison.
+
+### Erreurs et refus
+
+| Saisie refusée | Message affiché |
+|----------------|-----------------|
+| `eliotrop` | Saisissez le nom ou le numéro de votre classe. |
+| `0` | Saisissez le nom ou le numéro de votre classe. |
+| `20` | Saisissez le nom ou le numéro de votre classe. |
+
+Un refus n'est pas une erreur de page : l'écran de la question reste affiché à l'identique et le message apparaît dans la ligne de statut, en bas de l'écran, juste avant `ENTREE=SUIVANT`. Le champ de saisie est vidé, la valeur refusée n'est pas conservée.
+
 ## Question 2/3 : les éléments
 
 Une fois la classe retenue, l'écran rappelle la classe choisie puis affiche le menu des quatre éléments.
@@ -45,6 +68,29 @@ Le multi valorise aussi votre élément le plus faible.
 AVANCE : personnaliser les réglages
 ```
 
+### Entrées acceptées
+
+| Saisie | Ce que l'outil fait |
+|--------|---------------------|
+| `terre` | passe à l'étape 3 avec le seul élément terre |
+| `terre air` | passe à l'étape 3 avec terre et air |
+| `terre,air` | idem : la virgule sépare deux éléments |
+| `terre+air` | idem : le signe plus sépare deux éléments |
+| `1 3` | passe à l'étape 3 avec terre et eau : les chiffres désignent les éléments |
+| `multi` | passe à l'étape 3 avec les quatre éléments |
+
+Plusieurs éléments se séparent par un espace, une virgule ou un signe plus, et ces séparateurs se mélangent librement. Les chiffres `1`, `2`, `3` et `4` désignent respectivement Terre, Feu, Eau et Air. Le mot `multi` vaut à lui seul les quatre éléments. Un élément cité deux fois n'est compté qu'une fois.
+
+### Erreurs et refus
+
+| Saisie refusée | Message affiché |
+|----------------|-----------------|
+| `multi terre` | Exemple : feu, terre air, ou multi. |
+| `arbre` | Exemple : feu, terre air, ou multi. |
+| `5` | Exemple : feu, terre air, ou multi. |
+
+`multi` n'est accepté que seul : mêlé à un autre élément, la saisie est refusée. Un mot qui ne désigne aucun élément, ou un chiffre hors de la plage des quatre éléments, est refusé de la même façon. Le refus redessine l'écran courant et le message s'affiche dans la ligne de statut, juste avant `ENTREE=SUIVANT`.
+
 ## Question 3/3 : le niveau
 
 Le dernier écran rappelle la classe et les éléments retenus, puis demande un niveau entre 1 et 200.
@@ -63,6 +109,25 @@ Jets moyens ; préférences de classe ajustables après calcul.
 
 AVANCE : personnaliser les réglages
 ```
+
+### Entrées acceptées
+
+| Saisie | Ce que l'outil fait |
+|--------|---------------------|
+| `150` | lance la recherche puis affiche le résultat |
+| `050` | idem : le zéro de tête est admis, le niveau retenu est 50 |
+| `200` | idem : 200 est le niveau le plus élevé accepté |
+| `AVANCE` | ouvre les réglages détaillés, au lieu de lancer la recherche |
+
+### Erreurs et refus
+
+| Saisie refusée | Message affiché |
+|----------------|-----------------|
+| `201` | Saisissez un niveau entre 1 et 200. |
+| `0` | Saisissez un niveau entre 1 et 200. |
+| `50.0` | Saisissez un niveau entre 1 et 200. |
+
+Le niveau doit être un nombre entier compris entre 1 et 200 : une valeur décimale, un nombre négatif ou un nombre hors bornes est refusé. Le message s'affiche dans la ligne de statut, juste avant `ENTREE=CALCULER`.
 
 ### Passer aux réglages détaillés
 

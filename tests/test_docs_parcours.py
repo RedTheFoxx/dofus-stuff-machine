@@ -3,14 +3,17 @@
 Le contrat va du rendu vers la page : les trois ecrans du parcours simplifie sont rendus par le
 client de test Flask, en processus, sur la fixture `app` de `tests/conftest.py` (D-32), puis les
 libelles lus dans les lignes du corps et dans la ligne de statut sont compares a ceux que la page
-cite. Aucun serveur n'est lance, aucun socket n'est ouvert, le programme du produit n'est jamais
-execute et rien n'est ecrit sous `.data/` : la fixture `app` construit sa propre base dans un
-dossier temporaire.
+cite. Chaque entree citee par la page est rejouee sur le rendu et classee par ce que l'outil fait
+reellement : une entree acceptee redirige ou atteint l'appel d'optimisation, une entree refusee
+re-rend le meme ecran avec le message attendu au debut de la ligne de statut. Aucun serveur n'est
+lance, aucun socket n'est ouvert, le programme du produit n'est jamais execute et rien n'est ecrit
+sous `.data/` : la fixture `app` construit sa propre base dans un dossier temporaire.
 
 Limite nommee : la garde `ast` de ce module est une demonstration statique et indirecte. Elle dit
 ce que ce module importe et appelle, pas ce qu'un autre chemin ferait. La preuve directe qu'aucune
 ecriture n'a lieu sous `.data/` est la mesure d'empreinte prise autour de la suite entiere
-(plan 03-04).
+(plan 03-04). Le seul appel au produit qui soit court-circuite est l'etape 3 : elle est patchee
+pour ne pas lancer le solveur, dont le resultat n'est ni deterministe ni utile ici.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS
 
@@ -45,6 +49,17 @@ TITRE_SAUVEGARDE = "## Sauvegarder et exporter"
 TITRE_SUPPOSE = "## Ce que l'outil suppose"
 TITRE_LIMITES = "## Ce que l'outil ne fait pas"
 
+SOUS_TITRE_ACCEPTEES = "### Entrées acceptées"
+SOUS_TITRE_REFUSEES = "### Erreurs et refus"
+
+# Une entree de question est ecrite dans sa sous-section, jamais en prose : c'est la table qui est
+# lue, une phrase n'etant pas une entree epinglee.
+ETAPES = (
+    ("classe", TITRE_CLASSE),
+    ("elements", TITRE_ELEMENTS),
+    ("niveau", TITRE_NIVEAU),
+)
+
 # Chemin de code cite entre accents graves (meme motif que `tests/test_docs_code_anchor.py:25`) :
 # il porte sur la page entiere, pas seulement sur le bloc « Source de verite ».
 CHEMIN_CITE = re.compile(r"`(?P<chemin>[\w./-]+\.(?:py|toml|js|md|json|sql))`")
@@ -65,6 +80,82 @@ TOUCHE_BARRE = re.compile(
     r'<span class="fkey-eq meta">=</span>'
     r'<span class="fkey-label">([^<]*)</span>'
 )
+
+# Table epinglee des entrees du parcours simplifie, mesurees sur le rendu : (etape, valeur, attendu).
+# `attendu` vaut soit ("redirige", cible), soit ("refuse", debut du message de la ligne de statut),
+# soit ("optimisation", niveau retenu) pour un niveau accepte, ou le solveur est court-circuite.
+ENTREES_MESUREES = [
+    # Question 1/3 : nom compare apres normalisation des accents et de la casse, ou numero 1 a 19.
+    ("classe", "Cra", ("redirige", "/optimize/quick/elements")),
+    ("classe", "crâ", ("redirige", "/optimize/quick/elements")),
+    ("classe", "1", ("redirige", "/optimize/quick/elements")),
+    ("classe", "19", ("redirige", "/optimize/quick/elements")),
+    ("classe", "019", ("redirige", "/optimize/quick/elements")),
+    ("classe", " 3 ", ("redirige", "/optimize/quick/elements")),
+    ("classe", "eliotrop", ("refuse", "Saisissez le nom ou le numéro de votre classe.")),
+    ("classe", "0", ("refuse", "Saisissez le nom ou le numéro de votre classe.")),
+    ("classe", "20", ("refuse", "Saisissez le nom ou le numéro de votre classe.")),
+    # Question 2/3 : separateurs espace, virgule ou plus ; chiffres 1 a 4 ; `multi` seul.
+    ("elements", "terre", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "terre air", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "terre,air", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "terre+air", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "1 3", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "multi", ("redirige", "/optimize/quick/niveau")),
+    ("elements", "multi terre", ("refuse", "Exemple : feu, terre air, ou multi.")),
+    ("elements", "arbre", ("refuse", "Exemple : feu, terre air, ou multi.")),
+    ("elements", "5", ("refuse", "Exemple : feu, terre air, ou multi.")),
+    # Question 3/3 : entier de 1 a 200 ; `AVANCE` ouvre les reglages detailles au lieu de calculer.
+    ("niveau", "150", ("optimisation", 150)),
+    ("niveau", "050", ("optimisation", 50)),
+    ("niveau", "200", ("optimisation", 200)),
+    ("niveau", "AVANCE", ("redirige", "/optimize/wizard/recap")),
+    ("niveau", "201", ("refuse", "Saisissez un niveau entre 1 et 200.")),
+    ("niveau", "0", ("refuse", "Saisissez un niveau entre 1 et 200.")),
+    ("niveau", "50.0", ("refuse", "Saisissez un niveau entre 1 et 200.")),
+]
+
+# Listes epinglees par etape : la table de la page ne peut citer que ces valeurs, et elle doit les
+# citer toutes. Une liste vide rendrait la regle infalsifiable : le controle l'exige donc non vide.
+VALEURS_ACCEPTEES = {
+    "classe": ("Cra", "crâ", "1", "19", "019", " 3 "),
+    "elements": ("terre", "terre air", "terre,air", "terre+air", "1 3", "multi"),
+    "niveau": ("150", "050", "200", "AVANCE"),
+}
+VALEURS_REFUSEES = {
+    "classe": ("eliotrop", "0", "20"),
+    "elements": ("multi terre", "arbre", "5"),
+    "niveau": ("201", "0", "50.0"),
+}
+
+# Messages de refus reellement rendus, un par etape : ils sont exiges au debut de la ligne de statut
+# et cites au mot pres dans la sous-section « Erreurs et refus » de la section correspondante.
+MESSAGES_REFUS = {
+    "classe": ("Saisissez le nom ou le numéro de votre classe.",),
+    "elements": ("Exemple : feu, terre air, ou multi.",),
+    "niveau": ("Saisissez un niveau entre 1 et 200.",),
+}
+
+# Rappel de la touche attendue, telle qu'elle est rendue dans la ligne de statut du refus.
+INDICE_ENTREE = {
+    "classe": "ENTREE=SUIVANT",
+    "elements": "ENTREE=SUIVANT",
+    "niveau": "ENTREE=CALCULER",
+}
+
+# Etat minimal de session par etape, ecrit sous la cle que la vue lit. La forme est mesuree et ne
+# doit pas etre « simplifiee » : injecter les memes cles a la racine de la session laisse l'etat
+# vide et fait repondre une redirection vers `/optimize` a tous les POST d'elements et de niveau,
+# ce qui rendrait faux chaque verdict epingle.
+ETATS_ETAPE = {
+    "classe": {},
+    "elements": {"classe": "Cra"},
+    "niveau": {"classe": "Cra", "elements": ["terre"]},
+}
+
+# Limite mesuree, jamais presentee comme une protection du serveur : `maxlength="40"` est une
+# contrainte du navigateur, `client.post` l'ignore, et le serveur n'a pas de borne de longueur
+# propre sur la saisie du parcours simplifie.
 
 # Racines dont un import, direct ou atteint par la cloture transitive, signalerait un risque reel :
 # ouvrir la base, lancer un processus, ouvrir une socket, joindre le reseau. Le controle porte sur
@@ -153,6 +244,62 @@ def _couples_du_rendu(lignes: list[str]) -> dict[int, list[str]]:
         for trouve in MOTIF_COUPLE_RENDU.finditer(ligne):
             couples.setdefault(int(trouve.group("numero")), []).append(trouve.group("libelle").strip())
     return couples
+
+
+def _client_etape(app, etape: str):
+    """Client de test neuf dont la session porte l'etat minimal de l'etape.
+
+    L'etat est ecrit sous la cle lue par la vue (`session.get("recommendation_input")`,
+    `dofus_stuff/web/routes.py:940`). Un client neuf est indispensable : un POST accepte reecrit
+    l'etat de session et fausserait le verdict suivant. `client.session_transaction()` est l'API de
+    test publique de Flask, deja employee par `tests/test_web.py`.
+    """
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["recommendation_input"] = dict(ETATS_ETAPE[etape])
+    return client
+
+
+def _sous_section(corps: str, titre: str) -> str:
+    """Corps d'une sous-section de niveau 3, du titre jusqu'au titre `###` suivant.
+
+    Le helper partage `section` de `tests/conftest.py` ne connait que les titres de niveau 2 : les
+    tables d'entrees vivant sous un titre de niveau 3, leur extraction reste locale a ce module et
+    n'est promue nulle part (D-12).
+    """
+    lignes = corps.splitlines()
+    debut: int | None = None
+    for index, ligne in enumerate(lignes):
+        if debut is not None and ligne.startswith("### "):
+            return "\n".join(lignes[debut:index])
+        if ligne.strip() == titre.strip():
+            debut = index + 1
+    if debut is None:
+        raise AssertionError(
+            f"{PAGE} : sous-section « {titre} » introuvable ; attendu ce titre de niveau 3, qui "
+            f"porte les entrees mesurees du parcours simplifie, rendues par {SOURCE_ROUTES}"
+        )
+    return "\n".join(lignes[debut:])
+
+
+def _valeurs_tableau(sous_texte: str) -> list[str]:
+    """Premieres cellules des lignes de tableau, en-tete et ligne de separation exclues.
+
+    Seule une cellule ecrite entre accents graves est une valeur : les lignes de tableau sont lues,
+    jamais la prose, et l'en-tete comme la ligne de separation sont ainsi ecartes sans les nommer.
+    """
+    valeurs: list[str] = []
+    for ligne in sous_texte.splitlines():
+        ligne = ligne.strip()
+        if not ligne.startswith("|"):
+            continue
+        cellules = ligne.split("|")[1:-1]
+        if not cellules:
+            continue
+        premiere = cellules[0].strip()
+        if len(premiere) >= 2 and premiere.startswith("`") and premiere.endswith("`"):
+            valeurs.append(premiere[1:-1])
+    return valeurs
 
 
 def test_trois_questions_et_avance_rendus(docs_dir: Path, app, normalize, section) -> None:
@@ -250,6 +397,122 @@ def test_lignes_du_corps_ne_sont_pas_la_reponse_entiere(app) -> None:
     )
 
 
+def test_entrees_citees_acceptees_et_refusees(docs_dir: Path, app, section, normalize) -> None:
+    """Chaque entree citee par la page est rejouee sur le rendu et classee (V2, V3).
+
+    Le rendu decide du verdict, jamais la page : une entree est acceptee si le POST redirige vers
+    l'etape attendue (ou atteint l'appel d'optimisation, court-circuite ici), et refusee si l'ecran
+    courant est re-rendu en 200 avec le message attendu au debut de la ligne de statut.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    for etape, valeur, attendu in ENTREES_MESUREES:
+        client = _client_etape(app, etape)
+        if attendu[0] == "optimisation":
+            with patch(
+                "dofus_stuff.web.routes._run_optimize_and_redirect", return_value="computed"
+            ) as court_circuit:
+                reponse = client.post(f"/optimize/quick/{etape}", data={"cmd": valeur})
+            if reponse.get_data(as_text=True) != "computed" or not court_circuit.called:
+                constats.append(
+                    f"{PAGE} : la saisie « {valeur} » de l'etape « {etape} » n'atteint pas l'appel "
+                    f"d'optimisation ; attendu un niveau accepte par {SOURCE_ROUTES}"
+                )
+                continue
+            with client.session_transaction() as session:
+                etat = dict(session.get("recommendation_input") or {})
+            if etat.get("niveau") != attendu[1]:
+                constats.append(
+                    f"{PAGE} : la saisie « {valeur} » de l'etape « {etape} » retient le niveau "
+                    f"{etat.get('niveau')!r} ; attendu {attendu[1]!r}, comme lu par {SOURCE_ROUTES}"
+                )
+            continue
+
+        reponse = client.post(f"/optimize/quick/{etape}", data={"cmd": valeur})
+        if attendu[0] == "redirige":
+            cible = reponse.headers.get("Location", "")
+            if reponse.status_code != 302 or not cible.endswith(attendu[1]):
+                constats.append(
+                    f"{PAGE} : la saisie « {valeur} » de l'etape « {etape} » n'est pas acceptee "
+                    f"({reponse.status_code} vers « {cible} ») ; attendu une redirection vers "
+                    f"« {attendu[1]} », comme rendu par {SOURCE_ROUTES}"
+                )
+        else:
+            statut = _statut(reponse)
+            if reponse.status_code != 200 or not statut.startswith(attendu[1]):
+                constats.append(
+                    f"{PAGE} : la saisie « {valeur} » de l'etape « {etape} » n'est pas refusee comme "
+                    f"la page le dit (statut {reponse.status_code}, ligne de statut « {statut} ») ; "
+                    f"attendu 200 et une ligne de statut commencant par « {attendu[1]} », comme rendu "
+                    f"par {SOURCE_ROUTES}"
+                )
+
+    for etape, titre in ETAPES:
+        corps = section(texte, titre, PAGE)
+        tables = (
+            (SOUS_TITRE_ACCEPTEES, VALEURS_ACCEPTEES[etape], "acceptees"),
+            (SOUS_TITRE_REFUSEES, VALEURS_REFUSEES[etape], "refusees"),
+        )
+        sous_textes: dict[str, str] = {}
+        for sous_titre, _, _ in tables:
+            try:
+                sous_textes[sous_titre] = _sous_section(corps, sous_titre)
+            except AssertionError as erreur:
+                constats.append(str(erreur))
+                sous_textes[sous_titre] = ""
+        for sous_titre, epinglees, nom_regle in tables:
+            if not epinglees:
+                constats.append(
+                    f"aucune saisie {nom_regle} epinglee pour l'etape « {etape} » ; attendu une "
+                    f"liste non vide, une regle sans objet n'etant pas falsifiable"
+                )
+                continue
+            citees = _valeurs_tableau(sous_textes[sous_titre])
+            for valeur in citees:
+                if valeur not in epinglees:
+                    constats.append(
+                        f"{PAGE} : la table « {sous_titre} » de la section « {titre} » cite la "
+                        f"saisie « {valeur} », absente des saisies {nom_regle} mesurees de cette "
+                        f"etape ({', '.join(epinglees)}) ; attendu une valeur rejouee sur le rendu "
+                        f"de {SOURCE_ROUTES}"
+                    )
+            for valeur in epinglees:
+                if valeur not in citees:
+                    constats.append(
+                        f"{PAGE} : la table « {sous_titre} » de la section « {titre} » ne cite pas "
+                        f"la saisie « {valeur} » ; attendu chaque saisie {nom_regle} mesuree de "
+                        f"cette etape, epinglee dans ce module"
+                    )
+        refus = normalize(sous_textes[SOUS_TITRE_REFUSEES])
+        for message in MESSAGES_REFUS[etape]:
+            if normalize(message) not in refus:
+                constats.append(
+                    f"{PAGE} : la sous-section « {SOUS_TITRE_REFUSEES} » de la section « {titre} » "
+                    f"ne cite pas le message « {message} » ; attendu ce message, rendu par "
+                    f"{SOURCE_ROUTES} au debut de la ligne de statut"
+                )
+        if normalize("ligne de statut") not in refus:
+            constats.append(
+                f"{PAGE} : la sous-section « {SOUS_TITRE_REFUSEES} » de la section « {titre} » ne "
+                f"dit pas ou le lecteur lit le message ; attendu une mention de la ligne de statut, "
+                f"seul emplacement du message rendu par {SOURCE_ROUTES}"
+            )
+        if normalize(INDICE_ENTREE[etape]) not in refus:
+            constats.append(
+                f"{PAGE} : la sous-section « {SOUS_TITRE_REFUSEES} » de la section « {titre} » ne "
+                f"cite pas « {INDICE_ENTREE[etape]} » ; attendu la touche affichee par "
+                f"{SOURCE_ROUTES} avec le message de refus"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les entrees du parcours simplifie : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque entree citee par la page acceptee ou refusee par le rendu de "
+        f"{SOURCE_ROUTES}, avec le message attendu au debut de la ligne de statut"
+    )
+
+
 def test_source_de_verite_et_chemins_cites(docs_dir: Path, section) -> None:
     """La section « Source de verite » cite du code, et tout chemin cite existe sur disque."""
     texte = _texte_page(docs_dir)
@@ -323,13 +586,15 @@ def _chemin_module(module: str) -> Path | None:
 def _cloture_produit(modules: set[str]) -> tuple[set[str], set[str], set[str]]:
     """Cloture transitive des imports produit : (modules atteints, interdits, non resolus).
 
-    La cloture s'arrete au point fixe : un module produit atteint est analyse a son tour, ce qui
-    permettrait d'attraper un import de la base locale tire par un module public intermediaire.
+    La cloture va jusqu'au point fixe : un module produit atteint est analyse a son tour, ce qui
+    permet d'attraper un import de la base locale tire par un module public intermediaire.
     """
     atteints: set[str] = set()
     interdits: set[str] = set()
     non_resolus: set[str] = set()
-    a_voir = [module for module in modules if module == "dofus_stuff" or module.startswith("dofus_stuff.")]
+    a_voir = [
+        module for module in modules if module == "dofus_stuff" or module.startswith("dofus_stuff.")
+    ]
     while a_voir:
         module = a_voir.pop()
         if not (module == "dofus_stuff" or module.startswith("dofus_stuff.")):
@@ -363,9 +628,7 @@ def test_garde_ni_base_ni_processus_ni_reseau() -> None:
     atteints, interdits_cloture, non_resolus = _cloture_produit(importes)
 
     constats: list[str] = []
-    racines = sorted(
-        module for module in importes if module.split(".")[0] in RACINES_INTERDITES
-    )
+    racines = sorted(module for module in importes if module.split(".")[0] in RACINES_INTERDITES)
     if racines:
         constats.append(
             f"import(s) de base, de processus, de socket ou de reseau : {', '.join(racines)} ; "
