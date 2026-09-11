@@ -816,7 +816,17 @@ Le libellé exact (« CLI », « Ligne de commande », …) relève de la discr�
 
 **Si ce tableau est vide :** il ne l'est pas — A2 est le point à faire trancher dans le plan (et non par une nouvelle question au porteur du projet, absent).
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+**Statut : les cinq questions sont RESOLVED par le planificateur de la phase 2.** Aucun arbitrage ne reste ouvert et aucune n'a ete renvoyee au porteur du projet. Le lieu d'arbitrage de chaque question est nomme ici ; les plans 02-01 a 02-03 appliquent chaque resolution telle quelle, et le tableau `## Mutation coverage` de `02-03-PLAN.md` en rend une partie executable.
+
+| # | Question | Arbitrage retenu et lieu |
+|---|----------|--------------------------|
+| 1 | Forme de l'avertissement destructeur, et couvre-t-il `sync`/`fill` ? | Avertissement `destruct` **pour `db clear` et `cache clear` seulement** ; `db sync` / `cache fill` sont decrits par « reecrit la base, exige le reseau, incompatible avec `--offline` », sans jeton d'avertissement et hors de tout bloc marque. Arbitre dans `02-01-PLAN.md` tache 3 et son assumption A2, et rendu executable par `test_commande_destructrice_avertie_et_jamais_dans_un_exemple` (`02-03-PLAN.md` tache 2). |
+| 2 | Comment prouver « hors parcours recommande » ? | On s'en tient a la co-presence sur la meme ligne et a l'absence dans tout bloc marque ; la limite (« non decidable mecaniquement ») est ecrite dans le module de test. Arbitre dans `02-03-PLAN.md` tache 2 et dans le tableau `## Mutation coverage` de ce plan. |
+| 3 | Ajouter un garde-fou « le README ne lie que `sommaire.md` » ? | **Non retenu** : hors des cinq criteres opposables de la phase, et la phase n'a aucun besoin de modifier `README.md` (D-29, `02-01-PLAN.md` prohibitions). Le lien unique du README reste couvert par la phrase de structure de la phase 1. |
+| 4 | Que dire de `--force-sync` sans inventer de semantique ? | Son `help` verbatim, sa place d'option globale et sa valeur par defaut mesuree ; la mecanique de la fenetre 24 h reste a la page de la phase 5. Arbitre dans `02-01-PLAN.md` tache 2. |
+| 5 | Introduire la convention `` ```console `` dans `installation.md` ? | **Non** : la page d'installation garde ses blocs `bash` (sa regle « chaque commande `fetcher.py` d'un bloc de code porte `--offline` » reste verte), la divergence de marqueur est assumee et documentee, et le helper `lignes_de_code` reste disponible pour elle. Arbitre dans `02-02-PLAN.md` tache 1 et par l'assumption A1 ci-dessus. |
 
 1. **Quelle forme exacte pour l'avertissement destructeur, et couvre-t-il `sync`/`fill` ?**
    - What we know: le critère 4 (opposable) n'exige l'avertissement que pour `db clear` ; D-23 nomme aussi `db sync` / `cache fill` comme réécrivant la base ; mesuré : `db clear` détruit `items` **et** `meta` sans confirmation, `db sync` re-télécharge.

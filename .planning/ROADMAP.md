@@ -96,9 +96,16 @@ Plans:
 **UI hint**: no
 
 Plans:
+**Wave 1**
 
 - [ ] 02-01: Rédiger `docs/cli.md` (sous-commandes, options globales, options d'`optimize`, mode interactif, avertissement destructif) et son entrée d'index
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02: Ajouter les contrôles d'ancrage des sous-commandes et des options documentées
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03: Ajouter le contrôle bidirectionnel des exemples (présence verbatim + analyse par le parseur) et la garde « commande destructrice jamais dans un parcours »
 
 ### Phase 3: Parcours simplifié documenté depuis le rendu réel
