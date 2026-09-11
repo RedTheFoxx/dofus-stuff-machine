@@ -45,22 +45,28 @@ SOURCE_TEMPLATE = "dofus_stuff/web/templates/screen.html"
 # `tests/conftest.py` ne normalisant pas un titre. La constante compte les sections de ce plan et
 # reste en accord exact avec la page a la fin de chaque tache : le plan 04-02 la complete, tache par
 # tache, avec les sections qu'il cree — jamais un titre epingle sans sa section, sinon la morsure du
-# controle de forme serait indiscernable d'une derive.
-TITRES_SECTION_ATTENDUS = (
-    "## Les 9 étapes du wizard",
-    "## Slots et filtres",
-    "## Les 11 options du solveur",
-    "## Les quatre nombres d'une ligne",
-    "## Interdire, forcer, retirer un objet",
-    "## Source de vérité",
-)
+# controle de forme serait indiscernable d'une derive. Les titres sont nommes un a un, puis rassembles
+# dans l'ordre du document : l'insertion d'une section ne peut donc pas decaler silencieusement la
+# constante d'une autre.
+TITRE_ARRIVEE = "## Arriver au wizard"
+TITRE_ETAPES = "## Les 9 étapes du wizard"
+TITRE_SLOTS = "## Slots et filtres"
+TITRE_OPTIONS = "## Les 11 options du solveur"
+TITRE_NOMBRES = "## Les quatre nombres d'une ligne"
+TITRE_ITEMS = "## Interdire, forcer, retirer un objet"
+TITRE_EXEMPLE = "## Exemple guidé"
+TITRE_SOURCE = "## Source de vérité"
 
-TITRE_ETAPES = TITRES_SECTION_ATTENDUS[0]
-TITRE_SLOTS = TITRES_SECTION_ATTENDUS[1]
-TITRE_OPTIONS = TITRES_SECTION_ATTENDUS[2]
-TITRE_NOMBRES = TITRES_SECTION_ATTENDUS[3]
-TITRE_ITEMS = TITRES_SECTION_ATTENDUS[4]
-TITRE_SOURCE = TITRES_SECTION_ATTENDUS[5]
+TITRES_SECTION_ATTENDUS = (
+    TITRE_ARRIVEE,
+    TITRE_ETAPES,
+    TITRE_SLOTS,
+    TITRE_OPTIONS,
+    TITRE_NOMBRES,
+    TITRE_ITEMS,
+    TITRE_EXEMPLE,
+    TITRE_SOURCE,
+)
 
 # Sous-titres de niveau 3 de la section des slots et des filtres.
 SOUS_TITRE_EMPLACEMENTS = "### Les 11 emplacements"
@@ -130,6 +136,34 @@ MOTIF_LIGNE_FORMAT = re.compile(
 )
 MOTIF_LIGNE_SYNTAXE_ITEMS = MOTIF_LIGNE_FORMAT
 
+# Ligne de tableau de la page associant une etape a l'identifiant de son ecran :
+# `| 1. `slots` | `OPT-W1` |`, tel que la ligne d'en-tete le rend (`dofus_stuff/web/routes.py`).
+MOTIF_LIGNE_IDENTIFIANT = re.compile(
+    r"^\|\s*(?P<numero>\d{1,2})\.\s*`(?P<etape>[a-z]+)`\s*"
+    r"\|\s*`(?P<identifiant>OPT-W[A-Z0-9]+)`\s*\|\s*$"
+)
+
+# Lignes du parcours d'arrivee, lues au rendu et jamais ecrites de memoire : la ligne du menu
+# principal qui ouvre l'optimisation, la ligne `AVANCE` proposee par les trois questions, et les
+# trois questions elles-memes (`1/3`, `2/3`, `3/3`).
+MOTIF_LIGNE_MENU = re.compile(r"^\s*(?P<numero>\d)\.\s+(?P<libelle>OPTIMISATION.*?)\s*$")
+MOTIF_LIGNE_AVANCE = re.compile(r"^(?P<mot>AVANCE)\s*:\s*(?P<libelle>.+?)\s*$")
+MOTIF_LIGNE_QUESTION = re.compile(r"^(?P<rang>[1-3])/3\s*-\s*(?P<question>.+?)\s*$")
+
+# Commandes annoncees par le corps du recapitulatif (`GO = LANCER`, `RESET = REINITIALISER`,
+# `1-8 = RETOUR ECRAN`, `SAVES = STUFFS SAUVEGARDES`) et la forme sous laquelle la page les cite.
+# Les couples d'une meme ligne rendue sont separes par au moins deux espaces
+# (`dofus_stuff/web/optimize_wizard.py`, `body_recap`) : la decoupe suit ce separateur mesure, jamais
+# une position fixe.
+MOTIF_COMMANDE_RENDUE = re.compile(r"^(?P<cle>\S+)\s=\s(?P<verbe>.+)$")
+MOTIF_COMMANDE_CITEE = re.compile(r"`(?P<cle>[A-Z0-9-]+) = (?P<verbe>[^`]+)`")
+SEPARATEUR_COMMANDES = re.compile(r"\s{2,}")
+
+# Jeton d'une commande destructrice, interdit dans un parcours recommande (D-22/D-23, D-61) : l'exemple
+# guide migre n'en contient aucun. Le motif est celui deja employe par la garde de la page
+# d'installation (`tests/test_docs_structure.py`), repris ici pour la seule section de l'exemple.
+COMMANDE_DESTRUCTRICE = re.compile(r"\bdb\s+clear\b")
+
 # Etat vide cite par la page, lu a cote de la phrase qui le porte.
 MOTIF_ETAT_VIDE_CITE = re.compile(r"l'état vide `(?P<etat>\([^`]+\))`")
 
@@ -151,6 +185,9 @@ BALISE_COMMANDE = "```console"
 # d'assertion (regle posee au plan 03-03, tache 2) : pytest reproduit cette ligne dans sa sortie, et
 # une valeur ecrite en clair y serait trouvee sans qu'aucun message n'ait ete produit.
 MOTIF_ORDRE_ETAPES = "ordre de WIZARD_STEPS"
+MOTIF_ARRIVEE = "arrivee du wizard"
+MOTIF_IDENTIFIANT_ECRAN = "identifiant d'ecran"
+MOTIF_EXEMPLE = "exemple guide"
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -290,6 +327,37 @@ def _couples_texte(sous_texte: str, motif: re.Pattern[str]) -> dict[str, str]:
         trouve = motif.match(ligne)
         if trouve is not None:
             couples[trouve.group("cle").strip()] = trouve.group("libelle").strip()
+    return couples
+
+
+def _identifiants_cites(corps: str) -> dict[str, str]:
+    """Couples etape -> identifiant d'ecran cites par la table de la section d'arrivee.
+
+    La cle est le mot-cle de l'etape (`slots`, `options`, ...) : la comparaison se fait donc sur le
+    nom que `WIZARD_STEPS` emploie, jamais sur le numero de la ligne de tableau.
+    """
+    cites: dict[str, str] = {}
+    for ligne in corps.splitlines():
+        trouve = MOTIF_LIGNE_IDENTIFIANT.match(ligne)
+        if trouve is not None:
+            cites[trouve.group("etape")] = trouve.group("identifiant")
+    return cites
+
+
+def _couples_de_commandes(lignes: list[str]) -> dict[str, str]:
+    """Couples cle -> verbe annonces par le corps du recapitulatif, lus au rendu.
+
+    Une meme ligne rendue porte plusieurs couples separes par au moins deux espaces
+    (`GO = LANCER  RESET = REINITIALISER  1-8 = RETOUR ECRAN`) : la decoupe suit ce separateur
+    mesure, jamais une position fixe. Les autres lignes du corps (`BAN=0 FORCE=0`, `JET=average`)
+    ne portent pas la forme `CLE = VERBE` et ne produisent donc aucun couple.
+    """
+    couples: dict[str, str] = {}
+    for ligne in lignes:
+        for morceau in SEPARATEUR_COMMANDES.split(ligne.strip()):
+            trouve = MOTIF_COMMANDE_RENDUE.match(morceau)
+            if trouve is not None:
+                couples[trouve.group("cle")] = trouve.group("verbe").strip()
     return couples
 
 
@@ -1326,4 +1394,295 @@ def test_page_sans_derive_ni_chemin_invente(
         + " ; ".join(constats)
         + f" ; attendu {len(TITRES_SECTION_ATTENDUS)} sections, un H1, la ligne de retour au sommaire, "
         f"des fins de ligne CRLF, aucun lien externe et des chemins de code existants"
+    )
+
+
+def test_ecrans_et_arrivee_du_wizard(docs_dir: Path, app, normalize, section) -> None:
+    """Les identifiants d'ecrans et le chemin d'arrivee sont lus au rendu, puis exiges (D-51, WIZ-02).
+
+    Le chemin d'arrivee est rejoue pas a pas sur **un seul** client : le menu poste `selection=4`,
+    `/optimize` redirige vers les trois questions, et `AVANCE` ouvre le wizard. La ou l'on atterrit
+    est mesure, jamais suppose : l'ecran d'arrivee est le recapitulatif, et la page le dit — c'est
+    l'affirmation fausse que cette phase resorbe.
+
+    Limite nommee (sonde d'aretes WIZ-02, ligne `unclassified`, qui reste `unresolved`) : ce controle
+    porte sur les neuf couples identifiant/titre lus dans la ligne d'en-tete et sur la chaine
+    d'arrivee. Il ne revendique aucune exhaustivite de la surface des touches, des messages ou des
+    commandes du wizard : ce qu'il prouve est nomme, rien de plus.
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_ARRIVEE, PAGE)
+    constats: list[str] = []
+
+    # 1. Les neuf ecrans : identifiant et titre rendus dans la ligne d'en-tete, cites par la page.
+    client = app.test_client()
+    cites = _identifiants_cites(corps)
+    for numero, etape in enumerate(WIZARD_STEPS, start=1):
+        identifiant = f"OPT-W{numero}"
+        rendu = client.get(f"/optimize/wizard/{etape}")
+        entete = _entete(rendu)
+        titre = STEP_TITLES.get(etape, "")
+        if rendu.status_code != 200 or identifiant not in entete:
+            constats.append(
+                f"l'ecran « {etape} » (etape {numero}) repond {rendu.status_code} et sa ligne "
+                f"d'en-tete vaut « {entete} » ; attendu l'{MOTIF_IDENTIFIANT_ECRAN} "
+                f"« {identifiant} » dans la ligne d'en-tete rendue par {SOURCE_ROUTES}"
+            )
+        if normalize(titre) not in normalize(entete):
+            constats.append(
+                f"l'ecran « {etape} » repond {rendu.status_code} et sa ligne d'en-tete vaut "
+                f"« {entete} » ; attendu le titre « {titre} » rendu par {SOURCE_WIZARD} (STEP_TITLES)"
+            )
+        if cites.get(etape, "") != identifiant:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_ARRIVEE} » associe l'etape {numero} ({etape}) a "
+                f"« {cites.get(etape, '')} » ; attendu l'{MOTIF_IDENTIFIANT_ECRAN} "
+                f"« {identifiant} », lu dans la ligne d'en-tete rendue par {SOURCE_ROUTES}"
+            )
+        if normalize(titre) not in normalize(texte):
+            constats.append(
+                f"{PAGE} : le titre rendu de l'etape {numero} vaut « {titre} » et n'est pas cite "
+                f"par la page ; attendu ce titre, lu au rendu de /optimize/wizard/{etape} et produit "
+                f"par {SOURCE_WIZARD} (STEP_TITLES)"
+            )
+
+    # 2. Un ecran qui n'existe pas : le message du code, rendu sur l'ecran suivant (le menu).
+    inconnu = app.test_client()
+    reponse = inconnu.get("/optimize/wizard/inconnu")
+    cible = reponse.headers.get("Location", "")
+    if reponse.status_code != 302 or cible != "/":
+        constats.append(
+            f"l'ecran inconnu « inconnu » repond {reponse.status_code} vers « {cible} » ; attendu une "
+            f"redirection vers le menu principal, posee par {SOURCE_ROUTES}"
+        )
+    message = "ECRAN WIZARD INCONNU"
+    if message not in _statut(inconnu.get("/")):
+        constats.append(
+            f"{PAGE} : le message « {message} » n'est pas rendu sur l'ecran suivant ; attendu le refus "
+            f"de {SOURCE_ROUTES} pour une etape hors de WIZARD_STEPS"
+        )
+    if normalize(message) not in normalize(texte):
+        constats.append(
+            f"{PAGE} : le message rendu « {message} » n'est pas cite par la page ; attendu ce message, "
+            f"lu au rendu et produit par {SOURCE_ROUTES}"
+        )
+
+    # 3. La chaine d'arrivee, rejouee pas a pas sur un seul client.
+    parcours = app.test_client()
+    for methode, adresse, donnees, attendue in (
+        ("POST", "/", {"selection": "4"}, "/optimize"),
+        ("GET", "/optimize", None, "/optimize/quick/classe"),
+        ("POST", "/optimize/quick/classe", {"cmd": "Cra"}, "/optimize/quick/elements"),
+        ("POST", "/optimize/quick/elements", {"cmd": "terre"}, "/optimize/quick/niveau"),
+        ("POST", "/optimize/quick/niveau", {"cmd": "avance"}, "/optimize/wizard/recap"),
+    ):
+        reponse = parcours.get(adresse) if methode == "GET" else parcours.post(adresse, data=donnees)
+        cible = reponse.headers.get("Location", "")
+        if reponse.status_code != 302 or cible != attendue:
+            constats.append(
+                f"{methode} {adresse} repond {reponse.status_code} vers « {cible} » ; attendu "
+                f"l'{MOTIF_ARRIVEE} vers « {attendue} », construit par {SOURCE_ROUTES}"
+            )
+    titre_recap = STEP_TITLES.get("recap", "")
+    arrivee = parcours.get("/optimize/wizard/recap")
+    if arrivee.status_code != 200 or normalize(titre_recap) not in normalize(_entete(arrivee)):
+        constats.append(
+            f"l'ecran d'arrivee « /optimize/wizard/recap » repond {arrivee.status_code} et sa ligne "
+            f"d'en-tete vaut « {_entete(arrivee)} » ; attendu le titre « {titre_recap} » — c'est lui "
+            f"que l'{MOTIF_ARRIVEE} atteint, pas les emplacements ({SOURCE_ROUTES})"
+        )
+
+    # 4. Les quatre reperes du chemin, cites par la page depuis le rendu.
+    entree_menu = next(
+        (
+            ligne.strip()
+            for ligne in _lignes_du_corps(app.test_client().get("/"))
+            if MOTIF_LIGNE_MENU.match(ligne)
+        ),
+        "",
+    )
+    if not entree_menu or normalize(entree_menu) not in normalize(corps):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_ARRIVEE} » ne cite pas « {entree_menu} » ; attendu la ligne "
+            f"du menu principal qui ouvre le parcours, lue au rendu de GET / et construite par "
+            f"{SOURCE_ROUTES} ({MOTIF_ARRIVEE})"
+        )
+
+    questions_client = app.test_client()
+    vues = [questions_client.get("/optimize/quick/classe")]
+    questions_client.post("/optimize/quick/classe", data={"cmd": "Cra"})
+    vues.append(questions_client.get("/optimize/quick/elements"))
+    questions_client.post("/optimize/quick/elements", data={"cmd": "terre"})
+    vues.append(questions_client.get("/optimize/quick/niveau"))
+
+    questions: list[str] = []
+    ligne_avance = ""
+    for vue in vues:
+        for ligne in _lignes_du_corps(vue):
+            texte_ligne = ligne.strip()
+            if MOTIF_LIGNE_QUESTION.match(texte_ligne) is not None:
+                questions.append(texte_ligne)
+            if MOTIF_LIGNE_AVANCE.match(texte_ligne) is not None:
+                ligne_avance = texte_ligne
+    if len(questions) != 3:
+        constats.append(
+            f"les trois questions du parcours repondent {len(questions)} ligne(s) de la forme "
+            f"« N/3 - ... » ; attendu les trois questions posees par {SOURCE_ROUTES} avant le wizard "
+            f"({MOTIF_ARRIVEE})"
+        )
+    for question in questions:
+        if normalize(question) not in normalize(corps):
+            constats.append(
+                f"{PAGE} : la section « {TITRE_ARRIVEE} » ne cite pas la question « {question} » ; "
+                f"attendu cette question, lue au rendu de /optimize/quick/<etape> par {SOURCE_ROUTES} "
+                f"({MOTIF_ARRIVEE})"
+            )
+    if not ligne_avance or normalize(ligne_avance) not in normalize(corps):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_ARRIVEE} » ne cite pas « {ligne_avance} » ; attendu la "
+            f"ligne qui ouvre le wizard, lue au rendu des trois questions et construite par "
+            f"{SOURCE_ROUTES} ({MOTIF_ARRIVEE})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les ecrans et le chemin d'arrivee : "
+        + " ; ".join(constats)
+        + f" ; attendu les identifiants d'ecrans et l'{MOTIF_ARRIVEE} lus au rendu de {SOURCE_ROUTES}, "
+        f"cites par la section « {TITRE_ARRIVEE} »"
+    )
+
+
+def test_exemple_guide_ancre_au_rendu(docs_dir: Path, app, normalize, section) -> None:
+    """L'exemple guide migre est rejoue sur le rendu, edition par edition (D-55, WIZ-02).
+
+    Les trois editions de l'exemple partent chacune d'un **client neuf** : un `POST` accepte reecrit
+    l'etat de session, donc rejouer deux editions sur le meme client mesurerait autre chose. La ligne
+    rendue apres chaque edition doit etre citee par la section de l'exemple : c'est cet ancrage qui
+    fait rougir la suite si le code cesse de porter une ligne que l'exemple promet — la variante
+    « cible PA » survit parce que le code la porte, jamais parce que l'ancien guide l'ecrivait.
+
+    Aucune saisie `GO` n'est postee : elle lancerait le solveur (`{SOURCE_ROUTES}`). Seules sa
+    citation, lue dans le corps du recapitulatif, et l'action des trois editions sont controlees.
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_EXEMPLE, PAGE)
+    constats: list[str] = []
+
+    # 1. Les trois editions de l'exemple : navigation depuis le recapitulatif, numero de ligne, valeur.
+    for etape, chiffre, numero_ligne, valeur in (
+        ("options", "2", "1", "123"),
+        ("caracs", "3", "4", "300 0 0 1"),
+        ("papmpo", "4", "1", "6 0 11 5"),
+    ):
+        adresse = f"/optimize/wizard/{etape}"
+        client = app.test_client()
+        client.get("/optimize/wizard/recap")
+        saut = client.post("/optimize/wizard/recap", data={"cmd": chiffre})
+        cible = saut.headers.get("Location", "")
+        if saut.status_code != 302 or cible != adresse:
+            constats.append(
+                f"{PAGE} : {MOTIF_EXEMPLE} — le chiffre « {chiffre} » du recapitulatif repond "
+                f"{saut.status_code} vers « {cible} » ; attendu l'ecran « {adresse} », lu dans le "
+                f"rendu du recapitulatif ({SOURCE_ROUTES})"
+            )
+        ouverture = client.post(adresse, data={"cmd": numero_ligne})
+        cible = ouverture.headers.get("Location", "")
+        if ouverture.status_code != 302 or cible != adresse:
+            constats.append(
+                f"{PAGE} : {MOTIF_EXEMPLE} — le numero de ligne « {numero_ligne} » repond "
+                f"{ouverture.status_code} vers « {cible} » ; attendu l'ouverture du sous-ecran "
+                f"d'edition de « {adresse} » ({SOURCE_ROUTES})"
+            )
+        client.get(adresse)
+        client.post(adresse, data={"value": valeur})
+        rendues = [
+            ligne.strip()
+            for ligne in _lignes_du_corps(client.get(adresse))
+            if ligne.strip().startswith(f"{numero_ligne}.")
+        ]
+        if not rendues:
+            constats.append(
+                f"{PAGE} : {MOTIF_EXEMPLE} — aucune ligne rendue ne commence par « {numero_ligne}. » "
+                f"apres l'edition « {valeur} » sur « {adresse} » ; attendu la ligne editee, rendue "
+                f"par {SOURCE_WIZARD}"
+            )
+        for ligne in rendues:
+            if normalize(ligne) not in normalize(corps):
+                constats.append(
+                    f"{PAGE} : la section « {TITRE_EXEMPLE} » ne cite pas la ligne rendue « {ligne} » ; "
+                    f"attendu cette ligne, lue apres l'edition « {valeur} » sur « {adresse} » "
+                    f"({SOURCE_WIZARD})"
+                )
+
+    # 2. Le chemin d'arrivee, l'ecran d'arrivee et le libelle de lancement, cites depuis le rendu.
+    ligne_avance = ""
+    for ligne in _lignes_du_corps(app.test_client().get("/optimize/quick/classe")):
+        if MOTIF_LIGNE_AVANCE.match(ligne.strip()) is not None:
+            ligne_avance = ligne.strip()
+    if not ligne_avance or normalize(ligne_avance) not in normalize(corps):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_EXEMPLE} » ne cite pas « {ligne_avance} » ; attendu la "
+            f"ligne qui ouvre le wizard, lue au rendu des trois questions ({SOURCE_ROUTES})"
+        )
+
+    recap = app.test_client().get("/optimize/wizard/recap")
+    titre_recap = STEP_TITLES.get("recap", "")
+    if recap.status_code != 200 or normalize(titre_recap) not in normalize(_entete(recap)):
+        constats.append(
+            f"l'ecran d'arrivee « /optimize/wizard/recap » repond {recap.status_code} ; attendu le "
+            f"titre « {titre_recap} » — c'est l'ecran que l'exemple annonce ({SOURCE_ROUTES})"
+        )
+    if normalize(titre_recap) not in normalize(corps):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_EXEMPLE} » ne cite pas l'ecran d'arrivee « {titre_recap} » ; "
+            f"attendu cet ecran, rendu par {SOURCE_ROUTES} et produit par {SOURCE_WIZARD} (STEP_TITLES)"
+        )
+
+    commandes = _couples_de_commandes(_lignes_du_corps(recap))
+    if "GO" not in commandes:
+        constats.append(
+            f"{PAGE} : {MOTIF_EXEMPLE} — le corps du recapitulatif n'annonce pas la commande « GO » ; "
+            f"attendu le libelle de lancement rendu par {SOURCE_WIZARD} (body_recap)"
+        )
+    else:
+        lancement = f"GO = {commandes['GO']}"
+        if normalize(lancement) not in normalize(corps):
+            constats.append(
+                f"{PAGE} : la section « {TITRE_EXEMPLE} » ne cite pas « {lancement} » ; attendu le "
+                f"libelle de lancement, lu dans le corps du recapitulatif ({SOURCE_WIZARD})"
+            )
+
+    # 3. Le refus de format de la ligne editee : c'est le message du code, pas un texte de memoire.
+    edition = app.test_client()
+    edition.get("/optimize/wizard/caracs")
+    edition.post("/optimize/wizard/caracs", data={"cmd": "4"})
+    forme = _forme_d_edition(_lignes_du_corps(edition.get("/optimize/wizard/caracs")))
+    edition.post("/optimize/wizard/caracs", data={"value": "1 2 3"})
+    refus = _message_de_statut(_statut(edition.get("/optimize/wizard/caracs")))
+    if not forme or refus != forme:
+        constats.append(
+            f"{PAGE} : {MOTIF_EXEMPLE} — le refus d'une saisie de trois nombres vaut « {refus} » ; "
+            f"attendu « {forme} », la forme de l'ecran edite, affichee juste au-dessus du refus par "
+            f"{SOURCE_ROUTES}"
+        )
+    if normalize(forme) not in normalize(texte):
+        constats.append(
+            f"{PAGE} : {MOTIF_EXEMPLE} — la forme « {forme} » rendue par le sous-ecran n'est citee "
+            f"nulle part dans la page ; attendu la forme de la ligne editee, lue au rendu "
+            f"({SOURCE_ROUTES})"
+        )
+
+    # 4. Aucune commande destructrice dans un parcours recommande (D-22/D-23, D-61).
+    if COMMANDE_DESTRUCTRICE.search(corps):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_EXEMPLE} » porte une commande destructrice ; attendu un "
+            f"parcours recommande sans aucune commande de destruction de donnees ({MOTIF_EXEMPLE})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'exemple guide : "
+        + " ; ".join(constats)
+        + f" ; attendu les trois editions de l'{MOTIF_EXEMPLE} rejouees sur le rendu de {SOURCE_WIZARD}, "
+        f"leurs lignes rendues citees par la section « {TITRE_EXEMPLE} », et le libelle de lancement lu "
+        f"dans le corps du recapitulatif"
     )

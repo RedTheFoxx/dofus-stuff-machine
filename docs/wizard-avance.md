@@ -2,6 +2,34 @@
 
 Cette page décrit le parcours avancé de l'interface web, écran par écran, tel que l'outil le rend. Tous les titres, libellés, formats et touches cités ici sont lus sur le rendu réel : ils sont recopiés tels que le produit les affiche, jamais de mémoire. La surface des commandes n'est pas recopiée ici : elle appartient à [la page CLI](cli.md), et le wizard avancé n'existe que dans l'interface web, il n'a aucune commande en ligne de commande.
 
+## Arriver au wizard
+
+Le wizard avancé n'est pas la première page de l'optimisation : il vient après un parcours de trois questions. Le chemin réel est celui-ci, et il est lisible dans les écrans que l'outil rend :
+
+1. Au menu principal, la ligne `4. OPTIMISATION DE STUFF` ouvre l'optimisation. C'est cette entrée, et pas une autre, qui mène au parcours.
+2. La première page demande la classe (`1/3 - Quelle est votre classe ?`), la deuxième les éléments (`2/3 - Quels éléments privilégier ?`), la troisième le niveau (`3/3 - Quel est votre niveau ? (1 à 200)`).
+3. La ligne `AVANCE : personnaliser les réglages`, proposée sur les trois pages, ouvre le wizard. La casse est ignorée : `avance` fait la même chose.
+
+L'écran sur lequel on arrive est le **récapitulatif**, pas les emplacements. Le récapitulatif résume les réglages recommandés pour la classe, les éléments et le niveau qui viennent d'être saisis ; c'est de là que les autres écrans se rejoignent.
+
+Chaque écran du wizard porte son identifiant dans sa ligne d'en-tête, dans l'ordre des étapes :
+
+| Étape | Identifiant de l'écran |
+| --- | --- |
+| 1. `slots` | `OPT-W1` |
+| 2. `options` | `OPT-W2` |
+| 3. `caracs` | `OPT-W3` |
+| 4. `papmpo` | `OPT-W4` |
+| 5. `resistances` | `OPT-W5` |
+| 6. `damages` | `OPT-W6` |
+| 7. `misc` | `OPT-W7` |
+| 8. `items` | `OPT-W8` |
+| 9. `recap` | `OPT-W9` |
+
+Le sous-écran d'édition, ouvert par un numéro d'option ou de ligne, porte l'identifiant `OPT-WED` : le même, quelle que soit la ligne éditée.
+
+Adresser un écran qui n'existe pas ne rend aucune page : le message `ECRAN WIZARD INCONNU` s'affiche et l'outil ramène au menu principal.
+
 ## Les 9 étapes du wizard
 
 Le wizard avancé s'affiche un écran à la fois. Les neuf écrans se suivent toujours dans cet ordre, et c'est l'ordre que le code parcourt quand une entrée vide fait passer à la suite :
@@ -135,6 +163,22 @@ Ce que la saisie fait réellement :
 Le **seul** refus de cet écran est le message rendu quand la saisie n'est ni `CLEAR` ni `clear`, ni un préfixe `+`, `-` ou `!` suivi de chiffres : `SYNTAXE : +ID | -ID | !ID | CLEAR`.
 
 Un identifiant **sans préfixe**, par exemple `12345`, tombe dans ce cas et est donc refusé, alors que `+12345` ne l'est pas.
+
+## Exemple guidé
+
+Objectif : un premier stuff **Intelligence** au niveau `123`. L'exemple ne fait que ce que les écrans acceptent, et il passe par le chemin d'arrivée réel décrit plus haut.
+
+1. Menu principal : `4` puis Entrée ouvre `4. OPTIMISATION DE STUFF`.
+2. Répondez aux trois questions : la classe, puis `2/3 - Quels éléments privilégier ?` avec `terre`, puis `3/3 - Quel est votre niveau ? (1 à 200)` avec `123`.
+3. Sur cette troisième page, `AVANCE` (`AVANCE : personnaliser les réglages`) ouvre le wizard : vous êtes sur le `RECAPITULATIF`.
+4. Réglez le niveau du calcul. Depuis le récapitulatif, le chiffre `2` ramène à l'écran `OPTIONS SOLVEUR`, puis `1` ouvre l'édition de `NIVEAU` et la valeur `123` l'enregistre (`VALEUR ENREGISTREE`). La ligne rendue devient `1. NIVEAU = 123`.
+5. Donnez un poids à l'Intelligence. Depuis le récapitulatif, le chiffre `3` ramène à `CARACTERISTIQUES`, puis `4` ouvre la ligne `Intelligence` et la valeur `300 0 0 1` l'enregistre (`CARAC ENREGISTREE`). La ligne rendue devient `4. Intelligence B=300 P=0 C=0 W=1`.
+
+   Le `300` est une décision du lecteur, pas une contrainte de l'outil : le wizard ne connaît pas les parchemins et ne les édite pas. Ce `300` peut être la base du personnage (200) augmentée de 100 parchemins ; le poids `1` demande simplement de maximiser l'Intelligence.
+6. Variante, une cible de PA. Depuis le récapitulatif, le chiffre `4` ramène à `PA / PM / PO`, puis `1` ouvre la ligne `PA` et la valeur `6 0 11 5` l'enregistre. La ligne rendue devient `1. PA B=6 E=0 C=11 W=5` : base 6 PA, exo 0, cible 11, poids 5. C'est la forme de cet écran (`FORMAT : BASE EXO CIBLE POIDS`), qui n'est pas celle des caractéristiques (`FORMAT : BASE POINTS CIBLE POIDS`) : quatre nombres dans les deux cas, mais pas les mêmes.
+7. Revenez au récapitulatif. Depuis l'écran où vous êtes, `F8` (`Suivant`) passe à l'écran suivant, et l'entrée vide fait la même chose. Quand le récapitulatif affiche vos valeurs, tapez `GO` (`GO = LANCER`) : le calcul se lance et son résultat remplace l'écran.
+
+Aucune commande destructrice n'appartient à ce parcours : l'exemple ne vide aucune liste, ne supprime rien et ne touche pas à la base locale. Ce que le calcul produit, et comment le lire, est décrit dans [le parcours simplifié](parcours-simplifie.md).
 
 ## Source de vérité
 
