@@ -52,7 +52,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Chaque option d'entrée web citée par la documentation est acceptée par le parseur réel, et chaque chemin `.py` d'un bloc « Source de vérité » existe sur disque (contrôles d'ancrage).
   5. Une dérive injectée dans une copie de travail de `docs/` (lien interne mort, page non listée, H1 divergent) fait échouer la suite, qui reste verte sur l'état livré — exécutée par `.venv/Scripts/python.exe -m pytest -q`, sans exécuter `main()`, sans écrire sous `.data/` et sans ouvrir de connexion réseau.
 
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans executed
 **UI hint**: no
 
 Plans:
@@ -60,7 +60,7 @@ Plans:
 - [x] 01-01-PLAN.md
 - [x] 01-02-PLAN.md
 - [x] 01-03-PLAN.md
-- [ ] 01-04-PLAN.md
+- [x] 01-04-PLAN.md
 
 **Wave 1**
 
@@ -72,7 +72,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03: Ajouter la fixture `docs_dir`, le helper de normalisation (testé) et `tests/test_docs_structure.py` (arbres, exhaustivité bidirectionnelle, liens relatifs, H1 ↔ libellé, UTF-8)
+- [x] 01-03: Ajouter la fixture `docs_dir`, le helper de normalisation (testé) et `tests/test_docs_structure.py` (arbres, exhaustivité bidirectionnelle, liens relatifs, H1 ↔ libellé, UTF-8)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Socle documentaire, installation et harnais vérifiable | 3/4 | In Progress|  |
+| 1. Socle documentaire, installation et harnais vérifiable | 4/4 | In Progress|  |
 | 2. Référence CLI alignée sur le parseur | 0/3 | Not started | - |
 | 3. Parcours simplifié documenté depuis le rendu réel | 0/4 | Not started | - |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
