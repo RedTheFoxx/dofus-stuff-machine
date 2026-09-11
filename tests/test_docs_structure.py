@@ -288,3 +288,214 @@ def test_no_destructive_command_in_installation(docs_dir: Path) -> None:
         f"attendu aucune commande de suppression des sauvegardes, source "
         f"dofus_stuff/web/routes.py (T-01-05)"
     )
+
+
+# --- Gabarit de page : H1, ligne de retour, encodage, normalisation (SOMM-03, GARD-01) ---
+
+# Entree d'index du sommaire avec son libelle et sa cible (meme source que problemes_index, SOMM-02, D-06).
+LIEN_LIBELLE = re.compile(r"\[(?P<libelle>[^\]]*)\]\((?P<cible>[^)\s]+)\)")
+
+# Jetons de brouillon interdits, compares sur le texte normalise (casse et accents ignores, D-11).
+JETONS_BROUILLON = ("todo", "a completer", "lorem")
+
+# Longueur minimale d'une page livree, en caracteres (GARD-01).
+LONGUEUR_MINIMALE = 300
+
+
+def _lire_page(page: Path) -> str | None:
+    """Texte de la page lu en UTF-8 strict, ou None si le decodage echoue (GARD-01, D-11)."""
+    try:
+        return page.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def pages_listees(docs_dir: Path) -> list[tuple[str, str]]:
+    """Couples (libelle d'index, cible) des entrees de docs/sommaire.md, dans l'ordre du fichier (SOMM-02)."""
+    sommaire = docs_dir / "sommaire.md"
+    if not sommaire.is_file():
+        return []
+    return [
+        (entree.group("libelle"), entree.group("cible"))
+        for entree in LIEN_LIBELLE.finditer(sommaire.read_text(encoding="utf-8"))
+    ]
+
+
+def problemes_h1(docs_dir: Path, normalize) -> list[str]:
+    """H1 unique de chaque page, egal a son libelle d'index (SOMM-03, D-11)."""
+    sommaire = docs_dir / "sommaire.md"
+    if not sommaire.is_file():
+        return _sommaire_absent()
+
+    libelles = {cible: libelle for libelle, cible in pages_listees(docs_dir)}
+    problemes: list[str] = []
+
+    for page in _pages(docs_dir):
+        if page.name == "sommaire.md":
+            continue
+        nom = page.relative_to(docs_dir.parent).as_posix()
+        libelle = libelles.get(page.name)
+
+        if libelle is None:
+            problemes.append(
+                f"{nom} : page non listee dans docs/sommaire.md ; attendu une ligne "
+                f"d'index dont le libelle egale le H1 de {page.as_posix()} (SOMM-03, D-06)"
+            )
+
+        texte = _lire_page(page)
+        if texte is None:
+            problemes.append(
+                f"{nom} : fichier non decodable en UTF-8 strict ; attendu une page "
+                f"decodable, listee dans docs/sommaire.md (GARD-01, D-11)"
+            )
+            continue
+
+        titres = H1.findall(texte)
+        if len(titres) != 1:
+            problemes.append(
+                f"{nom} : {len(titres)} titre(s) H1 dans {page.as_posix()} ; attendu un "
+                f"unique H1 egal au libelle d'index « {libelle} » de docs/sommaire.md "
+                f"(SOMM-03, D-11)"
+            )
+            continue
+        if libelle is not None and normalize(titres[0]) != normalize(libelle):
+            problemes.append(
+                f"{nom} : H1 « {titres[0]} » different du libelle d'index « {libelle} » ; "
+                f"attendu le libelle d'index de docs/sommaire.md pour {page.as_posix()} "
+                f"(SOMM-03, D-11)"
+            )
+    return problemes
+
+
+def problemes_retour_sommaire(docs_dir: Path) -> list[str]:
+    """Chaque page renvoie au sommaire par un lien dont la cible resolue est sommaire.md (SOMM-03, D-01)."""
+    sommaire = docs_dir / "sommaire.md"
+    if not sommaire.is_file():
+        return _sommaire_absent()
+
+    cible_sommaire = sommaire.resolve()
+    problemes: list[str] = []
+
+    for page in _pages(docs_dir):
+        if page.name == "sommaire.md":
+            continue
+        nom = page.relative_to(docs_dir.parent).as_posix()
+        texte = _lire_page(page)
+        if texte is None:
+            problemes.append(
+                f"{nom} : fichier non decodable en UTF-8 strict ; attendu une page "
+                f"portant un lien vers {cible_sommaire.as_posix()} (SOMM-03, D-11)"
+            )
+            continue
+
+        retour = any(
+            (page.parent / cible).resolve() == cible_sommaire
+            for cible in LINK.findall(texte)
+            if not cible.startswith(LIENS_EXTERNES)
+        )
+        if not retour:
+            problemes.append(
+                f"{nom} : aucune ligne de retour vers docs/sommaire.md ; attendu un lien "
+                f"dont la cible resolue est {cible_sommaire.as_posix()} dans "
+                f"{page.as_posix()} (SOMM-03, D-01)"
+            )
+    return problemes
+
+
+def problemes_encodage(docs_dir: Path, normalize) -> list[str]:
+    """Decodage UTF-8 strict, absence de jeton de brouillon et longueur minimale (GARD-01, D-11)."""
+    problemes: list[str] = []
+
+    for page in _pages(docs_dir):
+        nom = page.relative_to(docs_dir.parent).as_posix()
+        texte = _lire_page(page)
+        if texte is None:
+            problemes.append(
+                f"{nom} : fichier non decodable en UTF-8 strict ; attendu une page "
+                f"decodable, listee dans docs/sommaire.md (GARD-01, D-11)"
+            )
+            continue
+
+        normalise = normalize(texte)
+        for jeton in JETONS_BROUILLON:
+            if jeton in normalise:
+                problemes.append(
+                    f"{nom} : jeton de brouillon « {jeton} » present dans "
+                    f"{page.as_posix()} ; attendu une page redigee, listee dans "
+                    f"docs/sommaire.md (GARD-01)"
+                )
+
+        longueur = len(texte.strip())
+        if longueur < LONGUEUR_MINIMALE:
+            problemes.append(
+                f"{nom} : page de {longueur} caracteres dans {page.as_posix()} ; attendu "
+                f"au moins {LONGUEUR_MINIMALE} caracteres pour une page livree (GARD-01)"
+            )
+    return problemes
+
+
+def test_h1_matches_sommaire_entry(docs_dir: Path, normalize) -> None:
+    """Chaque page porte un unique H1 egal a son libelle d'index (SOMM-03, D-11)."""
+    problemes = problemes_h1(docs_dir, normalize)
+    assert problemes == [], "\n".join(problemes)
+
+
+def test_pages_have_back_link(docs_dir: Path) -> None:
+    """Chaque page porte une ligne de retour vers docs/sommaire.md (SOMM-03, D-01)."""
+    problemes = problemes_retour_sommaire(docs_dir)
+    assert problemes == [], "\n".join(problemes)
+
+
+def test_documents_are_utf8_and_not_drafts(docs_dir: Path, normalize) -> None:
+    """Chaque page est en UTF-8 strict, sans jeton de brouillon et assez longue (GARD-01)."""
+    problemes = problemes_encodage(docs_dir, normalize)
+    assert problemes == [], "\n".join(problemes)
+
+
+def test_sommaire_index_labels_are_unique(docs_dir: Path, normalize) -> None:
+    """Deux entrees d'index ne portent pas le meme libelle, et le sommaire ne s'auto-liste pas (SOMM-02)."""
+    cible_sommaire = (docs_dir / "sommaire.md").resolve()
+    problemes: list[str] = []
+    vus: dict[str, str] = {}
+
+    for libelle, cible in pages_listees(docs_dir):
+        cle = normalize(libelle)
+        if cle in vus:
+            problemes.append(
+                f"docs/sommaire.md : libelle d'index « {libelle} » deja porte par "
+                f"« {vus[cle]} » ; attendu un libelle distinct par page listee "
+                f"(SOMM-02, SOMM-03)"
+            )
+        else:
+            vus[cle] = libelle
+
+        if (docs_dir / cible).resolve() == cible_sommaire:
+            problemes.append(
+                f"docs/sommaire.md : le sommaire se liste lui-meme comme cible "
+                f"« {cible} » ; attendu uniquement les pages de contenu de docs/ "
+                f"(SOMM-02, D-05)"
+            )
+
+    assert problemes == [], "\n".join(problemes)
+
+
+def test_normalisation_insensible_aux_accents_et_casse(normalize) -> None:
+    """La normalisation de D-11 unifie accents, casse, entites HTML, espaces et fins de ligne (D-11, D-12)."""
+    reference = "tests/conftest.py::_normalize (D-11, D-12)"
+
+    assert normalize("Éléments") == normalize("elements"), (
+        "normalisation : « Éléments » et « elements » doivent donner la meme valeur "
+        f"normalisee ; attendu la normalisation de {reference}"
+    )
+    assert normalize("l&#39;objet") == normalize("l'objet"), (
+        "normalisation : l'entite HTML « &#39; » et l'apostrophe droite doivent donner "
+        f"la meme valeur normalisee ; attendu la normalisation de {reference}"
+    )
+    assert normalize("A  \t B") == normalize("A B"), (
+        "normalisation : les espaces multiples (dont tabulation) doivent etre reduits a "
+        f"une espace simple ; attendu la normalisation de {reference}"
+    )
+    assert normalize("a\r\nb") == normalize("a\nb"), (
+        "normalisation : les fins de ligne CRLF et LF doivent donner la meme valeur "
+        f"normalisee ; attendu la normalisation de {reference}"
+    )
