@@ -206,10 +206,33 @@ PREFIXE_EQUIPEMENT = "Équipement :"
 PREFIXE_GREEDY = "Greedy:"
 EMPLACEMENT_VIDE = "(vide)"
 
-# Touches du resultat, mesurees : dofus_stuff/web/routes.py:137-141 produit « Page prec » / « Page
-# suiv » pour le resultat ; « Precedent » / « Suivant » ne sont produits que pour le wizard avance.
+# Touches du resultat, mesurees : dofus_stuff/web/routes.py:138-139 produit « Page prec » / « Page
+# suiv » des qu'une touche n'a pas de destination — sur le resultat **et** aux deux extremites du
+# wizard ; « Precedent » / « Suivant » ne sont rendus que sur les **ecrans intermediaires** du wizard
+# avance, ceux qui ont un voisin de chaque cote. La verite est donc **par etape**, jamais generale
+# (revue de la phase 4, CR-02) : la table par etape de l'etape 1 a l'etape 9 est ancree au rendu par
+# `tests/test_docs_wizard.py` (`test_touches_et_commandes_par_etape`), et les deux couples de
+# `TOUCHES_WIZARD_INTERMEDIAIRES` sont ceux que le resultat ne doit jamais porter.
 TOUCHES_RESULTAT = (("F7", "Page prec"), ("F8", "Page suiv"), ("ESC", "Retour"))
-TOUCHES_WIZARD = (("F7", "Precedent"), ("F8", "Suivant"))
+TOUCHES_WIZARD_INTERMEDIAIRES = (("F7", "Precedent"), ("F8", "Suivant"))
+
+# Les deux extremites du wizard, mesurees au rendu : le cote sans ecran voisin y porte le libelle du
+# resultat (`routes.py:138-139`), l'autre cote garde celui d'un ecran intermediaire. C'est cette
+# verite par etape — et non un « Precedent »/« Suivant » general — que la phrase de
+# `docs/parcours-simplifie.md` (~ligne 140) doit dire, sous peine d'etre fausse aux deux extremites
+# (D-64, revue de la phase 4, CR-02).
+EXTREMITE_WIZARD_SANS_PRECEDENT = ("slots", (("F7", "Page prec"), ("F8", "Suivant")))
+EXTREMITE_WIZARD_SANS_SUIVANT = ("recap", (("F7", "Precedent"), ("F8", "Page suiv")))
+
+# Ancre de la phrase qui compare les touches du wizard a celles du resultat (~ligne 140) : c'est
+# **cette** phrase que D-64 impose de garder vraie, et le seul endroit de la page ou la verite par
+# etape doit etre dite. La garde porte sur la partie de la phrase **apres son ancre** : les libelles
+# du resultat (`F7=Page prec`, `F8=Page suiv`) sont cites plus haut dans la **meme ligne** du fichier,
+# donc une garde portant sur la ligne entiere laisserait passer une affirmation generale sur le
+# wizard. Motif de morsure porte par une constante, jamais ecrit en clair dans la ligne d'assertion.
+ANCRE_TOUCHES_WIZARD = "Ces libellés sont ceux du résultat"
+FRAGMENTS_TOUCHES_WIZARD = ("Precedent", "Suivant", "Page prec", "Page suiv")
+MOTIF_TOUCHES_WIZARD = "affirmation generale sur les touches du wizard"
 
 # Tournure interdite par la reformulation enregistree d'ECR-2 : les diagnostics sont en fin de
 # resultat, jamais « sur la derniere page » (mesure M6 : page 2/3 sur la fixture ; M11 : 6 puis 7
@@ -303,6 +326,48 @@ def _touches(reponse) -> list[tuple[str, str]]:
     rendu, c'est donc le couple extrait qui est exige, jamais la concatenation.
     """
     return TOUCHE_BARRE.findall(reponse.get_data(as_text=True))
+
+
+def _constats_touches_wizard(texte: str, normalize) -> list[str]:
+    """Constats sur la phrase qui compare les touches du wizard a celles du resultat (D-64, CR-02).
+
+    Le texte arrive en clair, jamais comme un chemin : c'est ce qui rend la morsure mesurable sur un
+    texte non ecrit — la phrase telle qu'elle etait avant la revue, ou une copie mutee en memoire —
+    sans jamais ecrire la page du depot.
+
+    La garde porte sur la partie de la phrase **apres son ancre** (`ANCRE_TOUCHES_WIZARD`) : les
+    libelles du resultat cites plus haut dans la meme ligne du fichier feraient passer une affirmation
+    generale sur le wizard, qui est fausse a ses deux extremites.
+    """
+    constats: list[str] = []
+    phrase = next(
+        (
+            ligne
+            for ligne in texte.splitlines()
+            if normalize(ANCRE_TOUCHES_WIZARD) in normalize(ligne)
+        ),
+        "",
+    )
+    if not phrase:
+        constats.append(
+            f"{PAGE} : la phrase « {ANCRE_TOUCHES_WIZARD} » est introuvable ; attendu la phrase qui "
+            f"compare les touches du wizard avance a celles du resultat, D-64 imposant que son "
+            f"affirmation reste vraie apres cette phase"
+        )
+        return constats
+    portee = normalize(phrase.split(ANCRE_TOUCHES_WIZARD, 1)[1])
+    for fragment in FRAGMENTS_TOUCHES_WIZARD:
+        if normalize(fragment) in portee:
+            continue
+        constats.append(
+            f"{MOTIF_TOUCHES_WIZARD} : la phrase « {ANCRE_TOUCHES_WIZARD}… » ne cite pas "
+            f"« {fragment} » ; attendu la verite **par etape** — les libelles des ecrans "
+            f"intermediaires du wizard **et** ceux de ses deux extremites, comme rendu par "
+            f"{SOURCE_ROUTES}:138-139 et mesure sur /optimize/wizard/slots et /optimize/wizard/recap. "
+            f"Une affirmation generale sur le wizard est fausse a ses deux extremites (D-64, CR-02 "
+            f"de 04-REVIEW.md)"
+        )
+    return constats
 
 
 def _libelle_saisie(reponse) -> str:
@@ -756,6 +821,12 @@ def test_pagination_et_emplacement_du_calcul(app, docs_dir, section, normalize) 
     sur `data-stuff-payload` ni sur la reponse entiere : la charge utile y porte tout le resultat sur
     chaque page, accents echappes, ce qui rendrait `« Méthode » in response.data` faux sur la page 1
     et `« Score » in response.data` vrai sur une page qui ne l'affiche pas (mesure M6).
+
+    Le controle des touches est **par etape**, extremites comprises : la barre du resultat ne doit
+    jamais porter les libelles des ecrans intermediaires du wizard avance, et les deux extremites de
+    ce wizard — l'etape 1, sans precedent, et le recapitulatif, sans suivant — sont mesurees au rendu
+    pour que la phrase de la page qui compare les deux barres dise la verite au lieu de la generaliser
+    (D-64, revue de la phase 4, CR-02).
     """
     texte = _texte_page(docs_dir)
     constats: list[str] = []
@@ -844,13 +915,28 @@ def test_pagination_et_emplacement_du_calcul(app, docs_dir, section, normalize) 
                 f"{PAGE} : le couple de touche (« {touche[0]} », « {touche[1]} ») est absent de la "
                 f"barre du resultat ; attendu ce couple rendu par {SOURCE_ROUTES}:137-141"
             )
-    for touche in TOUCHES_WIZARD:
+    for touche in TOUCHES_WIZARD_INTERMEDIAIRES:
         if touche in touches:
             constats.append(
                 f"{PAGE} : le couple de touche (« {touche[0]} », « {touche[1]} ») est rendu sur le "
-                f"resultat ; attendu les libelles du resultat, ceux du wizard avance etant reserves "
-                f"aux ecrans qui passent f7_url/f8_url ({SOURCE_ROUTES}:137-141)"
+                f"resultat ; attendu les libelles du resultat, ceux des ecrans intermediaires du "
+                f"wizard avance etant reserves aux ecrans qui passent f7_url/f8_url "
+                f"({SOURCE_ROUTES}:138-139)"
             )
+
+    # 3bis. Les deux extremites du wizard, mesurees : la verite des touches est **par etape**, et
+    # c'est elle que la phrase de la page doit dire (D-64, CR-02 de `04-REVIEW.md`).
+    for etape, attendues in (EXTREMITE_WIZARD_SANS_PRECEDENT, EXTREMITE_WIZARD_SANS_SUIVANT):
+        rendues = _touches(app.test_client().get(f"/optimize/wizard/{etape}"))
+        for couple in attendues:
+            if couple not in rendues:
+                constats.append(
+                    f"{PAGE} : l'extremite « {etape} » du wizard ne rend pas le couple "
+                    f"(« {couple[0]} », « {couple[1]} ») ; attendu ce couple, pose par "
+                    f"{SOURCE_ROUTES}:138-139 selon que la touche a une destination. C'est la verite "
+                    f"par etape que la phrase de « {TITRE_RESULTAT} » doit dire, et non un "
+                    f"« Precedent »/« Suivant » general, faux a cette extremite"
+                )
 
     # 4. Position des diagnostics, sur les pages concatenees dans l'ordre du resultat.
     if total is not None:
@@ -947,6 +1033,11 @@ def test_pagination_et_emplacement_du_calcul(app, docs_dir, section, normalize) 
                 f"({SOURCE_API}:329-341)"
             )
 
+    # 6. La phrase qui compare les touches du wizard a celles du resultat dit la verite par etape
+    #    (D-64, CR-02 de `04-REVIEW.md`). La garde est extraite pour que sa morsure soit mesurable sur
+    #    un texte non ecrit, la page du depot n'etant jamais modifiee par un test.
+    constats += _constats_touches_wizard(texte, normalize)
+
     assert not constats, (
         f"{PAGE} : constats sur la pagination et l'emplacement du calcul (marqueurs attendus : "
         + ", ".join(MARQUEURS_DIAGNOSTICS)
@@ -954,8 +1045,10 @@ def test_pagination_et_emplacement_du_calcul(app, docs_dir, section, normalize) 
         + " ; ".join(constats)
         + f" ; attendu la carte « PAGE 1/<total> » dans la ligne de statut ({SOURCE_ROUTES}:145), la "
         f"derniere page atteinte, les trois marqueurs en fin de resultat, apres le dernier "
-        f"« {PREFIXE_EQUIPEMENT} » et avant « {PREFIXE_GREEDY} » ({SOURCE_API}:432-434), et aucune "
-        f"valeur volatile dans la section « {TITRE_RESULTAT} »"
+        f"« {PREFIXE_EQUIPEMENT} » et avant « {PREFIXE_GREEDY} » ({SOURCE_API}:432-434), aucune "
+        f"valeur volatile dans la section « {TITRE_RESULTAT} », la barre du resultat sans les "
+        f"libelles des ecrans intermediaires du wizard, et la phrase des touches de la page disant "
+        f"la verite **par etape** du wizard, extremites comprises (D-64)"
     )
 
 
