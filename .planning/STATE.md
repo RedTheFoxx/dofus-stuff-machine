@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Wizard avancé et résorption de la dette `GUIDE_WIZARD`
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-09-11T18:34:42.280Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-09-11T18:52:44.289Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 3 complete, transitioned to Phase 4
-state_head: 9954c993f1f5b53933c763529f5db332a2069d10
+last_activity_desc: Plan 04-01 terminé — page du wizard avancé, entrée d'index et module d'ancrage (194 tests verts)
+state_head: e4214703ff79e27767984077276202cc4e257c20
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 15
-  completed_plans: 11
+  completed_plans: 12
   percent: 50
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-10)
 
 **Core value:** Un utilisateur qui n'a jamais vu le projet peut installer l'outil, lancer le flux simplifié classe → éléments → niveau, lire son résultat et retrouver chaque commande/menu cité dans le code réel — sans lire le code et sans rencontrer de documentation périmée.
-**Current focus:** Phase 3 — Parcours simplifie documente depuis le rendu reel
+**Current focus:** Phase 4 — Wizard avancé et résorption de la dette `GUIDE_WIZARD`
 
 ## Current Position
 
-Phase: 4 (Wizard avancé et résorption de la dette `GUIDE_WIZARD`) — READY TO EXECUTE
-Plan: Not started
+Phase: 4 (Wizard avancé et résorption de la dette `GUIDE_WIZARD`) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-09-11 — Phase 3 complete, transitioned to Phase 4
+Last activity: 2026-09-11 — Plan 04-01 terminé (page du wizard avancé, entrée d'index, module d'ancrage)
 
 Progress: [█████░░░░░] 50%
 
@@ -38,7 +38,7 @@ Progress: [█████░░░░░] 50%
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: -
 - Total execution time: -
 
@@ -49,6 +49,7 @@ Progress: [█████░░░░░] 50%
 | 1 | 4 | - | - |
 | 2 | 3 | - | - |
 | 3 | 4 | - | - |
+| 4 | 1 | 4 | - |
 
 **Recent Trend:**
 
@@ -71,6 +72,7 @@ Progress: [█████░░░░░] 50%
 | Phase 03 P02 | 6min | 2 tasks | 2 files |
 | Phase 03 P03 | 4min | 2 tasks | 2 files |
 | Phase 03 P04 | 17 min | 3 tasks | 2 files |
+| Phase 4 P01 | 10min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -135,6 +137,8 @@ Recent decisions affecting current work:
 - [Phase 3]: [Phase 3 03-04]: Les hypotheses de loutil sont MESUREES par balayage sur la surface publique pure (capital 5 * (niveau - 1), cibles PA/PM aux niveaux de bordure 39/40, 99/100, 149/150, 200), les quatre ensembles de classes sont extraits par ast et le nombre de classes sans objectif (9) est calcule : deplacer un seuil ou retirer une classe rougit sans que la page change (D-42). Les heuristiques de classe sont presentees comme telles, avec le commentaire du code exige a cote de la tournure « preferences de style de jeu » (ECR-3). — docs/parcours-simplifie.md, tests/test_docs_parcours.py, plan 03-04 taches 1 et 2 ; mesure : 186 passed apres le plan, morsures 4/4 en tache 1 et 4/4 en tache 2
 - [Phase 3]: [Phase 3 03-04]: La section des limites est adossee au code (modes de compatibilite de score.py, filtre de plausibilite de candidates.py, profondeur top_k=40, coupe url[:COLS] de routes.py:1336) et ne cite aucun nombre de trois chiffres ou plus hors la valeur de COLS lue dans screens.py:5 ; une morsure mesuree a montre quun titre derive rend la regle scopee inoperante, d ou une garde NON scopee conservee a cote (aucun nombre de quatre chiffres ou plus dans la page). RF-2 est traite : la page cite len-tete rendu (OPT-SIMPLE / RECOMMANDATION DE STUFF) et un controle le relit par _entete, le code exige comme mot entier. — mesure : morsure chiffre_volatile (le sed du plan renomme le titre) et deux morsures RF-2 (page sans OPT-SIMPLE, pgm derive en OPT-SIMPL) ; 0 nombre a quatre chiffres dans la page
 - [Phase 3]: [Phase 3 03-04]: La page est close sur ses neuf sections (CRLF sans BOM, un seul H1, ligne de retour, aucun bloc console, aucun lien externe ni vers wizard-avance.md / base-locale.md) et lempreinte de .data/dofus.sqlite3 (taille, mtime_ns, sha256) est identique avant et apres la suite ENTIERE : 24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b. La re-mesure locale du module est nommee pour ce quelle mesure (conftest construit sa base sous tmp_path, donc elle ne peut pas detecter une ecriture dun autre module) et la morsure de la mesure est demontree sur une COPIE temporaire, jamais sur .data/ (T-17, T-18). — mesure : 186 passed, 11/11 morsures du plan + 2/2 RF-2, base du depot reference 24989696 / 1788730056843137500 inchangee
+- [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: Le compte des listes documentees est lu au rendu, jamais dans une table locale : les 11 options du solveur sont extraites du corps de GET /optimize/wizard/options et comparees une a une a ce que la page cite, et les 11 emplacements et 10 filtres sont lus sur les deux pages de GET /optimize/wizard/slots. — La liste des options n'expose aucune constante publique (body_options ecrit onze lignes litterales, la table d'application est locale a apply_options_input) : le rendu est le seul ancrage honnete du compte, et il prouve que la page et l'ecran ne divergent pas sans pretendre a une constante de comptage.
+- [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: Les deux formes d'edition des quatre nombres ne sont jamais fusionnees : FORMAT : BASE POINTS CIBLE POIDS est cite avec l'ecran des caracteristiques et FORMAT : BASE EXO CIBLE POIDS avec PA / PM / PO, chacun lu sur le sous-ecran d'edition reellement atteint par le rendu, et le refus de format est le message de la forme affichee juste au-dessus. — Une page qui melange les deux formes fait apprendre au lecteur un format que l'ecran n'affiche pas ; le controle atteint les deux sous-ecrans et exige que les deux formes marquees restent distinctes, si bien qu'une permutation des deux litteraux rougit la suite avec le litteral rendu dans le constat.
 
 ### Pending Todos
 
@@ -155,6 +159,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T17:46:44.684Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard/04-CONTEXT.md
+Last session: 2026-09-11T18:52:44.246Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
