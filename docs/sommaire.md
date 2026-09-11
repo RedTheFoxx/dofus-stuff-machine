@@ -17,3 +17,4 @@ Cette page est le point d'entrée unique de la documentation utilisateur de dofu
 | Page | Sujet |
 |------|-------|
 | [Installation](installation.md) | Installer l'outil, vérifier, lancer CLI et web |
+| [CLI](cli.md) | Commandes, options et exemples de fetcher.py |
