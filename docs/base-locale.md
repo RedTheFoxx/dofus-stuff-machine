@@ -6,7 +6,7 @@ Cette page décrit ce que l'outil garde sur votre poste : la base locale dans la
 
 L'outil range toute sa copie locale des données Dofus dans un seul fichier SQLite : `dofus.sqlite3`, placé dans le dossier `.data/` à la racine du dépôt. Le nom du fichier vient de la constante `DB_NAME` et le dossier de la constante `DEFAULT_DATA_DIR` : ni l'un ni l'autre n'est écrit deux fois dans le produit, et cette page les reprend tels quels.
 
-Le fichier est créé au **premier contact**, c'est-à-dire au premier lancement d'une commande ou d'un écran qui touche la base : le dossier parent est créé s'il manque, puis le fichier lui-même. Une base absente n'est donc pas une erreur : c'est une base vide, que l'outil remplit à la première synchronisation.
+Le fichier est créé au **premier contact**, c'est-à-dire au premier lancement d'une commande ou d'un écran qui touche la base : le dossier parent est créé s'il manque, puis le fichier lui-même. Une base absente n'est donc pas une erreur : c'est une base vide, que l'outil remplit à la première synchronisation, et l'écran web s'ouvre dessus sans se plaindre. La ligne de commande y ajoute une limite, décrite plus bas : charger le catalogue en mode hors-ligne sur une base vide l'arrête sur une erreur.
 
 Le fichier contient deux tables et un index, tous créés par `Database.open` :
 
@@ -36,9 +36,9 @@ Aucune autre catégorie n'est enregistrée : cette liste est celle du produit, e
 
 L'outil ne redemande pas la version du jeu à chaque lancement. Il note l'instant de son dernier contrôle dans la clé `last_checked_at` de la table `meta`, puis laisse passer une fenêtre avant de vérifier de nouveau : cette fenêtre est la constante `CHECK_INTERVAL_SECONDS`, déclarée dans `dofus_stuff/sync.py` par l'expression `24 * 60 * 60`.
 
-Tant que la fenêtre n'est pas écoulée, le chargement du catalogue s'arrête là : aucune requête réseau n'est émise, et c'est la seule situation où une commande en ligne ne contacte pas l'API.
+En ligne, l'outil compare la version du jeu distante à la version locale dans quatre situations : la fenêtre de 24 heures est écoulée, la base locale ne porte encore aucun objet, aucun dernier contrôle n'a été enregistré, ou l'option `--force-sync` a été passée. En dehors de ces quatre situations — une base remplie, un dernier contrôle enregistré et une fenêtre non écoulée —, le chargement du catalogue s'arrête là : aucune requête réseau n'est émise.
 
-Quand la fenêtre est écoulée — et seulement dans ce cas — l'outil compare la version du jeu distante à la version locale. Si elles sont identiques, il se contente de noter le nouvel instant du contrôle ; si elles diffèrent, ou si la base locale est vide, il récupère tout le catalogue à nouveau.
+Quand la comparaison a lieu, l'outil regarde ce qu'elle rend : si les deux versions sont identiques, si la base locale n'est pas vide et si `--force-sync` n'a pas été passée, il se contente de noter le nouvel instant du contrôle ; si les versions diffèrent, ou si la base locale est vide, ou si `--force-sync` a été passée, il récupère tout le catalogue à nouveau.
 
 L'option `--force-sync` court-circuite cette fenêtre : elle demande la vérification sans attendre le lendemain. L'option est décrite avec les autres dans [la page CLI](cli.md).
 
