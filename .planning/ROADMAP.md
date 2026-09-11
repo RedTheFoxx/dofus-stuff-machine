@@ -92,14 +92,14 @@ Plans:
   4. L'ordre réel est illustré : au moins un exemple hors-ligne place l'option globale avant la sous-commande (`--offline optimize …`), et `db clear` n'apparaît qu'accompagné de son avertissement destructif, jamais dans un parcours recommandé.
   5. La suite reste verte avec l'interpréteur épinglé, sans exécuter `main()` ni écrire sous `.data/`.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 **UI hint**: no
 
 Plans:
 
 - [x] 02-01-PLAN.md
 - [x] 02-02-PLAN.md
-- [ ] 02-03-PLAN.md
+- [x] 02-03-PLAN.md
 
 **Wave 1**
 
@@ -216,7 +216,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
-| 2. Référence CLI alignée sur le parseur | 2/3 | In Progress|  |
+| 2. Référence CLI alignée sur le parseur | 3/3 | In Progress|  |
 | 3. Parcours simplifié documenté depuis le rendu réel | 0/4 | Not started | - |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
 | 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |

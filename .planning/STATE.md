@@ -2,17 +2,17 @@
 gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Référence CLI alignée sur le parseur
-status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-09-11T12:27:28.699Z"
+status: verifying
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-09-11T12:34:39.584Z"
 last_activity: 2026-09-11
 last_activity_desc: Phase 2 execution started
-state_head: e7dc8a75b9d77b7bd80ae2d7a2305040f52245c9
+state_head: 95580b070f942dc13de0e778698845a9f91a7ab7
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 
 Phase: 2 (Référence CLI alignée sur le parseur) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-11 — Phase 2 execution started
 
 Progress: [██░░░░░░░░] 17%
@@ -64,6 +64,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 1 P04 | 2 min | 2 tasks | 1 files |
 | Phase 2 P01 | 3min | 3 tasks | 2 files |
 | Phase 2 P02 | 7min | 2 tasks | 3 files |
+| Phase 2 P03 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Recent decisions affecting current work:
 - [Phase 2]: Un seul point d'assertion par test (constats cumules) : avec une assertion par constat, les motifs --candidats-top et « aucune option » seraient inatteignables et la batterie rapporterait MUTATION NON DETECTEE sur une implementation correcte
 - [Phase 2]: Morsure de la mutation « build_parser() retire » re-mesuree sur une copie incluant l'arbre produit (verte avant mutation, rouge apres) : la copie « sans » est rouge par construction et cite deja le jeton
 - [Phase 2]: Options citees extraites des seules lignes de tableau des sections Options globales et optimize, jamais du texte entier : la section optimize cite --offline, option globale refusee par le sous-parseur optimize (Pitfall 10)
+- [Phase 2]: [Phase 2]: Exemples marques de docs/cli.md extraits par la projection lignes_exemple du scanner unique, decoupes par shlex.split puis acceptes par build_parser().parse_args : la commande est analysee, jamais executee (CLI-03, D-24, D-25)
+- [Phase 2]: [Phase 2]: Garde destructrice evaluee ligne a ligne sur le texte entier de la page (jamais par section, lecon WR-02) avec un motif (db|cache) + espaces + clear (lecon WR-01) ; ses trois constats sont joints a une seule assertion, mesure a l'appui : une assertion par constat rapportait la mutation « mention destructrice glissee dans un bloc d'exemple » non detectee sur une page correcte
+- [Phase 2]: [Phase 2]: Le nom de sous-commande d'un exemple est projete comme premier jeton positionnel (options globales et leur valeur sautees) avant comparaison aux huit noms epingles : le constat « atteinte sans etre documentee » reste atteignable au lieu d'etre une branche morte infalsifiable (T-02-14) ; sur la page livree le resultat est identique au filtre du plan
 
 ### Pending Todos
 
@@ -116,6 +120,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T12:27:28.674Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-09-11T12:34:39.558Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None
