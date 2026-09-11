@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Parcours simplifie documente depuis le rendu reel
 status: executing
-stopped_at: Completed 03-02-PLAN.md (pagination, emplacement du calcul et correspondance des libelles ; suite verte a 178 tests)
-last_updated: "2026-09-11T16:51:18.391Z"
+stopped_at: "Completed 03-03-PLAN.md (sauvegarde et export : limite ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur ; suite verte a 181 tests)"
+last_updated: "2026-09-11T17:03:17.618Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 3 plan 03-02 complete
-state_head: 0d24f68fe6b09a1469e1368df0874d19cfb41092
+last_activity_desc: Phase 3 plan 03-03 complete
+state_head: 045d93a0ca2e124569ef75f617054867a1876ec4
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 33
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 3 (Parcours simplifie documente depuis le rendu reel) — EXECUTING
-Plan: 2 of 4 (03-02 complete)
-Status: Executing Phase 3
-Last activity: 2026-09-11 — Plan 03-02 complete (pagination, emplacement du calcul et correspondance des libelles lus sur le rendu, 178 tests verts)
+Plan: 3 of 4 (03-03 complete)
+Status: Ready to execute
+Last activity: 2026-09-11 — Plan 03-03 complete (section « Sauvegarder et exporter » ; limite de sauvegarde ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur : 16 emplacements, prysma exclue ; 181 tests verts)
 
 Progress: [███░░░░░░░] 33%
 
@@ -68,6 +68,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 2 P03 | 5min | 2 tasks | 2 files |
 | Phase 3 P01 | 7min | 3 tasks | 4 files |
 | Phase 03 P02 | 6min | 2 tasks | 2 files |
+| Phase 03 P03 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,11 @@ Recent decisions affecting current work:
 - [Phase 3]: [Phase 3 03-02]: Aucune troncature n'est promise ni assertee : la section « Correspondance des libelles » ne contient ni « libelle tronque » ni le caractere de points de suspension, et le module n'asserte nulle part ce caractere sur un rendu (reformulation enregistree ECR-1, mesure M7 : 0 ligne rendue du resultat n'en porte).
 - [Phase 3]: [Phase 3 03-02]: Le resultat est rendu une seule fois par le solveur dans ce plan (fixture minimale deterministe : niveau 200, quatre elements -> 3 pages, diagnostics en page 2/3 ; module a 0,8 s) et le module reutilise _touches sans le redefinir (D-12).
 - [Phase 3]: [Phase 3 03-02]: Mesures de la passe de tache : .venv/Scripts/python.exe -m pytest -q -> 177 passed apres la tache 1 puis 178 passed apres la tache 2 ; les deux batteries de morsures (2 pour t1, 4 pour t2) rapportent toutes « mutation detectee » sur une copie verte verifiee avant mutation ; .data/dofus.sqlite3 identique (24 989 696 octets, mtime_ns 1788730056843137500).
+- [Phase 3]: [Phase 3 03-03]: La limite de sauvegarde du navigateur est ancree sur les litteraux du fichier JS (cle `dofus-stuff-machine.saves` et valeur de `MAX_SAVES` extraites a chaque execution par `_litteral_js`, motifs epingles sur terminal.js:14-15) : la page doit citer la valeur courante, donc passer `MAX_SAVES` a 50 rougit sans que la page change (D-42). Le controle est nomme comme un controle de LITTERAUX dans le docstring du module et dans le constat lui-meme : aucun moteur JS n'existe ici (ni `localStorage`, ni `shift`), l'eviction reelle reste non testee et le module ne pretend pas le contraire (T-13).
+- [Phase 3]: [Phase 3 03-03]: L'eviction est dite honnetement (ECR-5, D-41) : la section porte « les plus anciennes sont remplacees » et l'assertion refuse la tournure « 20 maximum » seule, exacte mais trompeuse puisque la sauvegarde en trop remplace la plus ancienne sans message d'echec (terminal.js:294-318) ; les libelles `DB DOFUSBOOK`, `BACK LISTE` et `SAUVEGARDES PURGEES` sont exiges dans la page ET sur la ligne du fichier JS qui les porte (patron LIBELLES_SOURCE de tests/test_docs_code_anchor.py:61-74).
+- [Phase 3]: [Phase 3 03-03]: L'export est prouve par la surface publique pure `build_dofusbook_url` : 17 emplacements fournis (les seize exportes plus la `prysma`), charge utile decodee de forme [caracs(51), points(51), niveau, flags, counts(10), ids], `sum(counts) == 16` et identifiant 999 absent des `ids`. L'ordre des dix groupes n'est PAS re-teste car deja prouve par tests/test_web.py:713-750 (D-12, cite en commentaire) ; le nombre cite par la page est celui du calcul, jamais un 16 ecrit de memoire, et l'URL d'import est lue sur l'attribut public du module par `importlib` puis exigee entre accents graves (D-01, adresse technique et non lien externe).
+- [Phase 3]: [Phase 3 03-03]: Le rendu du resultat est obtenu sans poster la saisie `DB` (injection de `optimize_result_lines` dans la session, patron de tests/test_web.py:668-671) et le module porte sa propre garde `ast` (`test_aucun_post_db_sans_patch`) interdisant tout import de `webbrowser` et tout appel dont l'argument nomme `data` porte un dictionnaire litteral `cmd=DB` : la suite ne peut pas lancer de navigateur (T-12), et le comportement reste couvert, patche, par tests/test_web.py:668. Le motif de morsure est porte par une constante du module (`MOTIF_EMPREINTE_EXPORT`) et jamais ecrit en clair dans la ligne d'assertion : pytest reproduit la ligne source du `assert` dans sa sortie, un motif en clair y serait trouve meme sans qu'aucun constat soit produit.
+- [Phase 3]: [Phase 3 03-03]: Mesures de la passe de tache : `.venv/Scripts/python.exe -m pytest -q` -> 181 passed (178 avant ce plan) ; les six morsures des deux batteries (2 pour t1, 4 pour t2) rapportent toutes « mutation detectee » sur une copie verte verifiee avant mutation, et la batterie de t1 a ete rejouee apres t2 (toujours 2/2) ; sur la mutation de l'export la sortie montre des constats reels (« 17 pour 17 emplacements fournis ; attendu 16 », identifiant 999 present) et non un echo de ligne source ; .data/dofus.sqlite3 identique (24 989 696 octets, mtime_ns 1788730056843137500) ; le module de test passe a 12 tests.
 
 ### Pending Todos
 
@@ -144,6 +150,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T16:51:14.563Z
-Stopped at: Completed 03-02-PLAN.md (pagination, emplacement du calcul et correspondance des libelles ; suite verte a 178 tests)
+Last session: 2026-09-11T17:03:17.552Z
+Stopped at: Completed 03-03-PLAN.md (sauvegarde et export : limite ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur ; suite verte a 181 tests)
 Resume file: None
