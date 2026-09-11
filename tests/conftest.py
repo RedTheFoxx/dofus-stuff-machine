@@ -145,6 +145,10 @@ TITRE_H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
 # balise toute ligne commencant par trois accents graves meme suivie de texte.
 DELIMITEUR_BLOC = re.compile(r"^\s*```(?P<balise>[A-Za-z0-9_-]*)\s*$")
 
+# Balise d'ouverture qui marque un bloc d'exemples de ligne de commande (D-24) : seules les lignes
+# d'un bloc portant cette balise sont des exemples a recopier, jamais une commande citee en prose.
+BALISE_EXEMPLE = "console"
+
 
 def _blocs_de_code(texte: str) -> list[tuple[str, list[str]]]:
     """Blocs de code Markdown : (balise d'ouverture, lignes), dans l'ordre du fichier.
@@ -171,6 +175,23 @@ def _blocs_de_code(texte: str) -> list[tuple[str, list[str]]]:
 def _lignes_de_code(texte: str) -> list[str]:
     """Lignes de tous les blocs de code, toutes balises confondues (comportement de la phase 1)."""
     return [ligne for _, lignes in _blocs_de_code(texte) for ligne in lignes]
+
+
+def _lignes_exemple(texte: str) -> list[str]:
+    """Lignes des seuls blocs de code dont la balise d'ouverture est `BALISE_EXEMPLE` (D-24).
+
+    Projection marquee du scanner unique (D-12) : `_blocs_de_code` conserve deja la balise, cette
+    vue ne fait que la filtrer, elle ne rescannne rien. Les bords sont rognes et les lignes vides
+    ecartees, pour qu'une ligne blanche d'un bloc ne devienne pas un `argv` vide sonde sur le
+    parseur. Une commande citee en prose n'est jamais un exemple (D-24).
+    """
+    return [
+        ligne.strip()
+        for balise, lignes in _blocs_de_code(texte)
+        if balise == BALISE_EXEMPLE
+        for ligne in lignes
+        if ligne.strip()
+    ]
 
 
 def _sections(texte: str) -> list[tuple[str | None, str]]:
@@ -210,6 +231,18 @@ def _section(texte: str, titre: str, page: str) -> str:
 def lignes_de_code():
     """Expose _lignes_de_code aux modules de test sans import inter-modules."""
     return _lignes_de_code
+
+
+@pytest.fixture(scope="session")
+def lignes_exemple():
+    """Expose _lignes_exemple aux modules de test, comme les autres helpers (D-12).
+
+    La fixture rend le *helper*, jamais les lignes d'une page : chaque test appelle
+    `lignes_exemple(texte_de_la_page)`. Rendre directement des lignes obligerait la fixture a
+    connaitre la page de l'appelant, et iterer la fixture elle-meme leve
+    `TypeError: 'function' object is not iterable` — contrat ecrit ici pour ne pas etre redecouvert.
+    """
+    return _lignes_exemple
 
 
 @pytest.fixture(scope="session")

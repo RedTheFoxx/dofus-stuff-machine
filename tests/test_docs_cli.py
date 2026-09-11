@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import io
 import re
+import shlex
 from contextlib import redirect_stderr
 from pathlib import Path
 
@@ -122,6 +123,43 @@ SONDES_OPTIMIZE = (
 
 # Sous-commandes de db dont l'alias `cache` doit produire le meme espace de noms (D-21).
 SOUS_COMMANDES_DB = ("status", "stats", "sync", "fill", "clear")
+
+
+# ---------------------------------------------------------------------------------------------
+# Exemples marques de la page (CLI-03, D-24, D-25, D-27)
+#
+# Un exemple est une ligne d'un bloc de code dont la balise d'ouverture est `console`
+# (`BALISE_EXEMPLE` de `tests/conftest.py`, D-24) : une commande citee en prose n'en est pas un, et
+# seule la projection `lignes_exemple` les rend — jamais un second scanner de blocs (D-12).
+#
+# Chaque exemple est decoupe par `shlex.split` puis soumis a `build_parser().parse_args` (D-25,
+# D-14 : parseur public seul). La commande est *parsee*, jamais executee : ni `main()`, ni
+# sous-processus, ni base ouverte, ni socket (D-15).
+#
+# Quatre regles de redaction mesurees pour un exemple (02-RESEARCH.md, Pitfall 9) :
+#   1. aucun commentaire en fin de ligne : il devient des arguments et le parseur sort en code 2 ;
+#   2. aucune continuation par antislash : `shlex.split` leve `ValueError` avant le parseur ;
+#   3. aucun metacaractere de shell : `*` et `$` ne sont pas etendus, mais sont acceptes, donc les
+#      montrer enseignerait un comportement que le lecteur n'obtiendra pas ;
+#   4. chemin portable ou guillemete pour `--data-dir` : `shlex` avale silencieusement un chemin
+#      Windows non guillemete et le parseur l'accepte — le controle resterait alors aveugle.
+#
+# Limite honnete (D-26), ecrite ici et pas seulement dans le plan : la ligne etant *extraite* de la
+# page, l'exigence « verbatim » de CLI-03 est une garantie de construction, pas une exigence de
+# validation qui pourrait echouer seule ; la completude inverse (toute option du parseur
+# documentee) n'est pas revendiquee — une option ajoutee plus tard au parseur sans etre documentee
+# ne fera pas rougir cette suite.
+
+# Forme dont la page doit porter au moins un exemple : l'option globale *avant* sa sous-commande
+# (`db status --offline` sort en code 2, `fetcher.py: error: unrecognized arguments: --offline`).
+# Constante de module et non litteral dans le corps du test : la batterie de mutations cherche cette
+# forme dans la sortie, et pytest imprime la source de l'assertion en echec — un litteral dans
+# l'assertion ferait croire a la detection meme si le message ne portait pas la forme attendue.
+FORME_ATTENDUE = ("--offline", "optimize")
+
+# Options globales du parseur racine qui consomment le jeton suivant : la projection du nom de
+# sous-commande saute leur valeur, sinon `--data-dir x` ferait lire `x` comme une sous-commande.
+OPTIONS_GLOBALES_A_VALEUR = ("--timeout", "--data-dir")
 
 
 def _texte_page(docs_dir: Path) -> str:
@@ -413,3 +451,150 @@ def test_source_de_verite_de_la_page_cli(docs_dir: Path, section) -> None:
         + f" ; attendu le bloc Source de verite nommant {JETON_BUILD_PARSER} et ne citant que des "
         f"chemins existants de {SOURCE_CLI}"
     )
+
+
+def _jetons(ligne: str) -> list[str]:
+    """Jetons d'un exemple, ou AssertionError citant la page et la ligne fautive (D-13).
+
+    `shlex.split` leve `ValueError` sur un guillemet non ferme ou sur une continuation par
+    antislash : ces deux formes de redaction n'ont pas leur place dans un exemple, l'une comme
+    l'autre faisant echouer la ligne avant meme d'atteindre le parseur de `dofus_stuff/cli.py`.
+    Aucun `ValueError` ne traverse : il devient un constat qui nomme la page, la ligne et la cause.
+    """
+    try:
+        return shlex.split(ligne)
+    except ValueError as erreur:
+        raise AssertionError(
+            f"{PAGE} : exemple « {ligne} » non decoupable par shlex.split ({erreur}) ; attendu un "
+            f"exemple sans guillemet non ferme ni continuation par antislash, les deux formes de "
+            f"redaction qui empechent la ligne d'atteindre "
+            f"{SOURCE_CLI}::build_parser().parse_args()"
+        ) from None
+
+
+def _exemple_accepte(ligne: str) -> bool:
+    """Vrai si l'exemple complet est accepte par le parseur, sans jamais l'executer (D-15, D-25)."""
+    try:
+        with redirect_stderr(io.StringIO()):
+            build_cli_parser().parse_args(_jetons(ligne)[2:])
+    except SystemExit:
+        return False
+    return True
+
+
+def _sous_commande_atteinte(ligne: str) -> str | None:
+    """Premier jeton positionnel d'un exemple : le nom de la sous-commande atteinte, ou None.
+
+    Les deux premiers jetons (`python fetcher.py`) sont ecartes, puis chaque option globale est
+    sautee ; une option qui consomme le jeton suivant (`--timeout`, `--data-dir`) fait sauter sa
+    valeur, sinon cette valeur serait lue comme un nom de sous-commande.
+    """
+    sauter = False
+    for jeton in _jetons(ligne)[2:]:
+        if sauter:
+            sauter = False
+            continue
+        if jeton.startswith("-"):
+            sauter = jeton in OPTIONS_GLOBALES_A_VALEUR
+            continue
+        return jeton
+    return None
+
+
+def test_exemples_marques_sont_analysables(docs_dir: Path, lignes_exemple) -> None:
+    """Chaque ligne des blocs marques `console` de la page est analysee par le parseur reel (CLI-03)."""
+    texte = _texte_page(docs_dir)
+    exemples = lignes_exemple(texte)
+    if not exemples:
+        raise AssertionError(
+            f"{PAGE} : aucun bloc marque « console » trouve ; attendu au moins un exemple de ligne "
+            f"de commande dans un bloc de code balise de {PAGE} et sonde sur "
+            f"{SOURCE_CLI}::build_parser().parse_args() — sans aucun exemple, ce controle serait "
+            f"vide, donc infalsifiable"
+        )
+    for ligne in exemples:
+        # La ligne est extraite de la page : cette comparaison est une garantie de construction
+        # (limite D-26 en tete de module), pas une exigence de validation qui pourrait echouer seule.
+        # Aucune normalisation ici (D-11 ne s'applique pas a une commande : accents et espaces se
+        # comparent tels quels).
+        if ligne not in texte:
+            raise AssertionError(
+                f"{PAGE} : exemple « {ligne} » absent du texte de la page ; attendu chaque exemple "
+                f"present verbatim dans {PAGE}"
+            )
+        jetons = _jetons(ligne)
+        # Test de prefixe plutot qu'un `argv.index("fetcher.py")` : une valeur d'option qui vaudrait
+        # `fetcher.py` ferait croire a un point d'entree correct.
+        if jetons[:2] != ["python", "fetcher.py"]:
+            raise AssertionError(
+                f"{PAGE} : exemple « {ligne} » ne commence pas par « python fetcher.py » "
+                f"(lu : {' '.join(jetons[:2]) or 'aucun jeton'}) ; attendu la ligne de commande de "
+                f"{SOURCE_CLI} lancee depuis la racine du depot"
+            )
+        if not _exemple_accepte(ligne):
+            raise AssertionError(
+                f"{PAGE} : exemple « {ligne} » refuse par "
+                f"{SOURCE_CLI}::build_parser().parse_args() ; regles de redaction mesurees : aucun "
+                f"commentaire en fin de ligne, aucune continuation par antislash, aucun "
+                f"metacaractere de shell (`*`, `$`), chemin portable ou guillemete pour --data-dir, "
+                f"et option globale ecrite avant la sous-commande"
+            )
+
+
+def test_chaque_sous_commande_a_un_exemple(docs_dir: Path, lignes_exemple) -> None:
+    """Les sous-commandes atteintes par les exemples sont exactement les huit epinglees (CLI-03)."""
+    documentees = {nom for nom, _ in SONDES_SOUS_COMMANDES}
+    atteintes = {
+        sous_commande
+        for sous_commande in (
+            _sous_commande_atteinte(ligne) for ligne in lignes_exemple(_texte_page(docs_dir))
+        )
+        if sous_commande is not None
+    }
+    constats: list[str] = []
+    manquantes = sorted(documentees - atteintes)
+    if manquantes:
+        constats.append(
+            f"sous-commande(s) documentee(s) sans exemple : {', '.join(manquantes)} ; attendu au "
+            f"moins un bloc marque « console » par sous-commande documentee de {PAGE}"
+        )
+    inattendues = sorted(atteintes - documentees)
+    if inattendues:
+        constats.append(
+            f"sous-commande(s) atteinte(s) par un exemple sans etre documentee(s) : "
+            f"{', '.join(inattendues)} ; attendu les huit sous-commandes epinglees de {SOURCE_CLI}"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la couverture par sous-commande : "
+        + " ; ".join(constats)
+        + f" ; attendu les huit sous-commandes de {SOURCE_CLI} atteintes par un exemple marque"
+    )
+
+
+def test_exemple_hors_ligne_avec_option_globale_avant_sous_commande(
+    docs_dir: Path, lignes_exemple
+) -> None:
+    """Au moins un exemple marque place l'option globale avant sa sous-commande (D-27, critere 4a)."""
+    forme = " ".join(FORME_ATTENDUE)
+    trouvee = False
+    for ligne in lignes_exemple(_texte_page(docs_dir)):
+        jetons = _jetons(ligne)
+        for index in range(2, len(jetons) - len(FORME_ATTENDUE) + 1):
+            if tuple(jetons[index : index + len(FORME_ATTENDUE)]) == FORME_ATTENDUE:
+                trouvee = True
+    constats: list[str] = []
+    if not trouvee:
+        constats.append(
+            f"aucun exemple marque de {PAGE} ne porte la forme « {forme} » ; attendu au moins une "
+            f"ligne de la forme « python fetcher.py {forme} ... », l'option globale etant declaree "
+            f"sur le parseur racine de {SOURCE_CLI}, donc ecrite avant sa sous-commande"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'ordre des options : "
+        + " ; ".join(constats)
+        + f" ; attendu un exemple hors-ligne enseignant l'ordre reel du parseur de {SOURCE_CLI}"
+    )
+
+
