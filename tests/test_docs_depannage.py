@@ -168,6 +168,14 @@ MOTIF_BUDGET = "budget de calcul non cite"
 # dit rien de la rubrique qui porte le budget.
 OPTION_BUDGET = "--time-limit"
 
+# Les renvois attendus depuis les rubriques qui indexent un **mecanisme** deja decrit ailleurs : cette
+# page renvoie, elle ne redefinit pas (D-17). Le motif du constat est celui de la famille concernee, et
+# la cible est le fichier nu, sans fragment.
+RENVOIS_RUBRIQUES = (
+    ("clavier", "installation.md", MOTIF_MECANISME),
+    ("pagination", "parcours-simplifie.md", MOTIF_PAGINATION),
+)
+
 # Deux refus de valeur de la page : un nombre de quatre chiffres ou plus est un compteur, une version,
 # un horodatage ou une taille de fichier (D-73) ; un chemin de poste commence par une lettre de lecteur
 # (D-75). La sortie reellement capturee porte un chemin de dossier temporaire : la page cite donc les
@@ -212,6 +220,11 @@ SUFFIXES_CHEMIN = (".py", ".md", ".js", ".json", ".html")
 # liens externes sont refuses par convention depuis la phase 1.
 MOTIF_BALISE_CONSOLE = re.compile(r"^\s*```console", re.MULTILINE)
 CIBLES_EXTERNES = ("http://", "https://", "mailto:")
+
+# Un lien markdown dont la cible est lue nue, avant tout fragment (`cible#ancre`) : les rubriques qui
+# indexent un mecanisme deja decrit ailleurs doivent renvoyer vers le fichier nomme, jamais le redefinir
+# (D-17). Ce motif ne dit rien des autres liens de la page, seulement de leur cible nue.
+MOTIF_LIEN_DIRECT = re.compile(r"\[[^\]]*\]\((?P<cible>[^)\s]+)\)")
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -715,6 +728,35 @@ def problemes_budget(docs_dir: Path, sections, normalize) -> list[str]:
     return constats
 
 
+def problemes_renvois(docs_dir: Path, sections) -> list[str]:
+    """Les rubriques de mecanisme renvoient a la page qui le decrit deja (D-17).
+
+    Une rubrique qui redefinirait le mecanisme au lieu d'y renvoyer finirait par diverger de la page
+    source. Le controle exige donc le lien markdown dont la cible est exactement le fichier nomme,
+    fragment admis : un renvoi en prose, ou vers une autre page, est un constat.
+    """
+    corps_par_titre = _corps_par_titre(_texte_page(docs_dir), sections)
+    titres = dict(RUBRIQUES)
+    constats: list[str] = []
+    for cle, cible, motif in RENVOIS_RUBRIQUES:
+        titre = titres[cle]
+        corps = corps_par_titre.get(titre)
+        if corps is None:
+            constats.append(
+                f"{motif} : la rubrique « {titre} » est absente de {PAGE} ; attendu son renvoi vers "
+                f"{cible} (D-17)"
+            )
+            continue
+        cibles = [c.split("#", 1)[0] for c in MOTIF_LIEN_DIRECT.findall(corps)]
+        if cible not in cibles:
+            constats.append(
+                f"{motif} : la rubrique « {titre} » de {PAGE} ne renvoie pas vers {cible} (cibles lues : "
+                f"{cibles}) ; attendu le renvoi vers la page qui decrit deja ce mecanisme, cette page "
+                f"indexant sans le redefinir (D-17)"
+            )
+    return constats
+
+
 def problemes_page(docs_dir: Path, sections, normalize) -> list[str]:
     """Cloture de la page et absence de valeur volatile : les gardes de structure ne les verifient pas.
 
@@ -1149,7 +1191,7 @@ def test_les_cinq_familles_sont_couvertes(docs_dir: Path, sections) -> None:
     """
     texte = _texte_page(docs_dir)
     titres = [titre for titre, _ in sections(texte) if titre is not None]
-    constats: list[str] = []
+    constats: list[str] = problemes_renvois(docs_dir, sections)
 
     if TITRE_SOURCE not in titres:
         constats.append(
