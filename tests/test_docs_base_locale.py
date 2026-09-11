@@ -87,12 +87,16 @@ SOURCE_TERMINAL_JS = "dofus_stuff/web/static/js/terminal.js"
 TITRE_FICHIER = "## Le fichier de la base"
 TITRE_CATEGORIES = "## Les catégories stockées"
 TITRE_FENETRE = "## La fenêtre de re-check de 24 heures"
+TITRE_WEB = "## Le mode hors-ligne du web"
+TITRE_CLI = "## Le mode hors-ligne de la ligne de commande"
 TITRE_SOURCE = "## Source de vérité"
 
 TITRES_SECTION_ATTENDUS = (
     TITRE_FICHIER,
     TITRE_CATEGORIES,
     TITRE_FENETRE,
+    TITRE_WEB,
+    TITRE_CLI,
     TITRE_SOURCE,
 )
 
@@ -118,6 +122,20 @@ CATEGORIE_CITEE = re.compile(r"^-\s*`(?P<kind>[a-z]+)`", re.MULTILINE)
 
 # Expression de la fenetre de re-check, telle que `dofus_stuff/sync.py:11` la declare.
 EXPRESSION_FENETRE = "24 * 60 * 60"
+
+# Textes d'aide des deux parseurs, releves sur le rendu de leur API publique (D-14) et non recopies d'un
+# souvenir : chaque phrase est exigee du parseur **et** de la section de sa surface, ce qui interdit de
+# les echangees ou de les attribuer a la mauvaise surface (D-71, D-72). `argparse` coupant l'aide a la
+# largeur du terminal, la comparaison passe par la fixture `normalize` (D-11) et jamais par un `==`
+# (Pitfall 5).
+AIDE_WEB_OFFLINE = "Ne pas contacter l'API au démarrage (défaut : oui)"
+AIDE_CLI_OFFLINE = "Ne pas contacter l'API (échoue si la base locale est vide)"
+
+# Marques exigees de chaque section, comparees normalisees : la section du web doit dire que le mode
+# hors-ligne y est le **defaut**, celle de la ligne de commande qu'il y est **exige**. Une section qui
+# citerait le drapeau sans dire dans quel sens il penche ne prouverait rien de sa surface.
+MARQUES_DEFAUT_WEB = ("par defaut", "defaut", "actif sans rien preciser")
+MARQUES_EXIGENCE_CLI = ("requis", "obligatoire", "necessaire", "exige")
 
 # Motif de valeur volatile : un nombre de quatre chiffres ou plus est un compteur d'objets, une version
 # de jeu, un horodatage ou une taille de fichier — jamais citable (D-73, D-75).
@@ -583,4 +601,123 @@ def test_page_et_index_de_la_base_locale(docs_dir: Path, normalize, section) -> 
         f"libelle d'index, portant ses sections dans l'ordre, la ligne de retour en dernier et des "
         f"octets CRLF, avec le fichier, les sept categories et la fenetre de re-check lus dans "
         f"{SOURCE_DATABASE} et {SOURCE_SYNC}"
+    )
+
+
+def test_defauts_hors_ligne(docs_dir: Path, section, normalize) -> None:
+    """Les deux defauts hors-ligne sont enonces separement, chacun dans la section de sa surface.
+
+    C'est le risque de confusion central de la phase (D-71) : l'interface web demarre hors-ligne, la
+    ligne de commande demarre en ligne, et une phrase qui fusionnerait les deux serait fausse sur au
+    moins une surface. Les defauts sont donc **mesures** sur les parseurs publics (D-14) — jamais lus
+    dans l'introspection privee d'`argparse` — et chaque phrase d'aide est exigee du parseur **et** de la
+    section de sa propre surface : c'est ce qui prouve que chaque defaut est enonce la ou il s'applique,
+    et pas seulement quelque part dans la page.
+
+    Limite honnete : ce controle porte sur les deux defauts et sur les deux phrases d'aide qui les
+    disent. Il ne revendique aucune exhaustivite sur ce que les surfaces font une fois l'outil lance :
+    ces cas appartiennent au plan suivant (D-85).
+    """
+    texte = _texte_page(docs_dir)
+    corps_web = section(texte, TITRE_WEB, PAGE)
+    corps_cli = section(texte, TITRE_CLI, PAGE)
+    constats: list[str] = []
+
+    # 1. Les defauts, mesures sur les parseurs publics et jamais supposes.
+    defaut_web = parseur_web().parse_args([]).offline
+    if defaut_web is not True:
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — `build_parser().parse_args([]).offline` vaut "
+            f"{defaut_web!r} ; attendu True, l'interface web demarrant hors-ligne et `--offline` y "
+            f"etant actif sans rien preciser ({SOURCE_WEB_MAIN})"
+        )
+    sans_offline = parseur_web().parse_args(["--no-offline"]).offline
+    if sans_offline is not False:
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — `parse_args([\"--no-offline\"]).offline` vaut "
+            f"{sans_offline!r} ; attendu False, `--no-offline` etant le geste qui autorise le contact "
+            f"de l'API au demarrage ({SOURCE_WEB_MAIN})"
+        )
+    en_ligne = parseur_web().parse_args(["--online"])
+    if en_ligne.offline is not True or en_ligne.online is not True:
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — `parse_args([\"--online\"])` rend "
+            f"`offline={en_ligne.offline!r}` et `online={en_ligne.online!r}` ; attendu `offline=True` "
+            f"et `online=True`, le contact API etant arbitre au lancement par `main` ({SOURCE_WEB_MAIN})"
+        )
+    defaut_cli = parseur_cli().parse_args(["db", "status"]).offline
+    if defaut_cli is not False:
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface ligne de commande — "
+            f"`build_parser().parse_args([\"db\", \"status\"]).offline` vaut {defaut_cli!r} ; attendu "
+            f"False, la ligne de commande partant en ligne et `--offline` y etant requis ({SOURCE_CLI})"
+        )
+
+    # 2. Les deux phrases d'aide, lues sur le rendu des parseurs, puis exigees de leur propre section.
+    aide_web = re.sub(r"\s+", " ", parseur_web().format_help())
+    if normalize(AIDE_WEB_OFFLINE) not in normalize(aide_web):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — l'aide rendue par `parseur_web().format_help()` ne "
+            f"porte pas « {AIDE_WEB_OFFLINE} » ; attendu le texte d'aide reel de l'option, lu sur le "
+            f"parseur et non recopie ({SOURCE_WEB_MAIN})"
+        )
+    if normalize(AIDE_WEB_OFFLINE) not in normalize(corps_web):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — la section « {TITRE_WEB} » ne cite pas la phrase "
+            f"« {AIDE_WEB_OFFLINE} » ; attendu le texte d'aide rendu par {SOURCE_WEB_MAIN}, cite dans "
+            f"la section de sa propre surface (D-71, D-72)"
+        )
+
+    tampon = io.StringIO()
+    try:
+        with redirect_stdout(tampon):
+            parseur_cli().parse_args(["--help"])
+    except SystemExit:
+        pass
+    aide_cli = re.sub(r"\s+", " ", tampon.getvalue())
+    if normalize(AIDE_CLI_OFFLINE) not in normalize(aide_cli):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface ligne de commande — l'aide rendue par "
+            f"`parse_args([\"--help\"])` ne porte pas « {AIDE_CLI_OFFLINE} » ; attendu le texte d'aide "
+            f"reel de l'option, lu sur le parseur et non recopie ({SOURCE_CLI})"
+        )
+    if normalize(AIDE_CLI_OFFLINE) not in normalize(corps_cli):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface ligne de commande — la section « {TITRE_CLI} » ne cite pas "
+            f"la phrase « {AIDE_CLI_OFFLINE} » ; attendu le texte d'aide rendu par {SOURCE_CLI}, cite "
+            f"dans la section de sa propre surface (D-71, D-72)"
+        )
+
+    # 3. Les jetons de drapeau sur leur forme exacte, et la marque de sens de chaque section.
+    for jeton in ("--offline", "--no-offline", "--online"):
+        if jeton not in corps_web:
+            constats.append(
+                f"{MOTIF_DEFAUTS} : la surface web — la section « {TITRE_WEB} » ne cite pas "
+                f"« {jeton} » ; attendu les trois jetons du parseur de l'interface, dont le defaut "
+                f"hors-ligne et le geste qui le desactive ({SOURCE_WEB_MAIN})"
+            )
+    if not any(normalize(marque) in normalize(corps_web) for marque in MARQUES_DEFAUT_WEB):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface web — la section « {TITRE_WEB} » ne dit pas que le mode "
+            f"hors-ligne y est le defaut (attendu au moins une de : {', '.join(MARQUES_DEFAUT_WEB)}) ; "
+            f"attendu le sens du drapeau sur cette surface ({SOURCE_WEB_MAIN})"
+        )
+    if "--offline" not in corps_cli:
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface ligne de commande — la section « {TITRE_CLI} » ne cite pas "
+            f"« --offline » ; attendu le drapeau de cette surface ({SOURCE_CLI})"
+        )
+    if not any(normalize(marque) in normalize(corps_cli) for marque in MARQUES_EXIGENCE_CLI):
+        constats.append(
+            f"{MOTIF_DEFAUTS} : la surface ligne de commande — la section « {TITRE_CLI} » ne dit pas "
+            f"que « --offline » y est exige (attendu au moins une de : "
+            f"{', '.join(MARQUES_EXIGENCE_CLI)}) ; attendu le sens du drapeau sur cette surface, "
+            f"oppose a celui du web ({SOURCE_CLI})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les deux defauts hors-ligne : "
+        + " ; ".join(constats)
+        + f" ; attendu les deux defauts enonces separement, chacun dans la section de sa surface, avec "
+        f"la phrase d'aide que son propre parseur rend ({SOURCE_WEB_MAIN}, {SOURCE_CLI})"
     )

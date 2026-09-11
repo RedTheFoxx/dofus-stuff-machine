@@ -42,6 +42,26 @@ Quand la fenêtre est écoulée — et seulement dans ce cas — l'outil compare
 
 L'option `--force-sync` court-circuite cette fenêtre : elle demande la vérification sans attendre le lendemain. L'option est décrite avec les autres dans [la page CLI](cli.md).
 
+## Le mode hors-ligne du web
+
+L'interface web **démarre hors-ligne** : le mode hors-ligne y est le défaut, et l'option `--offline` y est donc active sans rien préciser. C'est `--no-offline` — ou son équivalent `--online` — qui autorise le contact de l'API au démarrage. Le parseur de l'interface le dit lui-même, dans l'aide qu'il rend :
+
+> `--offline, --no-offline` — Ne pas contacter l'API au démarrage (défaut : oui)
+
+Ce que le mode hors-ligne change au démarrage de l'interface est radical : la vérification de version **n'a pas lieu du tout**. Le chargement du catalogue est ouvert avec `skip_sync` (`dofus_stuff/web/__init__.py`) et `Catalog.load(skip_sync=True)` n'appelle pas `ensure_up_to_date` : la fenêtre de re-check n'est pas consultée, l'API n'est pas interrogée, et une base locale vide n'est pas une erreur — l'interface s'ouvre simplement sur un catalogue vide, ce qui est l'état normal d'un premier lancement.
+
+Le mode hors-ligne règle donc le **démarrage** de l'interface web. Il ne dit rien des gestes que vous demandez explicitement depuis un écran.
+
+## Le mode hors-ligne de la ligne de commande
+
+La ligne de commande, elle, **est en ligne par défaut** : `--offline` n'y est pas actif et il y est donc **requis** pour ne pas contacter l'API. Son aide le rappelle :
+
+> `--offline` — Ne pas contacter l'API (échoue si la base locale est vide)
+
+Ce que le mode hors-ligne change sur cette surface est différent de l'interface web : la fenêtre de re-check **est** consultée au chargement du catalogue. Tant qu'elle n'est pas écoulée, aucune requête n'est émise et l'outil travaille sur sa copie locale ; une fois la fenêtre écoulée, la synchronisation est refusée faute de réseau et l'outil continue avec la base locale telle qu'elle est. Une base locale **vide**, en revanche, n'est pas un état utilisable : la commande s'arrête alors sur une erreur, parce qu'elle n'a rien à lire et n'a pas le droit de remplir la base.
+
+Les deux surfaces ne partagent donc pas le même défaut : le web démarre hors-ligne, la ligne de commande démarre en ligne. Une phrase qui parlerait d'« un outil hors-ligne par défaut » sans nommer la surface serait fausse sur l'une des deux.
+
 ## Source de vérité
 
 - `dofus_stuff/database.py` : nom du fichier de la base (`DB_NAME`), dossier par défaut (`DEFAULT_DATA_DIR`), clés de la table `meta`, catégories stockées (`ITEM_KINDS`) et schéma créé à l'ouverture.
