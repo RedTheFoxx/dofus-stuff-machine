@@ -2,6 +2,10 @@
 
 Outils pour travailler avec les objets et ressources de Dofus : calculs, générateurs de panoplies, encyclopédie, etc.
 
+## Documentation utilisateur
+
+La documentation utilisateur commence par un sommaire unique : [Sommaire de la documentation](docs/sommaire.md).
+
 ## Base locale Dofus
 
 Package Python stdlib (`dofus_stuff/`), basé sur l'API [Dofusdude](https://api.dofusdu.de/) ([documentation](https://docs.dofusdu.de)).
