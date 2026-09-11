@@ -22,6 +22,13 @@ hydratation de la liste) n'est **pas** executable dans cet environnement — ni 
 libelles rendus par le client : cela prouve que la page et le code ne divergent pas, **pas** que le
 navigateur se comporte ainsi. L'export Dofusbook, lui, est eprouve par une surface publique pure
 (`build_dofusbook_url`) dont la charge utile est decodee (`base64` + `msgpack`).
+
+Limite nommee (plan 03-04) : le balayage des hypotheses de l'outil couvre les bornes et les niveaux
+de bordure des paliers (1, 39, 40, 99, 100, 149, 150, 200), jamais les 200 niveaux : la cible PA/PM
+ne depend que du palier, et le balayage complet n'apporterait rien de plus. Les appels du balayage
+sont purs — `recommendation_spec` construit une specification sans rien resoudre — donc ce module ne
+lance aucun solveur pour prouver les hypotheses : la seule resolution reelle de ce module reste celle
+du rendu du resultat, sur la fixture.
 """
 
 from __future__ import annotations
@@ -35,7 +42,8 @@ from unittest.mock import patch
 
 import msgpack
 
-from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS
+from dofus_stuff.model.solver_spec import capital_spent, total_capital_for_level
+from dofus_stuff.optimize.recommend import CLASSES, ELEMENTS, recommendation_spec
 from dofus_stuff.web.dofusbook_export import build_dofusbook_url
 
 RACINE_DEPOT = Path(__file__).resolve().parents[1]
@@ -1876,4 +1884,314 @@ def test_aucun_post_db_sans_patch() -> None:
         + " ; ".join(constats)
         + f" ; attendu un module d'ancrage qui ne poste jamais `DB`, cette saisie ouvrant un "
         f"navigateur cote serveur ({SOURCE_ROUTES}:1326-1337)"
+    )
+
+
+# --- Hypotheses de l'outil, mesurees sur la surface publique (plan 03-04, tache 1) ---
+#
+# Limite nommee du balayage : les bornes et les niveaux de bordure des paliers, pas les 200 niveaux.
+# La cible PA/PM ne depend que du palier (recommend.py:35-36) : un balayage complet mesurerait la
+# meme chose huit fois par palier, et cette limite est ecrite ici plutot que passee sous silence.
+
+# Niveaux balayes : les deux bornes et les quatre couples de bordure (39/40, 99/100, 149/150).
+NIVEAUX_BALAYES = (1, 39, 40, 99, 100, 149, 150, 200)
+
+# Niveaux de bordure des paliers, avec les cibles que la surface publique doit rendre. Les cibles
+# sont MESUREES, jamais recopiees de la ligne conditionnelle qu'elles remplacent : deplacer un seuil
+# fait rougir ce module.
+NIVEAUX_PALIERS = (39, 40, 99, 100, 149, 150, 200)
+CIBLES_PA_MESUREES = (6, 8, 8, 10, 10, 11, 11)
+CIBLES_PM_MESUREES = (3, 4, 4, 5, 5, 6, 6)
+
+# Base de PA : 6 avant le niveau 100, 7 a partir de ce niveau (recommend.py:36).
+NIVEAU_BASCULE_BASE_PA = 100
+BASE_PA_AVANT_BASCULE = 6
+BASE_PA_APRES_BASCULE = 7
+
+# Paliers du tableau de la page : (niveau min, niveau max, PA vises, PM vises). Lus dans le tableau
+# de la section, jamais supposes a une position donnee.
+PALIERS_PAGE = (
+    ("1", "39", 6, 3),
+    ("40", "99", 8, 4),
+    ("100", "149", 10, 5),
+    ("150", "200", 11, 6),
+)
+
+# Les quatre ensembles de classes du code (recommend.py:45,47,51,53) et l'objectif que chacun ajoute.
+# Ils sont extraits par `ast` a chaque execution : retirer une classe de l'ensemble du code rougit, la
+# page ne pouvant plus citer un objectif que le code n'ajoute plus.
+ENSEMBLES_CLASSES_ATTENDUS = (
+    (
+        "% Dommages distance",
+        frozenset({"Cra", "Enutrof", "Sadida", "Eniripsa", "Steamer", "Osamodas"}),
+    ),
+    ("% Dommages mêlée", frozenset({"Iop", "Sacrieur", "Ouginak", "Zobal"})),
+    ("Portée", frozenset({"Cra", "Enutrof", "Sadida"})),
+    ("Invocation", frozenset({"Osamodas", "Sadida"})),
+)
+
+# Classes sans objectif propre : le nombre est CALCULE (len(CLASSES) moins l'union des ensembles
+# extraits) et la valeur attendue est epinglee ici ; la page doit citer le nombre calcule, jamais un 9
+# ecrit de memoire (D-42).
+NOMBRE_CLASSES_SANS_OBJECTIF = 9
+
+# Commentaire qui nomme les heuristiques pour ce qu'elles sont (recommend.py:44) : la page doit dire
+# la meme chose, et ce controle exige la phrase du code.
+COMMENTAIRE_PREFERENCES = "# Broad playstyle preferences, not a simulation of class spells."
+
+# Formule du capital (recommend.py:24, dofus_stuff/model/solver_spec.py:264-269).
+FORMULE_CAPITAL = "5 * (niveau - 1)"
+
+# Tournures et lignes exigees de la page, comparees normalisees (D-11).
+TOURNURE_PREFERENCES = "préférences de style de jeu"
+LIBELLE_AJUSTABLE = "Jets moyens ; préférences de classe ajustables après calcul."
+LIGNE_SANS_EXO = "Points inclus ; sans exo/parchemins. Jets moyens sauf réglage avancé."
+LIGNE_SELECTION_CATALOGUE = "Recherche sur une sélection du catalogue ; optimalité globale non garantie."
+FRAGMENT_BASE_PARCHO = "base+parcho"
+TOURNURE_PARCHO_NUL = "aucun parchemin"
+
+# Expressions regulieres des deux lignes litterales d'hypothese, cherchees dans la source du rendu :
+# les caracteres de ponctuation y sont echappes (`\.` pour un point litteral, `\/` pour la barre
+# oblique), comme dans tout motif de recherche. La ligne exigee reste celle de la page et du code.
+MOTIF_LIGNE_SANS_EXO = re.compile(
+    r"Points inclus ; sans exo\/parchemins\. Jets moyens sauf réglage avancé\."
+)
+MOTIF_LIGNE_SELECTION = re.compile(
+    r"Recherche sur une sélection du catalogue ; optimalité globale non garantie\."
+)
+
+# Motifs de morsure de la tache 1 : portes par des constantes, jamais ecrits en clair dans la ligne
+# d'assertion, que pytest reproduit dans sa sortie (regle posee au plan 03-03, tache 2).
+MOTIF_CAPITAL = "capital consomme"
+MOTIF_PALIER_PA = "cible PA mesuree au niveau"
+MOTIF_PALIER_PM = "cible PM mesuree au niveau"
+
+
+def _noms(ensemble) -> str:
+    """Membres d'un ensemble joints pour un message, tries : aucune valeur ecrite de memoire."""
+    return ", ".join(sorted(ensemble))
+
+
+def _mot_entier(motif_normalise: str, texte_normalise: str) -> bool:
+    """Presence d'un motif normalise comme mot entier, jamais comme fragment d'un autre mot.
+
+    Le motif est normalise par l'appelant, jamais ici : la normalisation est une fixture partagee
+    (D-12), et `re.escape` protege les noms de classe qui ne contiennent aucun metacaractere.
+    """
+    return re.search(rf"\b{re.escape(motif_normalise)}\b", texte_normalise) is not None
+
+
+def _ensembles_de_classes() -> tuple[frozenset[str], ...]:
+    """Ensembles de litteraux de chaine lus par `ast` dans la source des recommandations.
+
+    La source est relue a chaque execution : une classe retiree de l'ensemble du code apparait dans
+    les constats, au lieu d'etre masquee par une liste recopiee dans ce module (D-42). Seuls les
+    ensembles entierement composes de litteraux de chaine sont retenus, pour qu'un `set` de variables
+    (sans rapport avec les heuristiques) ne se glisse pas dans les ensembles compares.
+    """
+    arbre = ast.parse((RACINE_DEPOT / SOURCE_RECOMMEND).read_text(encoding="utf-8"))
+    ensembles: list[frozenset[str]] = []
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, ast.Set) or not noeud.elts:
+            continue
+        valeurs = [
+            element.value
+            for element in noeud.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        ]
+        if len(valeurs) == len(noeud.elts):
+            ensembles.append(frozenset(valeurs))
+    return tuple(ensembles)
+
+
+def _tableau_paliers(corps: str) -> dict[tuple[str, str], tuple[str, str]]:
+    """Paliers lus dans la section : (niveau min, niveau max) -> (PA vises, PM vises).
+
+    En-tete et ligne de separation sont ecartes par leur forme, jamais par leur rang : seule une ligne
+    de trois cellules dont la premiere porte un intervalle de niveaux est un palier.
+    """
+    paliers: dict[tuple[str, str], tuple[str, str]] = {}
+    for ligne in corps.splitlines():
+        ligne = ligne.strip()
+        if not ligne.startswith("|"):
+            continue
+        cellules = [cellule.strip() for cellule in ligne.split("|")[1:-1]]
+        if len(cellules) != 3 or not cellules[0]:
+            continue
+        intervalle = re.fullmatch(r"(?P<min>\d+)\s*(?:à|-)\s*(?P<max>\d+)", cellules[0])
+        if intervalle is None:
+            continue
+        paliers[(intervalle.group("min"), intervalle.group("max"))] = (cellules[1], cellules[2])
+    return paliers
+
+
+def test_hypotheses_prouvees_par_balayage(docs_dir: Path, section, normalize) -> None:
+    """Les hypotheses du critere 4 sont mesurees sur la surface publique pure (V11, V12, V13).
+
+    Aucun solveur n'est lance : `recommendation_spec` construit une specification sans rien resoudre,
+    et les deux lectures de capital sont des fonctions pures de `dofus_stuff/model/solver_spec.py`.
+    Le balayage couvre les bornes et les niveaux de bordure des paliers : la cible ne depend que du
+    palier, et ce module ecrit cette limite plutot que de la passer sous silence.
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_SUPPOSE, PAGE)
+    normalise = normalize(corps)
+    constats: list[str] = []
+
+    # 1. Le capital consomme egale le capital disponible, qui egale 5 * (niveau - 1).
+    for niveau in NIVEAUX_BALAYES:
+        spec = recommendation_spec("Cra", ["terre"], niveau)
+        consomme = capital_spent(spec.goals)
+        disponible = total_capital_for_level(niveau)
+        attendu = 5 * (niveau - 1)
+        if consomme != disponible or disponible != attendu:
+            constats.append(
+                f"{MOTIF_CAPITAL} au niveau {niveau} : {consomme} consomme pour {disponible} "
+                f"disponible, attendu {attendu} ; la repartition automatique consomme tout le capital "
+                f"du niveau ({SOURCE_RECOMMEND}:24, {SOURCE_SPEC}:264-269)"
+            )
+
+    # 2. Les cibles PA/PM et la base de PA sont mesurees aux niveaux de bordure, jamais recopiees.
+    for niveau, pa_attendu, pm_attendu in zip(
+        NIVEAUX_PALIERS, CIBLES_PA_MESUREES, CIBLES_PM_MESUREES
+    ):
+        spec = recommendation_spec("Cra", ["terre"], niveau)
+        pa = spec.goals["PA"].target
+        pm = spec.goals["PM"].target
+        base_pa = spec.goals["PA"].base
+        if pa != pa_attendu:
+            constats.append(
+                f"{MOTIF_PALIER_PA} {niveau} : {pa:g} ; attendu {pa_attendu:g}, cible mesuree sur la "
+                f"surface publique de {SOURCE_RECOMMEND} (paliers 40, 100 et 150)"
+            )
+        if pm != pm_attendu:
+            constats.append(
+                f"{MOTIF_PALIER_PM} {niveau} : {pm:g} ; attendu {pm_attendu:g}, cible mesuree sur la "
+                f"surface publique de {SOURCE_RECOMMEND} (paliers 40, 100 et 150)"
+            )
+        base_attendue = (
+            BASE_PA_APRES_BASCULE if niveau >= NIVEAU_BASCULE_BASE_PA else BASE_PA_AVANT_BASCULE
+        )
+        if base_pa != base_attendue:
+            constats.append(
+                f"base de PA mesuree au niveau {niveau} : {base_pa:g} ; attendu {base_attendue:g} "
+                f"({SOURCE_RECOMMEND}:36 : la base vaut {BASE_PA_AVANT_BASCULE} puis "
+                f"{BASE_PA_APRES_BASCULE} au niveau {NIVEAU_BASCULE_BASE_PA})"
+            )
+
+    # 3. Les quatre ensembles de classes sont retrouves par `ast`, et le nombre de classes sans
+    #    objectif propre est calcule a chaque execution.
+    extraites = _ensembles_de_classes()
+    for nom_objectif, membres in ENSEMBLES_CLASSES_ATTENDUS:
+        if membres not in extraites:
+            constats.append(
+                f"{SOURCE_RECOMMEND} ne porte plus l'ensemble « {_noms(membres)} » de l'objectif "
+                f"« {nom_objectif} » ; attendu cet ensemble, lu par ast dans la source — les "
+                f"heuristiques de classe existent et sont des preferences de style de jeu"
+            )
+    ensembles_de_classes = [ensemble for ensemble in extraites if ensemble <= set(CLASSES)]
+    classes_avec_objectif = frozenset().union(*ensembles_de_classes)
+    sans_objectif = sorted(set(CLASSES) - classes_avec_objectif)
+    if len(sans_objectif) != NOMBRE_CLASSES_SANS_OBJECTIF:
+        constats.append(
+            f"{SOURCE_RECOMMEND} : les classes sans objectif propre sont au nombre de "
+            f"{len(sans_objectif)} ({_noms(sans_objectif)}) ; attendu "
+            f"{NOMBRE_CLASSES_SANS_OBJECTIF}, calcule comme {len(CLASSES)} classes moins l'union des "
+            f"ensembles extraits par ast"
+        )
+    source_recommend = (RACINE_DEPOT / SOURCE_RECOMMEND).read_text(encoding="utf-8")
+    if COMMENTAIRE_PREFERENCES not in source_recommend:
+        constats.append(
+            f"{SOURCE_RECOMMEND} ne porte plus le commentaire « {COMMENTAIRE_PREFERENCES} » ; "
+            f"attendu la phrase qui nomme les heuristiques pour ce qu'elles sont : des preferences de "
+            f"style de jeu, pas une simulation des sorts de la classe"
+        )
+
+    # 4. La section cite les valeurs mesurees : formule, paliers, classes, objectifs, nombre calcule.
+    for attendu, description in (
+        (FORMULE_CAPITAL, "la formule du capital par niveau"),
+        (TOURNURE_PREFERENCES, "la tournure qui nomme les preferences de style de jeu"),
+        (LIBELLE_AJUSTABLE, "le libelle rendu de l'ecran du niveau"),
+        (LIGNE_SANS_EXO, "la ligne d'hypothese rendue par le resultat"),
+        (FRAGMENT_BASE_PARCHO, "le fragment de la ligne de detail du resultat"),
+        (TOURNURE_PARCHO_NUL, "la phrase qui leve l'ambiguite des parchemins"),
+    ):
+        if normalize(attendu) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SUPPOSE} » ne cite pas {description} "
+                f"(« {attendu} ») ; attendu cette valeur, mesuree sur {SOURCE_RECOMMEND} et "
+                f"{SOURCE_SPEC}"
+            )
+    if not _mot_entier(str(len(sans_objectif)), normalise):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SUPPOSE} » ne cite pas le nombre de classes sans objectif "
+            f"propre ({len(sans_objectif)}) ; attendu cette valeur, calculee a chaque execution et "
+            f"jamais ecrite de memoire dans la page"
+        )
+    for nom_objectif, membres in ENSEMBLES_CLASSES_ATTENDUS:
+        if normalize(nom_objectif) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SUPPOSE} » ne cite pas l'objectif « {nom_objectif} », "
+                f"ajoute par {SOURCE_RECOMMEND} pour {_noms(membres)}"
+            )
+        for classe in sorted(membres):
+            if not _mot_entier(normalize(classe), normalise):
+                constats.append(
+                    f"{PAGE} : la section « {TITRE_SUPPOSE} » ne cite pas la classe « {classe} », "
+                    f"concernee par l'objectif « {nom_objectif} » ajoute par {SOURCE_RECOMMEND}"
+                )
+    for classe in sans_objectif:
+        if not _mot_entier(normalize(classe), normalise):
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SUPPOSE} » ne cite pas la classe « {classe} », qui ne "
+                f"recoit aucun objectif propre de {SOURCE_RECOMMEND}"
+            )
+    paliers = _tableau_paliers(corps)
+    for mini, maxi, pa_attendu, pm_attendu in PALIERS_PAGE:
+        lus = paliers.get((mini, maxi))
+        if lus is None:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SUPPOSE} » ne porte pas le palier de niveaux {mini} à "
+                f"{maxi} ; attendu ce palier, cibles mesurees sur la surface publique de "
+                f"{SOURCE_RECOMMEND}"
+            )
+            continue
+        if lus != (str(pa_attendu), str(pm_attendu)):
+            constats.append(
+                f"{PAGE} : le palier de niveaux {mini} à {maxi} annonce « {lus[0]} PA et {lus[1]} PM » "
+                f"; attendu {pa_attendu} PA et {pm_attendu} PM, cibles mesurees aux niveaux de "
+                f"bordure sur la surface publique de {SOURCE_RECOMMEND}"
+            )
+
+    # 5. Controle bidirectionnel : les deux lignes litterales d'hypothese sont exigees des deux cotes.
+    #    Cote code, la ligne est cherchee par une expression reguliere (ponctuation echappee) et le
+    #    constat nomme le motif cherche : l'echec dit ce qui a ete cherche, jamais seulement que le
+    #    resultat differe.
+    source_api = (RACINE_DEPOT / SOURCE_API).read_text(encoding="utf-8")
+    for motif, ligne, description in (
+        (MOTIF_LIGNE_SANS_EXO, LIGNE_SANS_EXO, "la ligne d'hypothese « sans exo/parchemins »"),
+        (
+            MOTIF_LIGNE_SELECTION,
+            LIGNE_SELECTION_CATALOGUE,
+            "la ligne de la recherche sur une selection du catalogue",
+        ),
+    ):
+        if motif.search(source_api) is None:
+            constats.append(
+                f"{SOURCE_API} ne porte plus {description}, cherchee par le motif "
+                f"« {motif.pattern} » ; attendu cette ligne litterale, rendue par le resultat du "
+                f"parcours simplifie — la page ne peut pas la citer sans la tenir du code"
+            )
+        if normalize(ligne) not in normalize(texte):
+            constats.append(
+                f"{PAGE} : la page ne cite pas la ligne « {ligne} » ; attendu cette ligne litterale "
+                f"du rendu de {SOURCE_API}, citee telle quelle"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les hypotheses de l'outil : "
+        + " ; ".join(constats)
+        + f" ; attendu les hypotheses du critere 4, mesurees sur la surface publique de "
+        f"{SOURCE_RECOMMEND} et {SOURCE_SPEC} (formule, paliers PA/PM, preferences de classe) et les "
+        f"lignes d'hypothese de {SOURCE_API}"
     )

@@ -185,6 +185,50 @@ L'outil ne garde pas un nombre illimité de sauvegardes : la liste en accepte **
 
 Un stuff ne part pas en entier vers Dofusbook. L'export reprend **16 emplacements au plus** : les six emplacements de Dofus, les deux anneaux, l'amulette, la ceinture, les bottes, la coiffe, la cape, l'arme, le bouclier et le familier. L'emplacement `prysma` — la prysmaradite — n'est pas exportée : elle reste sur place, alors qu'elle fait bien partie de votre stuff. Mieux vaut le savoir avant de compter dessus.
 
+## Ce que l'outil suppose
+
+Le résultat ne dit pas tout ce que l'outil a supposé pour le produire. Cette section rassemble ces partis pris, avec la valeur que le code porte réellement.
+
+### Les points par niveau
+
+Le capital de points de caractéristiques disponible vaut `5 * (niveau - 1)` : 5 points au niveau 2, 40 points au niveau 9, et 995 points au niveau 200 : la répartition automatique **consomme tout ce capital**, ce qui n'a pas été placé dans les éléments retenus partant en vitalité.
+
+Le coût d'un point de caractéristique augmente par paliers — un point de capital jusqu'à 99 points placés dans cette caractéristique, deux jusqu'à 199, trois jusqu'à 299, quatre jusqu'à 399, cinq au-delà — ce qui explique qu'un même capital ne donne pas le même nombre de points partout. Le total dépensé reste le capital du niveau.
+
+### Les paliers PA et PM
+
+Les points d'action et de mouvement visés dépendent du niveau, par paliers :
+
+| Niveau | PA visés | PM visés |
+|--------|----------|----------|
+| 1 à 39 | 6 | 3 |
+| 40 à 99 | 8 | 4 |
+| 100 à 149 | 10 | 5 |
+| 150 à 200 | 11 | 6 |
+
+Les paliers basculent exactement aux niveaux 40, 100 et 150 : un personnage de niveau 39 vise 6 PA et 3 PM, un personnage de niveau 40 vise 8 PA et 4 PM, et ainsi de suite jusqu'à 11 PA et 6 PM au niveau 150 ; la **base** de PA, elle, vaut 6 jusqu'au niveau 99 et passe à 7 à partir du niveau 100 ; la cible de 10 PA au niveau 100 est donc comptée à partir de cette base, comme le sont celles des niveaux suivants.
+
+### Les préférences de classe
+
+Au-delà des éléments demandés, l'outil ajoute des objectifs selon la classe retenue :
+
+| Objectif ajouté | Classes concernées |
+|-----------------|--------------------|
+| `% Dommages distance` | Cra, Enutrof, Sadida, Eniripsa, Steamer, Osamodas |
+| `% Dommages mêlée` | Iop, Sacrieur, Ouginak, Zobal |
+| `Portée` | Cra, Enutrof, Sadida — cible 2 avant le niveau 100, 4 ensuite |
+| `Invocation` | Osamodas, Sadida — base 1, cible 3 |
+
+Pour les 9 autres classes — Ecaflip, Eliotrope, Feca, Forgelance, Huppermage, Pandawa, Roublard, Sram, Xelor — aucun objectif propre n'est ajouté : seuls les éléments demandés et les objectifs communs à toutes les classes sont visés.
+
+Ces objectifs sont des **préférences de style de jeu**, pas une simulation des sorts de la classe : ils orientent la recherche vers un profil, ils ne promettent pas un résultat de combat et ne remplacent pas les choix d'un joueur qui connaît sa classe. L'écran du niveau le rappelle : `Jets moyens ; préférences de classe ajustables après calcul.` Ces préférences se modifient après le calcul, dans les réglages détaillés.
+
+### Ni exo, ni parchemins
+
+Le résultat affiche `Points inclus ; sans exo/parchemins. Jets moyens sauf réglage avancé.` : les jets sont moyens et le calcul ne compte ni exo, ni parchemins.
+
+La ligne de détail `base+parcho` additionne la base et les parchemins **saisis** : ces parchemins valent zéro dans ce parcours, où aucune caractéristique n'est saisie à la main. La mention ne contredit donc pas la ligne du dessus, elle totalise un apport qui est nul ici : **aucun parchemin** n'est compté tant que le réglage avancé n'en déclare pas.
+
 ## Source de vérité
 
 - `dofus_stuff/web/routes.py` : écrans et libellés des trois questions.
