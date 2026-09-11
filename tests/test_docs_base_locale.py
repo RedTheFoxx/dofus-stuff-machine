@@ -89,6 +89,8 @@ TITRE_CATEGORIES = "## Les catégories stockées"
 TITRE_FENETRE = "## La fenêtre de re-check de 24 heures"
 TITRE_WEB = "## Le mode hors-ligne du web"
 TITRE_CLI = "## Le mode hors-ligne de la ligne de commande"
+TITRE_CHAMPS_CLI = "## L'état de la base en ligne de commande"
+TITRE_CHAMPS_WEB = "## L'état de la base dans l'interface web"
 TITRE_SOURCE = "## Source de vérité"
 
 TITRES_SECTION_ATTENDUS = (
@@ -97,6 +99,8 @@ TITRES_SECTION_ATTENDUS = (
     TITRE_FENETRE,
     TITRE_WEB,
     TITRE_CLI,
+    TITRE_CHAMPS_CLI,
+    TITRE_CHAMPS_WEB,
     TITRE_SOURCE,
 )
 
@@ -136,6 +140,16 @@ AIDE_CLI_OFFLINE = "Ne pas contacter l'API (échoue si la base locale est vide)"
 # citerait le drapeau sans dire dans quel sens il penche ne prouverait rien de sa surface.
 MARQUES_DEFAUT_WEB = ("par defaut", "defaut", "actif sans rien preciser")
 MARQUES_EXIGENCE_CLI = ("requis", "obligatoire", "necessaire", "exige")
+
+# Un libelle d'etat, dans la section qui le cite, est ecrit entre accents graves et se termine par
+# « : » (« | `Fichier :` | le chemin ... | »). Le motif est ancre en debut de ligne pour ignorer les
+# citations en prose, et la classe `[^`]+` ne peut pas traverser un accent grave : il capture donc le
+# contenu d'un seul intervalle, jamais celui de plusieurs.
+MOTIF_LIBELLE_CITE = re.compile(r"^\|\s*`(?P<libelle>[^`]+ :)`", re.MULTILINE)
+
+# Prefixe des lignes de categorie produites par la ligne de commande (`  - equipment : 2`) ; il les
+# distingue des libelles de champ au moment de lire une sortie.
+PREFIXE_LIGNE_CATEGORIE = "  - "
 
 # Motif de valeur volatile : un nombre de quatre chiffres ou plus est un compteur d'objets, une version
 # de jeu, un horodatage ou une taille de fichier — jamais citable (D-73, D-75).
@@ -720,4 +734,235 @@ def test_defauts_hors_ligne(docs_dir: Path, section, normalize) -> None:
         + " ; ".join(constats)
         + f" ; attendu les deux defauts enonces separement, chacun dans la section de sa surface, avec "
         f"la phrase d'aide que son propre parseur rend ({SOURCE_WEB_MAIN}, {SOURCE_CLI})"
+    )
+
+
+def _libelles_produits(lignes: list[str]) -> set[str]:
+    """Libelles de champ portes par des lignes de sortie ou de rendu : la partie avant « : ».
+
+    Les lignes de categorie (`  - equipment : 3`) sont ecartees : elles suivent un libelle de champ et
+    n'en sont pas un. Une ligne sans « : » n'en porte pas non plus.
+    """
+    libelles: set[str] = set()
+    for ligne in lignes:
+        if ligne.startswith(PREFIXE_LIGNE_CATEGORIE) or ligne.strip().startswith("- "):
+            continue
+        if " :" not in ligne:
+            continue
+        libelles.add(ligne.split(" :", 1)[0].strip() + " :")
+    return libelles
+
+
+def _libelles_cites(corps: str) -> set[str]:
+    """Libelles que la section cite dans un tableau, lus sur la page elle-meme."""
+    return {trouve.group("libelle") for trouve in MOTIF_LIBELLE_CITE.finditer(corps)}
+
+
+def _constats_bijection(
+    lignes: list[str], corps: str, titre: str, motif: str, source: str, surface: str
+) -> list[str]:
+    """Constats de la bijection entre les libelles produits et ceux que la section cite.
+
+    La comparaison est **exacte** dans les deux sens. La faire passer par `normalize` effacerait l'ecart
+    entre `Entrées :` (ligne de commande) et `ENTREES :` (web), qui est precisement ce que la page doit
+    rendre observable (Pitfall 4, D-75).
+    """
+    produits = _libelles_produits(lignes)
+    cites = _libelles_cites(corps)
+    constats: list[str] = []
+    for libelle in sorted(produits - cites):
+        constats.append(
+            f"{motif} : {surface} — le libelle « {libelle} » produit par {source} n'est pas cite par la "
+            f"section « {titre} » ; attendu chaque libelle produit, dans sa forme exacte, accent et "
+            f"casse compris ({source}, D-75)"
+        )
+    for libelle in sorted(cites - produits):
+        constats.append(
+            f"{motif} : {surface} — la section « {titre} » cite « {libelle} », que {source} ne produit "
+            f"pas ; attendu un libelle reellement produit par cette surface, jamais un libelle deduit "
+            f"de l'autre surface ({source}, D-75)"
+        )
+    return constats
+
+
+def _constats_conditionnels(
+    vide: list[str], peuplee: list[str], titre: str, motif: str, source: str, surface: str
+) -> list[str]:
+    """Constats du champ conditionnel : la ligne par categorie ne survit pas a une base vide.
+
+    La conditionnalite est mesuree sur les **deux** etats, pas seulement affirmee (Pitfall 3) : si le
+    rendu d'une base vide porte les memes libelles que celui d'une base peuplee, le champ a cesse d'etre
+    conditionnel sans que rien d'autre ne le signale.
+    """
+    libelles_vide = _libelles_produits(vide)
+    conditionnels = _libelles_produits(peuplee) - libelles_vide
+    if conditionnels:
+        return []
+    return [
+        f"{MOTIF_CONDITION} : {surface} — {source} rend la meme liste de libelles sur une base vide et "
+        f"sur une base peuplee ({', '.join(sorted(libelles_vide)) or 'aucun libelle'}) ; attendu au "
+        f"moins un champ conditionnel, la ligne par categorie n'etant ecrite que si des objets existent "
+        f"({source}, {titre}, {motif})"
+    ]
+
+
+def _sortie_db_status(db: Database) -> str:
+    """Sortie capturee de `_print_db_status`, la base etant refermee dans tous les cas.
+
+    `_print_db_status` interroge `stats()`, qui ouvre la connexion et la laisse ouverte : sans
+    `close()`, le nettoyage du dossier temporaire echoue sur Windows (`PermissionError [WinError 32]`,
+    mesure de la phase de recherche). La fermeture est donc dans un `finally`, pas apres la capture.
+    """
+    tampon = io.StringIO()
+    try:
+        with redirect_stdout(tampon):
+            _print_db_status(db)
+    finally:
+        db.close()
+    return tampon.getvalue()
+
+
+def test_champs_de_la_ligne_de_commande(docs_dir: Path, section, app, tmp_path) -> None:
+    """Les libelles de `db status` sont lus sur la sortie reelle de la commande, jamais supposes.
+
+    Les valeurs de cette sortie (chemin du fichier, nombres, version) sont produites a l'execution : la
+    page ne les recopie pas et ce controle ne les compare pas. Les libelles de champ, eux, sont les
+    invariants de la sortie, et c'est leur bijection avec les lignes du tableau de la section qui est
+    verifiee, dans les deux sens — page vers code et code vers page (D-75). L'etat vide est mesure lui
+    aussi : c'est ce qui prouve que la page ne presente pas comme toujours ecrites les deux lignes qui
+    changent de forme, ni la ligne par categorie (Pitfall 3).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_CHAMPS_CLI, PAGE)
+    constats: list[str] = []
+
+    vide = _sortie_db_status(Database(data_dir=tmp_path / "vide")).splitlines()
+    peuplee = _sortie_db_status(
+        Database(data_dir=app.extensions["web_config"]["data_dir"])
+    ).splitlines()
+
+    constats += _constats_bijection(
+        lignes=peuplee,
+        corps=corps,
+        titre=TITRE_CHAMPS_CLI,
+        motif=MOTIF_CHAMPS_CLI,
+        source=SOURCE_CLI,
+        surface="la surface ligne de commande",
+    )
+    constats += _constats_conditionnels(
+        vide=vide,
+        peuplee=peuplee,
+        titre=TITRE_CHAMPS_CLI,
+        motif=MOTIF_CHAMPS_CLI,
+        source=SOURCE_CLI,
+        surface="la surface ligne de commande",
+    )
+
+    for etat in ("Version jeu : (aucune)", "Dernier check : (aucun)"):
+        if etat not in corps:
+            constats.append(
+                f"{MOTIF_CHAMPS_CLI} : la surface ligne de commande — la section « {TITRE_CHAMPS_CLI} » "
+                f"ne cite pas l'etat vide « {etat} » ; attendu la forme exacte que la commande ecrit "
+                f"sur une base vide ({SOURCE_CLI}, D-77, Pitfall 3)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les champs de la ligne de commande : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque libelle reellement produit par `db status` cite dans la section "
+        f"« {TITRE_CHAMPS_CLI} », dans sa forme exacte, etat vide compris ({SOURCE_CLI})"
+    )
+
+
+def test_champs_de_la_surface_web(
+    docs_dir: Path, section, client, app, catalog, normalize, tmp_path
+) -> None:
+    """Les libelles de l'ecran d'etat sont lus sur le rendu, et compares exactement.
+
+    `normalize` n'y sert qu'a **diagnostiquer** : si un libelle rendu manque a la page alors que sa
+    forme normalisee s'y trouve, c'est que la page a lisse l'ecart de casse ou d'accent entre les deux
+    surfaces — exactement ce que ce controle interdit, `Entrées :` (ligne de commande) et `ENTREES :`
+    (web) etant deux chaines distinctes du code (Pitfall 4, D-75). Le rendu est lu sur les lignes du
+    corps, jamais sur la reponse entiere (D-11).
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_CHAMPS_WEB, PAGE)
+    constats: list[str] = []
+
+    reponse = client.get("/db/status")
+    if reponse.status_code != 200:
+        constats.append(
+            f"{MOTIF_CHAMPS_WEB} : la surface web — `GET /db/status` rend le statut "
+            f"{reponse.status_code} ; attendu 200, l'ecran d'etat de la base etant ce que cette section "
+            f"decrit ({SOURCE_ROUTES})"
+        )
+    rendu = _lignes_du_corps(reponse) if reponse.status_code == 200 else []
+
+    vide_app = create_app(
+        data_dir=tmp_path / "web_vide",
+        offline=True,
+        catalog=catalog,
+        load_catalog=False,
+    )
+    vide_app.config["TESTING"] = True
+    reponse_vide = vide_app.test_client().get("/db/status")
+    if reponse_vide.status_code != 200:
+        constats.append(
+            f"{MOTIF_CHAMPS_WEB} : la surface web — `GET /db/status` sur un dossier de donnees "
+            f"inexistant rend le statut {reponse_vide.status_code} ; attendu 200, une base vide etant un "
+            f"etat normal de cette surface ({SOURCE_ROUTES})"
+        )
+    rendu_vide = _lignes_du_corps(reponse_vide) if reponse_vide.status_code == 200 else []
+    dossier_vide = tmp_path / "web_vide"
+    crees = sorted(chemin.name for chemin in dossier_vide.glob("*")) if dossier_vide.exists() else []
+    if not crees:
+        constats.append(
+            f"{MOTIF_CHAMPS_WEB} : la surface web — l'ecran d'etat sur un dossier de donnees inexistant "
+            f"n'a rien cree dans ce dossier ; attendu la base ouverte et refermee a la volee, la page "
+            f"decrit un etat vide et non un ecran d'erreur ({SOURCE_ROUTES})"
+        )
+
+    constats += _constats_bijection(
+        lignes=rendu,
+        corps=corps,
+        titre=TITRE_CHAMPS_WEB,
+        motif=MOTIF_CHAMPS_WEB,
+        source=SOURCE_ROUTES,
+        surface="la surface web",
+    )
+    constats += _constats_conditionnels(
+        vide=rendu_vide,
+        peuplee=rendu,
+        titre=TITRE_CHAMPS_WEB,
+        motif=MOTIF_CHAMPS_WEB,
+        source=SOURCE_ROUTES,
+        surface="la surface web",
+    )
+
+    # Diagnostic : un libelle rendu qui n'apparait dans la page que sous une forme normalisee signale
+    # un ecart de casse, d'accent ou d'entite lisse par la page. La comparaison des libelles, elle,
+    # reste exacte.
+    for libelle in sorted(_libelles_produits(rendu) - _libelles_cites(corps)):
+        if normalize(libelle) in normalize(corps):
+            constats.append(
+                f"{MOTIF_CHAMPS_WEB} : la surface web — le libelle rendu « {libelle} » n'est cite par la "
+                f"section « {TITRE_CHAMPS_WEB} » que sous une forme que seule la normalisation "
+                f"rapproche (casse, accents ou entites HTML) ; attendu la forme exacte du rendu, l'ecart "
+                f"entre les deux surfaces etant un fait observable ({SOURCE_ROUTES}, D-75)"
+            )
+
+    for etat in ("VERSION JEU : (aucune)", "DERNIER CHECK : (AUCUN)"):
+        if etat not in corps:
+            constats.append(
+                f"{MOTIF_CHAMPS_WEB} : la surface web — la section « {TITRE_CHAMPS_WEB} » ne cite pas "
+                f"l'etat vide « {etat} » ; attendu la forme exacte que l'ecran rend sur une base vide "
+                f"({SOURCE_ROUTES}, D-77, Pitfall 3)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les champs de la surface web : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque libelle reellement rendu par « /db/status » cite dans la section "
+        f"« {TITRE_CHAMPS_WEB} », dans sa forme exacte — majuscules et absence d'accents comprises "
+        f"({SOURCE_ROUTES})"
     )

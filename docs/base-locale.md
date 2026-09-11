@@ -62,6 +62,42 @@ Ce que le mode hors-ligne change sur cette surface est différent de l'interface
 
 Les deux surfaces ne partagent donc pas le même défaut : le web démarre hors-ligne, la ligne de commande démarre en ligne. Une phrase qui parlerait d'« un outil hors-ligne par défaut » sans nommer la surface serait fausse sur l'une des deux.
 
+## L'état de la base en ligne de commande
+
+`python fetcher.py --offline db status` affiche l'état de la base locale, libellé par libellé. Les noms de champs décrits ici sont ceux que cette commande écrit réellement ; les valeurs, elles, sont produites à l'exécution et ne sont pas recopiées dans cette page.
+
+| Libellé écrit par la commande | Ce qu'il porte |
+|-------------------------------|----------------|
+| `Fichier :` | le chemin complet du fichier de la base sur votre poste |
+| `Version jeu :` | la version du jeu enregistrée dans la base |
+| `Dernier check :` | depuis combien de temps la version du jeu n'a pas été vérifiée |
+| `Entrées :` | le nombre d'objets présents dans la base |
+| `Par catégorie :` | suit le nombre d'objets de chaque catégorie stockée |
+
+Quand la base locale est vide, deux champs prennent une autre forme : la commande écrit alors `Version jeu : (aucune)` et `Dernier check : (aucun)`.
+
+La ligne `Par catégorie :` n'apparaît que si la base contient au moins un objet : sur une base vide, elle n'est pas écrite du tout, et aucune ligne de catégorie ne la suit. Quand elle est écrite, chaque catégorie occupe la ligne suivante, sous la forme `  - <catégorie> : <nombre>`.
+
+Les libellés de cette surface sont accentués et en minuscules, tels que la ligne de commande les écrit.
+
+## L'état de la base dans l'interface web
+
+Le même état est accessible depuis l'interface web, sur l'écran d'état de la base (`/db/status`). Les libellés y sont écrits dans une autre forme : tout en majuscules et sans accents. Ce n'est pas une faute de frappe, c'est la forme que cette surface rend.
+
+| Libellé rendu par l'écran | Ce qu'il porte |
+|---------------------------|----------------|
+| `FICHIER :` | le chemin complet du fichier de la base |
+| `VERSION JEU :` | la version du jeu enregistrée dans la base |
+| `DERNIER CHECK :` | depuis combien de temps la version du jeu n'a pas été vérifiée |
+| `ENTREES :` | le nombre d'objets présents dans la base |
+| `PAR CATEGORIE :` | suit le nombre d'objets de chaque catégorie stockée |
+
+Quand la base locale est vide, l'écran rend `VERSION JEU : (aucune)` et `DERNIER CHECK : (AUCUN)`, en majuscules comme le reste de cette surface.
+
+La ligne `PAR CATEGORIE :` n'apparaît elle aussi que si la base contient au moins un objet : sur une base vide, elle est absente.
+
+Le même état ne s'écrit donc pas de la même façon sur les deux surfaces : `Entrées :` est accentué en ligne de commande, `ENTREES :` ne l'est pas dans l'interface web. Cette page ne lisse pas cet écart, parce que la différence est celle du code.
+
 ## Source de vérité
 
 - `dofus_stuff/database.py` : nom du fichier de la base (`DB_NAME`), dossier par défaut (`DEFAULT_DATA_DIR`), clés de la table `meta`, catégories stockées (`ITEM_KINDS`) et schéma créé à l'ouverture.
