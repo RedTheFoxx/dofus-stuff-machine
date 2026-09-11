@@ -15,7 +15,7 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 - [x] **SOMM-01** : Un lecteur trouve le sommaire de la documentation depuis le `README.md` racine — dérivé de DOCS-01, DOCS-02
 - [x] **SOMM-02** : Chaque page livrée sous `docs/` est listée dans `docs/sommaire.md`, et réciproquement — dérivé de DOCS-01
-- [ ] **SOMM-03** : Chaque page `docs/` porte un unique titre H1 égal à son libellé d'index et une ligne de retour vers le sommaire — dérivé de DOCS-01
+- [x] **SOMM-03** : Chaque page `docs/` porte un unique titre H1 égal à son libellé d'index et une ligne de retour vers le sommaire — dérivé de DOCS-01
 
 ### Installation et démarrage
 
@@ -55,7 +55,7 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Garde-fous automatiques
 
-- [ ] **GARD-01** : La suite pytest échoue si un lien interne de `docs/` ne se résout pas, si le sommaire diverge de l'ensemble des pages, ou si un renvoi obsolète réapparaît — dérivé de DOCS-11
+- [x] **GARD-01** : La suite pytest échoue si un lien interne de `docs/` ne se résout pas, si le sommaire diverge de l'ensemble des pages, ou si un renvoi obsolète réapparaît — dérivé de DOCS-11
 - [ ] **GARD-02** : La suite pytest échoue si un libellé de flux ou d'étape du wizard cité dans la documentation n'est plus produit par le code — dérivé de DOCS-12
 - [ ] **GARD-03** : La complétude est un critère de sortie vérifié après livraison des pages, et un test de mutation prouve que le harnais détecte réellement une dérive — dérivé de DOCS-11, DOCS-12
 - [ ] **GARD-04** : La vérification s'exécute avec `.venv/Scripts/python.exe -m pytest -q`, sans écrire sous `.data/`, sans exécuter `main()` et sans ouvrir de connexion réseau — dérivé de DOCS-11, DOCS-12
@@ -108,7 +108,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 |-------------|-------|--------|
 | SOMM-01 | Phase 1 | Complete |
 | SOMM-02 | Phase 1 | Complete |
-| SOMM-03 | Phase 1 | Pending |
+| SOMM-03 | Phase 1 | Complete |
 | INST-01 | Phase 1 | Complete |
 | INST-02 | Phase 1 | Complete |
 | INST-03 | Phase 1 | Complete |
@@ -127,7 +127,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | BASE-03 | Phase 5 | Pending |
 | AIDE-01 | Phase 6 | Pending |
 | AIDE-02 | Phase 6 | Pending |
-| GARD-01 | Phase 1 | Pending |
+| GARD-01 | Phase 1 | Complete |
 | GARD-02 | Phase 1 | Pending |
 | GARD-03 | Phase 6 | Pending |
 | GARD-04 | Phase 6 | Pending |
