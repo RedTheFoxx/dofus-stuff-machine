@@ -2195,3 +2195,214 @@ def test_hypotheses_prouvees_par_balayage(docs_dir: Path, section, normalize) ->
         f"{SOURCE_RECOMMEND} et {SOURCE_SPEC} (formule, paliers PA/PM, preferences de classe) et les "
         f"lignes d'hypothese de {SOURCE_API}"
     )
+
+
+# --- Limites adossees au code, sans chiffre de catalogue (plan 03-04, tache 2) ---
+#
+# Chaque limite de la section est portee par un fichier cite : les trois modes de compatibilite
+# (score.py:8), le filtre de plausibilite et la profondeur par emplacement (candidates.py:56,
+# recommend.py:60), la coupe de l'adresse quand l'ouverture echoue (routes.py:1336). Ce qui n'etait
+# adosse a rien est retire ou presente comme une interpretation (D-41) : la section ne promet donc
+# aucun resultat de combat.
+
+# Les trois modes de compatibilite rendus entre crochets par le resultat : ils bornent ce que
+# « indice de recherche » veut dire, et la page doit les citer.
+MODES_COMPATIBILITE = ("optimal_prouve", "borne_solver", "borne_heuristique")
+
+# Tournures epinglees de la section des limites, comparees normalisees (D-11).
+TOURNURE_INDICE_BORNE = "n'est pas une qualité en combat"
+TOURNURE_URL_STATUT = "affiche l'adresse préparée dans la ligne de statut"
+LIBELLE_INDICE = "Indice de recherche"
+MOT_PLAUSIBILITE = "plausibilité"
+RENVOIS_SANS_LIEN = ("réglages avancés", "base locale")
+
+# Ancrages source de la limite « selection du catalogue » et de la coupe de l'adresse : le nom du
+# filtre, le fragment de profondeur et le fragment de coupe sont exiges de la SOURCE, la page
+# decrivant le mecanisme sans recopier de nom d'option (D-37).
+NOM_FILTRE_PLAUSIBILITE = "_is_plausible_equipment"
+FRAGMENT_PROFONDEUR = "top_k=40"
+FRAGMENT_COUPE_URL = "url[:COLS]"
+
+# Pages citees en prose par la section, sans lien : leurs pages n'existent pas encore (D-44).
+PAGES_INEXISTANTES = ("wizard-avance.md", "base-locale.md")
+
+# Valeur de `COLS` lue dans dofus_stuff/web/screens.py:5, jamais recopiee de memoire (D-42). C'est la
+# seule valeur numerique a trois chiffres admise dans la section des limites, et elle y est exigee :
+# la retirer du texte avant la recherche des valeurs volatiles est ce qui rend les deux regles
+# compatibles au lieu de contradictoires.
+MOTIF_COLS = re.compile(r"^COLS\s*=\s*(?P<valeur>\d+)\s*$", re.MULTILINE)
+
+# Motifs de morsure de la tache 2, portes par des constantes et jamais ecrits en clair dans la ligne
+# d'assertion (regle posee au plan 03-03, tache 2) : pytest reproduit cette ligne dans sa sortie.
+MOTIF_VALEUR_VOLATILE = "chiffre de catalogue"
+MOTIF_SECTION_LIMITES = "section des limites introuvable"
+
+
+def _valeur_cols() -> str:
+    """Valeur de `COLS` lue dans la source des ecrans, ou AssertionError localisante.
+
+    La valeur est relue a chaque execution : passer `COLS` a une autre largeur rougit si la page cite
+    encore l'ancienne, au lieu de laisser deux verites divergentes.
+    """
+    source = (RACINE_DEPOT / SOURCE_SCREENS).read_text(encoding="utf-8")
+    trouve = MOTIF_COLS.search(source)
+    if trouve is None:
+        raise AssertionError(
+            f"{SOURCE_SCREENS} ne porte plus l'affectation « COLS = <entier> » attendue par {PAGE} ; "
+            f"attendu la largeur d'ecran appliquee par la coupe de l'adresse ({SOURCE_ROUTES}:1336)"
+        )
+    return trouve.group("valeur")
+
+
+def test_limites_ancrees_sur_le_code(docs_dir: Path, section, normalize) -> None:
+    """Les limites du critere 4 sont adossees au code, sans aucun chiffre de catalogue (D-41, T-20).
+
+    Chaque limite est portee par un fichier cite, et la section ne cite aucun nombre de trois chiffres
+    ou plus : les nombres de catalogue mesures sont volatils et interdits en prose. Une seule valeur
+    est admise, celle de `COLS`, extraite de `dofus_stuff/web/screens.py:5` et retiree du texte avant
+    la recherche — sans quoi ce controle exigerait et interdirait la meme valeur.
+
+    Deux perimetres, mesures et non supposes : la regle scopee a la section, et une garde NON scopee
+    qui reste armee quand le titre de la section a derive. La morsure « chiffre_volatile » de la
+    tache 2 fait exactement cela — elle renomme le titre (« l.outil » ecrit avec un point) et injecte
+    un nombre a quatre chiffres juste apres — et un controle uniquement scopee ne nommerait jamais ce
+    nombre. Une section introuvable reste un CONSTAT (precedent 03-01, tache 1) et les verifications
+    scopees sont alors sautees : elles ne deviennent jamais vertes sans objet.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+    corps_trouve = True
+    try:
+        corps = section(texte, TITRE_LIMITES, PAGE)
+    except AssertionError as erreur:
+        constats.append(f"{MOTIF_SECTION_LIMITES} : {erreur}")
+        corps, corps_trouve = "", False
+    normalise = normalize(corps)
+    valeur_cols = _valeur_cols()
+
+    # 1. Valeurs volatiles, garde NON scopee : les chiffres de catalogue mesures sont des milliers,
+    #    donc aucun nombre de quatre chiffres ou plus n'a sa place dans la page, quel que soit le
+    #    titre qui le porte. La valeur de `COLS` est retiree avant la recherche, comme plus bas.
+    sans_cols_page = re.sub(rf"\b{re.escape(valeur_cols)}\b", " ", texte)
+    volatiles_page = sorted(set(re.findall(r"\d{4,}", sans_cols_page)))
+    if volatiles_page:
+        constats.append(
+            f"{PAGE} : la page cite {len(volatiles_page)} {MOTIF_VALEUR_VOLATILE}(s) de quatre "
+            f"chiffres ou plus ({', '.join(volatiles_page)}) ; attendu aucun nombre de catalogue dans "
+            f"la page, ces valeurs etant volatiles — la regle scopee a « {TITRE_LIMITES} » ne voit "
+            f"rien quand son titre a derive, ce passage non scopee ne depend d'aucun titre"
+        )
+
+    if corps_trouve:
+        # 2. Les trois modes de compatibilite, exiges dans la source ET dans la section.
+        source_score = (RACINE_DEPOT / SOURCE_SCORE).read_text(encoding="utf-8")
+        for mode in MODES_COMPATIBILITE:
+            if mode not in source_score:
+                constats.append(
+                    f"{SOURCE_SCORE} ne porte plus le mode « {mode} » ; attendu ce mode de "
+                    f"compatibilite, rendu entre crochets par le resultat, qui borne ce que l'indice "
+                    f"de recherche mesure"
+                )
+            if mode not in corps:
+                constats.append(
+                    f"{PAGE} : la section « {TITRE_LIMITES} » ne cite pas le mode « {mode} » de "
+                    f"{SOURCE_SCORE} ; attendu les trois modes rendus entre crochets, sans quoi "
+                    f"l'indice de recherche resterait une note sans borne"
+                )
+        for attendu, description in (
+            (TOURNURE_INDICE_BORNE, "la phrase qui borne l'indice de recherche"),
+            (LIBELLE_INDICE, "le libelle rendu de l'indice"),
+        ):
+            if normalize(attendu) not in normalise:
+                constats.append(
+                    f"{PAGE} : la section « {TITRE_LIMITES} » ne cite pas {description} "
+                    f"(« {attendu} ») ; attendu cette formulation, adossee a la borne produite par la "
+                    f"recherche elle-meme ({SOURCE_SCORE}:8)"
+                )
+
+        # 3. La recherche sur une selection du catalogue : phrase rendue, filtre et profondeur ancres.
+        source_candidates = (RACINE_DEPOT / SOURCE_CANDIDATES).read_text(encoding="utf-8")
+        if NOM_FILTRE_PLAUSIBILITE not in source_candidates:
+            constats.append(
+                f"{SOURCE_CANDIDATES} ne porte plus le filtre « {NOM_FILTRE_PLAUSIBILITE} » ; attendu "
+                f"ce filtre, qui ecarte les objets ne pouvant pas convenir — la page ne doit pas "
+                f"decrire une selection que le code ne construit plus"
+            )
+        source_recommend = (RACINE_DEPOT / SOURCE_RECOMMEND).read_text(encoding="utf-8")
+        if FRAGMENT_PROFONDEUR not in source_recommend:
+            constats.append(
+                f"{SOURCE_RECOMMEND} ne porte plus « {FRAGMENT_PROFONDEUR} » ; attendu la profondeur "
+                f"par emplacement qui borne la recherche de ce parcours"
+            )
+        source_api = (RACINE_DEPOT / SOURCE_API).read_text(encoding="utf-8")
+        if MOTIF_LIGNE_SELECTION.search(source_api) is None:
+            constats.append(
+                f"{SOURCE_API} ne porte plus la ligne « {LIGNE_SELECTION_CATALOGUE} » ; attendu cette "
+                f"phrase, rendue par le resultat du parcours simplifie"
+            )
+        if normalize(LIGNE_SELECTION_CATALOGUE) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_LIMITES} » ne cite pas la ligne "
+                f"« {LIGNE_SELECTION_CATALOGUE} » ; attendu la phrase rendue, citee telle quelle"
+            )
+        if normalize(MOT_PLAUSIBILITE) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_LIMITES} » ne cite pas le mot « {MOT_PLAUSIBILITE} » ; "
+                f"attendu la description du filtre porte par {SOURCE_CANDIDATES}"
+            )
+
+        # 4. Valeurs volatiles de la section : aucun nombre de trois chiffres ou plus, hors `COLS`.
+        sans_cols = re.sub(rf"\b{re.escape(valeur_cols)}\b", " ", corps)
+        volatiles = sorted(set(re.findall(r"\d{3,}", sans_cols)))
+        if volatiles:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_LIMITES} » cite {len(volatiles)} "
+                f"{MOTIF_VALEUR_VOLATILE}(s) ({', '.join(volatiles)}) ; attendu aucun nombre de "
+                f"catalogue, ces valeurs etant volatiles — la seule valeur numerique admise ici est "
+                f"celle de `COLS` ({valeur_cols}), extraite de {SOURCE_SCREENS}:5 et retiree du texte "
+                f"avant cette recherche"
+            )
+
+        # 5. La coupe de l'adresse quand l'ouverture du navigateur echoue.
+        source_routes = (RACINE_DEPOT / SOURCE_ROUTES).read_text(encoding="utf-8")
+        if FRAGMENT_COUPE_URL not in source_routes:
+            constats.append(
+                f"{SOURCE_ROUTES} ne porte plus « {FRAGMENT_COUPE_URL} » ; attendu la coupe de "
+                f"l'adresse affichee dans la ligne de statut quand l'ouverture echoue "
+                f"({SOURCE_ROUTES}:1336)"
+            )
+        if normalize(TOURNURE_URL_STATUT) not in normalise:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_LIMITES} » ne dit pas ou l'adresse est affichee "
+                f"(« {TOURNURE_URL_STATUT} ») ; attendu cette phrase, la ligne de statut etant le seul "
+                f"emplacement de l'adresse coupee ({SOURCE_ROUTES}:1336)"
+            )
+        if valeur_cols not in corps:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_LIMITES} » ne cite pas la largeur de coupe "
+                f"({valeur_cols}) lue dans {SOURCE_SCREENS}:5 ; attendu la valeur reellement appliquee "
+                f"par {SOURCE_ROUTES}:1336, jamais une valeur ecrite de memoire"
+            )
+
+        # 6. Renvois en prose, sans lien : les pages cibles n'existent pas encore (D-44).
+        for page_cible in PAGES_INEXISTANTES:
+            if f"]({page_cible})" in texte:
+                constats.append(
+                    f"{PAGE} : la page lie « {page_cible} », qui n'existe pas encore ; attendu un "
+                    f"renvoi en prose, sans lien — l'ajout du lien appartient a la phase qui cree "
+                    f"cette page"
+                )
+        for renvoi in RENVOIS_SANS_LIEN:
+            if normalize(renvoi) not in normalise:
+                constats.append(
+                    f"{PAGE} : la section « {TITRE_LIMITES} » ne nomme pas « {renvoi} » ; attendu ce "
+                    f"renvoi en prose, sans lien tant que la page cible n'existe pas"
+                )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les limites de l'outil : "
+        + " ; ".join(constats)
+        + f" ; attendu les limites du critere 4 adossees a {SOURCE_SCORE}, {SOURCE_CANDIDATES}, "
+        f"{SOURCE_RECOMMEND}, {SOURCE_ROUTES} et {SOURCE_API}, sans aucun nombre de catalogue et sans "
+        f"lien vers une page inexistante"
+    )

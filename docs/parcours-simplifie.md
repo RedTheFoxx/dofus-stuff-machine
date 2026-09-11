@@ -229,6 +229,32 @@ Le résultat affiche `Points inclus ; sans exo/parchemins. Jets moyens sauf rég
 
 La ligne de détail `base+parcho` additionne la base et les parchemins **saisis** : ces parchemins valent zéro dans ce parcours, où aucune caractéristique n'est saisie à la main. La mention ne contredit donc pas la ligne du dessus, elle totalise un apport qui est nul ici : **aucun parchemin** n'est compté tant que le réglage avancé n'en déclare pas.
 
+## Ce que l'outil ne fait pas
+
+Deux indications du résultat se lisent mieux quand on sait ce qu'elles mesurent, et deux limites du parcours méritent d'être dites.
+
+### L'indice de recherche n'est pas une qualité en combat
+
+Le résultat affiche `Indice de recherche : `. Ce nombre compare le score du stuff retenu à une borne que la recherche a produite elle-même, et il est plafonné : c'est une mesure **interne au solveur**, pas une note de combat, et pas davantage la promesse que ce stuff serait le meilleur en jeu. Le mode affiché entre crochets dit d'où vient la borne : `optimal_prouve` quand le solveur a établi que rien de mieux n'existe dans ce qu'il a examiné, `borne_solver` quand la borne vient du solveur lui-même, `borne_heuristique` quand elle vient d'un calcul approché. Autrement dit : l'indice de recherche n'est pas une qualité en combat.
+
+### La recherche ne balaie pas tout le catalogue
+
+Le résultat le rappelle : `Recherche sur une sélection du catalogue ; optimalité globale non garantie.` Le solveur ne parcourt pas les objets du jeu un par un ; il travaille sur une sélection qu'il s'est construite :
+
+- un **filtre de plausibilité** écarte d'emblée les objets qui ne peuvent pas convenir au profil demandé ;
+- le **niveau du personnage** plafonne ce qui peut être équipé : un objet trop haut niveau est hors jeu ;
+- la recherche ne retient ensuite qu'un nombre limité de candidats par emplacement, ce qui borne la profondeur examinée.
+
+Un stuff trouvé est donc le meilleur de cette sélection, pas nécessairement le meilleur possible : une combinaison écartée par le filtre ou par la profondeur ne sera jamais proposée, même si elle convenait. Les réglages avancés permettent d'agir sur cette profondeur ; la surface de commandes correspondante n'est pas recopiée ici, elle appartient à la page CLI.
+
+### Si le navigateur refuse d'ouvrir Dofusbook
+
+Préparer l'envoi vers Dofusbook ouvre une page dans le navigateur. Quand cette ouverture échoue — navigateur absent ou refusé — l'outil affiche l'adresse préparée dans la ligne de statut, coupée à la largeur de l'écran et **sans points de suspension** : la coupe se fait à 100 caractères, la largeur d'un écran de cette interface, et l'adresse affichée n'est donc ni tronquée visiblement, ni recopiable en entier. L'ouverture se fait depuis le navigateur, pas depuis cette ligne.
+
+### Ce que cette page ne décrit pas
+
+Les **réglages avancés** (les écrans du wizard) et le fonctionnement de la **base locale** ne sont pas décrits ici : chaque sujet appartient à la page qui lui sera consacrée, et cette page ne dit que ce que le parcours simplifié en montre. Le parcours en ligne de commande, lui, ne pose pas ces trois questions : sa surface est décrite dans la page CLI.
+
 ## Source de vérité
 
 - `dofus_stuff/web/routes.py` : écrans et libellés des trois questions.
