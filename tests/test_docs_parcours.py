@@ -143,6 +143,22 @@ INDICE_ENTREE = {
     "niveau": "ENTREE=CALCULER",
 }
 
+# Menus numerotes rendus, avec la ligne du code qui les produit : la cle est le nom de l'etape de
+# l'URL, la valeur attendue est le nombre de numeros du menu.
+MENUS_RENDUS = (
+    ("classe", TITRE_CLASSE, 989, len(CLASSES)),
+    ("elements", TITRE_ELEMENTS, 993, len(ELEMENTS)),
+)
+LIGNE_MENU_CLASSE = 989
+LIGNE_MENU_ELEMENTS = 993
+
+# Phrase epinglee de la page et module du parcours en ligne de commande dont les litteraux sont
+# sondes : la page affirme ce que ce module ne contient pas (D-33). Le mot est cherche entier,
+# apres normalisation des accents et de la casse.
+MOTIF_PAGE_CLI = "ne pose pas ces trois questions"
+SOURCE_PROFIL = "dofus_stuff/optimize/profile_input.py"
+MOTS_PROFIL_INTERDITS = (r"\bclasses?\b", r"\belements?\b")
+
 # Etat minimal de session par etape, ecrit sous la cle que la vue lit. La forme est mesuree et ne
 # doit pas etre « simplifiee » : injecter les memes cles a la racine de la session laisse l'etat
 # vide et fait repondre une redirection vers `/optimize` a tous les POST d'elements et de niveau,
@@ -244,6 +260,17 @@ def _couples_du_rendu(lignes: list[str]) -> dict[int, list[str]]:
         for trouve in MOTIF_COUPLE_RENDU.finditer(ligne):
             couples.setdefault(int(trouve.group("numero")), []).append(trouve.group("libelle").strip())
     return couples
+
+
+def _couples_de_section(texte: str, titre: str, section) -> dict[int, list[str]]:
+    """Couples numero -> libelles cites par UNE section de la page.
+
+    La lecture est scopee par section, jamais faite sur la page entiere : les menus des classes et
+    des elements partagent les numeros 1 a 4, un dictionnaire global rapporterait donc quatre
+    constats sur une page pourtant correcte. Le corps de section vient du helper partage `section`,
+    qui refuse de lire une page sans la nommer (D-13).
+    """
+    return _couples_du_rendu(section(texte, titre, PAGE).splitlines())
 
 
 def _client_etape(app, etape: str):
@@ -510,6 +537,146 @@ def test_entrees_citees_acceptees_et_refusees(docs_dir: Path, app, section, norm
         + " ; ".join(constats)
         + f" ; attendu chaque entree citee par la page acceptee ou refusee par le rendu de "
         f"{SOURCE_ROUTES}, avec le message attendu au debut de la ligne de statut"
+    )
+
+
+def _reponse_menu(app, cle: str):
+    """Ecran qui porte le menu numerote de l'etape : la question 1, ou la question 2 apres un POST."""
+    client = app.test_client()
+    if cle == "classe":
+        return client.get("/optimize/quick/classe")
+    client.post("/optimize/quick/classe", data={"cmd": "Cra"})
+    return client.get("/optimize/quick/elements")
+
+
+def _libelles_entre_guillemets(libelles: list[str]) -> str:
+    """Libelles joints pour un message d'echec, chacun entre guillemets francais."""
+    return " et ".join("« " + libelle + " »" for libelle in libelles)
+
+
+def test_couples_numeros_libelles_par_section(docs_dir: Path, app, section, normalize) -> None:
+    """Le couple numero <-> libelle des deux menus est compare au rendu, section par section (V4).
+
+    La verite vient du rendu, jamais d'une liste ecrite de memoire : le menu des classes est rendu
+    par `dofus_stuff/web/routes.py:989` et le menu des elements par `dofus_stuff/web/routes.py:993`.
+    La comparaison est scopee par section, les deux menus partageant les numeros 1 a 4.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    for cle, titre, ligne_code, attendus in MENUS_RENDUS:
+        couples = _couples_du_rendu(_lignes_du_corps(_reponse_menu(app, cle)))
+        if len(couples) != attendus:
+            constats.append(
+                f"{PAGE} : le menu rendu de l'etape « {cle} » compte {len(couples)} numeros ; attendu "
+                f"{attendus}, comme rendu par {SOURCE_ROUTES}:{ligne_code} — une verite vide ou "
+                f"tronquee ne doit pas rendre ce controle silencieusement vert"
+            )
+            continue
+        cites = _couples_de_section(texte, titre, section)
+        for numero, libelles in sorted(couples.items()):
+            libelle_rendu = libelles[0]
+            cites_ici = cites.get(numero, [])
+            if len(cites_ici) > 1:
+                constats.append(
+                    f"{PAGE} : dans « {titre} », le numero {numero} est cite deux fois avec deux "
+                    f"libelles differents ({_libelles_entre_guillemets(cites_ici)}) ; attendu le "
+                    f"libelle « {libelle_rendu} » (couple « {numero}. {libelle_rendu} » tel que rendu "
+                    f"par {SOURCE_ROUTES}:{ligne_code})"
+                )
+            elif not cites_ici:
+                constats.append(
+                    f"{PAGE} : dans « {titre} », le numero {numero} n'est associe a aucun libelle ; "
+                    f"attendu le couple « {numero}. {libelle_rendu} » tel que rendu par "
+                    f"{SOURCE_ROUTES}:{ligne_code}"
+                )
+            elif normalize(cites_ici[0]) != normalize(libelle_rendu):
+                constats.append(
+                    f"{PAGE} : dans « {titre} », le numero {numero} est associe au libelle "
+                    f"« {cites_ici[0]} » ; attendu « {libelle_rendu} » (couple "
+                    f"« {numero}. {libelle_rendu} » tel que rendu par {SOURCE_ROUTES}:{ligne_code})"
+                )
+        for numero in sorted(set(cites) - set(couples)):
+            constats.append(
+                f"{PAGE} : dans « {titre} », le numero {numero} n'existe dans aucun menu rendu "
+                f"(« {SOURCE_ROUTES}:{LIGNE_MENU_CLASSE} » ni "
+                f"« {SOURCE_ROUTES}:{LIGNE_MENU_ELEMENTS} ») ; attendu un numero des menus rendus"
+            )
+
+    total = _couples_du_rendu(texte.splitlines())
+    occurrences = sum(len(libelles) for libelles in total.values())
+    attendues = len(CLASSES) + len(ELEMENTS)
+    if occurrences != attendues:
+        constats.append(
+            f"{PAGE} : la page cite {occurrences} couples numero <-> libelle ; attendu {attendues}, "
+            f"soit les {len(CLASSES)} couples du menu des classes et les {len(ELEMENTS)} couples du "
+            f"menu des elements, chacun une seule fois — un second exemplaire ferait deux verites a "
+            f"tenir, rendues par {SOURCE_ROUTES}:{LIGNE_MENU_CLASSE} et "
+            f"{SOURCE_ROUTES}:{LIGNE_MENU_ELEMENTS}"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les couples numero <-> libelle des deux menus : "
+        + " ; ".join(constats)
+        + f" ; attendu les couples des menus rendus par {SOURCE_ROUTES}:{LIGNE_MENU_CLASSE} et "
+        f"{SOURCE_ROUTES}:{LIGNE_MENU_ELEMENTS}, compares section par section, la page non mutee "
+        f"etant verte"
+    )
+
+
+def test_parcours_cli_ne_pose_pas_les_trois_questions(docs_dir: Path, normalize) -> None:
+    """La page dit ce que le parcours en ligne de commande ne contient pas (D-33).
+
+    Demonstration indirecte : la sonde lit le TEXTE de `dofus_stuff/optimize/profile_input.py` et
+    ses litteraux de chaine par `ast`, elle n'execute jamais la ligne de commande et n'appelle
+    jamais son point d'entree. Une invite composee ailleurs, ou construite dynamiquement, lui
+    echapperait : c'est une limite nommee, pas une couverture revendiquee.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    if normalize(MOTIF_PAGE_CLI) not in normalize(texte):
+        constats.append(
+            f"{PAGE} : la phrase « {MOTIF_PAGE_CLI} » est absente ; attendu cette phrase, qui evite "
+            f"de croire que le parcours en ligne de commande pose les memes questions que le "
+            f"parcours guide ({SOURCE_PROFIL})"
+        )
+
+    chemin = RACINE_DEPOT / SOURCE_PROFIL
+    litteraux: list[str] = []
+    if not chemin.is_file():
+        constats.append(
+            f"{SOURCE_PROFIL} : module introuvable ({chemin}) ; attendu le module des questions "
+            f"guidees du parcours en ligne de commande, cite par {PAGE}"
+        )
+    else:
+        arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+        litteraux = [
+            noeud.value
+            for noeud in ast.walk(arbre)
+            if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str)
+        ]
+
+    if not litteraux:
+        constats.append(
+            f"{SOURCE_PROFIL} : aucun litteral de chaine lu ; attendu un module non vide, faute de "
+            f"quoi ce controle ne prouverait rien sur la phrase « {MOTIF_PAGE_CLI} » de {PAGE}"
+        )
+    for litteral in litteraux:
+        normalise = normalize(litteral)
+        for motif in MOTS_PROFIL_INTERDITS:
+            if re.search(motif, normalise):
+                constats.append(
+                    f"{SOURCE_PROFIL} : le litteral « {litteral} » contient une invite de classe ou "
+                    f"d'element ; attendu l'absence de toute invite de ce genre, pour que la phrase "
+                    f"« {MOTIF_PAGE_CLI} » de {PAGE} reste vraie"
+                )
+
+    assert not constats, (
+        f"{PAGE} : constats sur le parcours en ligne de commande : "
+        + " ; ".join(constats)
+        + f" ; attendu la phrase « {MOTIF_PAGE_CLI} » et aucun litteral de classe ni d'element "
+        f"dans {SOURCE_PROFIL}"
     )
 
 
