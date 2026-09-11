@@ -2,17 +2,17 @@
 gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Base locale, hors-ligne et resynchronisation
-status: planning
-stopped_at: Phase 4 complete, ready to plan Phase 5
-last_updated: "2026-09-11T19:47:44.727Z"
+status: executing
+stopped_at: Phase 5 plan 05-01 complete, ready for wave 2 (05-02)
+last_updated: "2026-09-11T23:32:00.000Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 4 complete, transitioned to Phase 5
+last_activity_desc: Phase 5 plan 05-01 complete (page de la base locale, deux defauts hors-ligne, champs de l'etat par surface)
 state_head: c22d3edcfa81793b0af8e1981d4945b66ed3f2ad
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 18
+  completed_plans: 16
   percent: 67
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-10)
 
 **Core value:** Un utilisateur qui n'a jamais vu le projet peut installer l'outil, lancer le flux simplifié classe → éléments → niveau, lire son résultat et retrouver chaque commande/menu cité dans le code réel — sans lire le code et sans rencontrer de documentation périmée.
-**Current focus:** Phase 4 — Wizard avancé et résorption de la dette `GUIDE_WIZARD`
+**Current focus:** Phase 5 — Base locale, hors-ligne et resynchronisation
 
 ## Current Position
 
 Phase: 5 — Base locale, hors-ligne et resynchronisation
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-11 — Phase 4 complete, transitioned to Phase 5
+Plan: 1 of 3 — 05-01 livré (page `docs/base-locale.md`, index, deux défauts hors-ligne, champs de l'état par surface)
+Status: Executing — vague 1 livrée, vague 2 (05-02) prête à démarrer
+Last activity: 2026-09-11 — 05-01 complete (3 commits, 13 morsures détectées, `.data/dofus.sqlite3` intact)
 
 Progress: [███████░░░] 67%
 
@@ -38,7 +38,7 @@ Progress: [███████░░░] 67%
 
 **Velocity:**
 
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: -
 - Total execution time: -
 
@@ -76,6 +76,7 @@ Progress: [███████░░░] 67%
 | Phase 4 P2 | 2min | 2 tasks | 2 files |
 | Phase 4 P04 | 1min | 2 tasks | 2 files |
 | Phase 4 P3 | 6min | 2 tasks | 5 files |
+| Phase 5 P01 | 14min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,11 @@ Recent decisions affecting current work:
 - [Phase 4]: [Phase 04-04]: La vague 3 se termine VOLONTAIREMENT ROUGE sur un seul test : `test_aiguillage_sans_renvoi_obsolete` echoue sur GUIDE_WIZARD.md encore obsolete avec les trois formes nommees (mesure : `1 failed, 200 passed`), c'est la preuve du critere 5 (D-59a) et non une regression ; `git diff --quiet -- GUIDE_WIZARD.md` est vrai, README.md et docs/parcours-simplifie.md ne sont pas touches, et le vert appartient au plan 04-03 (vague 4), jamais a un affaiblissement du detecteur. La copie figee tests/fixtures/guide-wizard-obsolete.md (39 lignes, CRLF en arbre / LF en blob comme le reste du depot) est signalee par le MEME detecteur avec six constats, dont un nommant OPTIMISATION DE STUFF et un nommant ARMES MELEE ; retirer une forme de la copie fait rougir le test (3/3 morsures detectees sur copie verte avant mutation). Limite honnete ecrite dans le module et dans les messages : trois formes nommees, aucune exhaustivite revendiquee, jetons juges contre les libelles de premier niveau mesures au rendu de GET /.
 - [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: [Phase 04-03]: Le vert du critere 5 est obtenu par la SEULE correction du fichier juge : GUIDE_WIZARD.md ramene de 330 a 18 lignes (arborescence lue au code, 4 = OPTIMISATION, deux liens, aucun enonce de contenu), README.md sans pointeur produit, et le detecteur de 04-04 inchange — git show --numstat ba11149 -- tests/test_docs_wizard.py rend 171/0 (171 lignes ajoutees, zero retiree), aucune assertion ni predicat n'est affaibli ; la copie figee tests/fixtures/guide-wizard-obsolete.md reste signalee par le meme detecteur et byte-identique (git diff --quiet vrai). — Mesure : 1 failed, 200 passed avant (echec unique = test_aiguillage_sans_renvoi_obsolete, trois formes nommees) -> 203 passed apres ; 8/8 morsures detectees sur copie verte avant mutation (4 en tache 1, 4 en tache 2) ; .data/dofus.sqlite3 identique (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; dofus_stuff/** non modifie.
 - [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: [Phase 04-03]: La dette D-44 est levee dans le MEME commit que sa cible et la reserve est rendue inversible : les deux renvois en prose de docs/parcours-simplifie.md (lignes 5 et 256, seules lignes modifiees — la ligne 140 reste intacte, D-64) portent [wizard avance](wizard-avance.md), PAGES_INEXISTANTES passe a (base-locale.md,) dans le commit eeaa93f qui porte aussi tests/test_docs_parcours.py, et test_lien_wizard_avance_legitime refuse qu'une entree de la reserve corresponde a une page existante, exige que chaque cible de lien de GUIDE_WIZARD.md vers docs/ soit declaree dans LIENS_LEGITIMES_VERS_L_AIGUILLAGE ET existe depuis la racine. — Aucune exhaustivite revendiquee (trois formes nommees, D-58) et la prose libre de la racine n'est pas verifiee ; les quatre invariants sont epingles par 4/4 morsures detectees (lien D-63 retire, page existante remise dans la reserve, cible cassee, lien non declare) ; le controle de commit du plan rend 'lien D-63 et reduction de la reserve dans le meme commit : eeaa93f'.
+- [Phase 5]: [Phase 05-01]: La page `docs/base-locale.md` est une tranche verticale livree au premier commit (H1, index, sept categories, fenetre de 24 h, bloc Source de verite, ligne de retour, CRLF sans BOM) ; chaque valeur est lue dans une constante publique (`DB_NAME`, `DEFAULT_DATA_DIR.name`, `ITEM_KINDS` egal a `tuple(kind for _, _, kind in SYNC_SOURCES)`, `CHECK_INTERVAL_SECONDS` et son expression `24 * 60 * 60`), jamais recopiee. La reserve `PAGES_INEXISTANTES` de `tests/test_docs_parcours.py` est videe DANS LE MEME COMMIT que la page et les deux renvois de `docs/parcours-simplifie.md` deviennent des liens ; les deux boucles consommatrices et le controle de legitimite du lien restent intacts. — Mesure : 3 commits (ee903cf, 179c03d, d863511), 210 passed apres le plan, `git diff --diff-filter=D` vide sur les trois commits.
+- [Phase 5]: [Phase 05-01]: Les deux defauts hors-ligne sont enonces SEPAREMENT, chacun dans la section de sa surface, et la phrase d'aide est exigee du parseur ET de la section de sa propre surface : web `parse_args([]).offline is True` / `--no-offline` / `--online` avec l'aide « Ne pas contacter l'API au demarrage (defaut : oui) » rendue par `format_help()` ; ligne de commande `parse_args(["db", "status"]).offline is False` avec l'aide capturee de `--help`. Une page qui attribuerait une aide a la mauvaise surface rougit, et `argparse` coupant l'aide a la largeur du terminal, la comparaison normalise les espaces. — Mesure : morsures `defaut_web_inverse`, `defaut_cli_force`, `aide_web_remplacee` detectees sur copie verte avant mutation (3/3).
+- [Phase 5]: [Phase 05-01]: Les champs de l'etat de la base sont verifies par BIJECTION EXACTE dans les deux sens (chaque libelle produit par `_print_db_status` ou rendu par `GET /db/status` doit etre cite, et chaque libelle cite doit etre produit) ; la comparaison n'est jamais normalisee, car `Entrées :` (ligne de commande) et `ENTREES :` (web) sont deux chaines distinctes du code et l'ecart doit rester observable. La conditionnalite du champ par categorie est MESUREE sur les deux etats (base vide construite sous `tmp_path` et base peuplee de la fixture `app`, chaque base refermee dans un `finally` — sans quoi le nettoyage temporaire echoue sur Windows). — Mesure : morsures `champ_cli_renomme`, `champ_web_renomme`, `categorie_inconditionnelle` detectees (3/3) apres correction du constat de conditionnalite, qui portait le motif de surface sans `MOTIF_CONDITION` et n'etait donc pas retrouve par son motif nomme.
+- [Phase 5]: [Phase 05-01]: Le module neuf ne porte PAS `from __future__ import annotations` : la morsure `import_interdit` insere un import interdit en tete du fichier, et un import `__future__` apres une autre instruction est une erreur de syntaxe (`ast.parse` l'accepte, `compile` la refuse — et c'est `compile` que la reecriture d'assertions de pytest emploie), si bien que le module mourait a la collecte au lieu de produire le constat de sa garde de cloture. Meme regle que les phases precedentes : une morsure qui ne mord pas de maniere discriminante se corrige dans le harnais, jamais en affaiblissant le controle. — Mesure : 7/7 morsures de la tache 1 apres correction (fichier renomme, categorie retiree, ligne d'index retiree, H1 desaligne, import interdit, `DEFAULT_DATA_DIR` comme `data_dir`, confirmation destructive).
+- [Phase 5]: [Phase 05-01]: Mesures de la passe de plan : `.venv/Scripts/python.exe -m pytest -q` -> 207 passed (tache 1), 208 passed (tache 2), 210 passed (tache 3) ; 13/13 morsures detectees sur copie verte avant mutation (7 + 3 + 3) ; `.data/dofus.sqlite3` identique avant et apres les trois suites (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; aucun fichier de `dofus_stuff/**` modifie, `pyproject.toml` inchange. Bookkeeping de ce SUMMARY : `progress.completed_plans` portee de 15 a 16 et `total_plans` de 15 a 18 (la valeur 15 etait en retard d'un plan sur les phases 1 a 4, dont la table By Phase compte 16 plans).
 
 ### Pending Todos
 
@@ -171,6 +177,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T19:22:41.966Z
-Stopped at: Phase 4 complete, ready to plan Phase 5
-Resume file: None
+Last session: 2026-09-11T23:29:34+02:00
+Stopped at: Phase 5 plan 05-01 complete, ready for wave 2 (05-02)
+Resume file: .planning/phases/05-base-locale-hors-ligne-et-resynchronisation/05-01-SUMMARY.md
