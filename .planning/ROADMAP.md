@@ -198,14 +198,18 @@ Plans:
   4. Les commandes destructrices (`db clear`, `PURGE OUI`) sont signalées comme telles sur la même ligne et n'apparaissent dans aucun parcours ; les contrôles de la phase n'écrivent pas sous `.data/`, n'exécutent aucune synchronisation et n'ouvrent aucune connexion réseau.
   5. Chaque nom de champ ou de commande cité par la page est produit par le code, et la suite reste verte avec l'interpréteur épinglé.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans executed
 **UI hint**: no
 
 Plans:
 
+- [x] 05-01-PLAN.md
+- [x] 05-02-PLAN.md
+- [x] 05-03-PLAN.md
+
 - [x] 05-01: Rédiger `docs/base-locale.md` (fichier, catégories, fenêtre 24 h, deux défauts hors-ligne, champs de l'état de la base) et son entrée d'index
 - [x] 05-02: Couvrir les cas non évidents (création du fichier par `db status`, `db sync` refusé avec `--offline`, synchro web qui contacte l'API) et les avertissements destructifs sur la même ligne
-- [ ] 05-03: Ajouter les contrôles d'ancrage de la page base locale (noms de champs produits par le code, aucun accès `.data/`, aucun réseau)
+- [x] 05-03: Ajouter les contrôles d'ancrage de la page base locale (noms de champs produits par le code, aucun accès `.data/`, aucun réseau)
 
 ### Phase 6: Dépannage, glossaire, complétude et preuve finale
 
@@ -242,5 +246,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Référence CLI alignée sur le parseur | 3/3 | Complete    | 2026-09-11 |
 | 3. Parcours simplifié documenté depuis le rendu réel | 4/4 | Complete    | 2026-09-11 |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 5/4 | Complete    | 2026-09-11 |
-| 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |
+| 5. Base locale, hors-ligne et resynchronisation | 3/3 | In Progress|  |
 | 6. Dépannage, glossaire, complétude et preuve finale | 0/4 | Not started | - |

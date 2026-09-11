@@ -44,9 +44,9 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Base locale et hors-ligne
 
-- [ ] **BASE-01** : Un lecteur comprend le fichier de base locale, les catégories d'objets stockées et la fenêtre de resynchronisation — dérivé de DOCS-07
-- [ ] **BASE-02** : Un lecteur comprend les deux comportements hors-ligne (web hors-ligne par défaut ; CLI en ligne par défaut, donc option requise) et les champs affichés par l'état de la base — dérivé de DOCS-07
-- [ ] **BASE-03** : Les commandes destructrices de la base sont signalées comme telles et jamais présentées comme une étape normale — dérivé de DOCS-07
+- [x] **BASE-01** : Un lecteur comprend le fichier de base locale, les catégories d'objets stockées et la fenêtre de resynchronisation — dérivé de DOCS-07
+- [x] **BASE-02** : Un lecteur comprend les deux comportements hors-ligne (web hors-ligne par défaut ; CLI en ligne par défaut, donc option requise) et les champs affichés par l'état de la base — dérivé de DOCS-07
+- [x] **BASE-03** : Les commandes destructrices de la base sont signalées comme telles et jamais présentées comme une étape normale — dérivé de DOCS-07
 
 ### Aide et vocabulaire
 
@@ -122,9 +122,9 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | CLI-01 | Phase 2 | Complete |
 | CLI-02 | Phase 2 | Complete |
 | CLI-03 | Phase 2 | Complete |
-| BASE-01 | Phase 5 | Pending |
-| BASE-02 | Phase 5 | Pending |
-| BASE-03 | Phase 5 | Pending |
+| BASE-01 | Phase 5 | Complete |
+| BASE-02 | Phase 5 | Complete |
+| BASE-03 | Phase 5 | Complete |
 | AIDE-01 | Phase 6 | Pending |
 | AIDE-02 | Phase 6 | Pending |
 | GARD-01 | Phase 1 | Complete |

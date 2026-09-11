@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Base locale, hors-ligne et resynchronisation
 status: executing
-stopped_at: Phase 5 plan 05-02 complete, ready for wave 3 (05-03)
-last_updated: "2026-09-11T21:44:00.000Z"
+stopped_at: "Phase 5 complete (3/3 plans) : la base locale est documentee, close et gardee ; phase 6 prete"
+last_updated: "2026-09-11T22:03:01.847Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 5 plan 05-02 complete (cas non evidents du critere 3 et commandes destructrices du critere 4)
-state_head: c22d3edcfa81793b0af8e1981d4945b66ed3f2ad
+last_activity_desc: Phase 5 plan 05-03 complete (renvois du README resolus, dette D-44 denouee, page close, integrite de .data/ mesuree) — les 3 plans de la phase 5 sont executes
+state_head: 703f2ed1d0c50c78d18840ee2482c1bdd2bd2d51
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
   percent: 67
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 5 — Base locale, hors-ligne et resynchronisation
-Plan: 2 of 3 — 05-02 livré (cas non évidents du critère 3 : création de la base, refus hors-ligne, synchro web qui contacte l'API ; commandes destructrices du critère 4)
-Status: Executing — vague 2 livrée, vague 3 (05-03) prête à démarrer
-Last activity: 2026-09-11 — 05-02 complete (3 commits, 10 morsures détectées, 214 passed, `.data/dofus.sqlite3` intact)
+Plan: 3 of 3 — phase 5 entièrement livrée (05-01 la page, 05-02 les cas non évidents et les commandes destructrices, 05-03 la clôture : renvois du `README.md`, dette D-44 dénouée, page close, intégrité de `.data/` mesurée). Vérification de phase à jouer.
+Status: Executing — les 3 plans de la phase 5 sont livrés (vagues 1 à 3), `/gsd:verify-work` reste à jouer
+Last activity: 2026-09-11 — 05-03 complete (3 commits, 9/9 morsures détectées, 218 passed, `.data/dofus.sqlite3` intact)
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83% (18/18 plans exécutés ; 4 phases closes, la 5e attend sa vérification)
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [███████░░░] 67%
 | Phase 4 P3 | 6min | 2 tasks | 5 files |
 | Phase 5 P01 | 14min | 3 tasks | 5 files |
 | Phase 5 P02 | 7min | 3 tasks | 2 files |
+| Phase 5 P03 | 9 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,10 @@ Recent decisions affecting current work:
 - [Phase 5]: [Phase 05-02]: Les commandes destructrices sont reconnues LIGNE A LIGNE sur le texte entier de la page (D-80) et leur cible reelle est distinguee : la ligne 129 porte `db clear` (alias de cache) avec marque destructrice, « base locale », les deux `DELETE` lus dans le code et la phrase « le fichier n'est pas supprimé » ; la ligne 131 porte `PURGE OUI` avec marque destructrice et « sauvegardes du navigateur » — jamais « la base ». La reconnaissance exige l'avertissement sur CHAQUE ligne porteuse, l'absence de tout bloc de commandes de la console et l'absence de jeton destructeur dans toute ligne d'exemple, et la section dit que ces commandes ne sont l'etape d'aucun parcours. — Mesure : morsures `bloc_console_ajoute`, `ligne_sans_avertissement_added`, `purge_cible_confondue` detectees (3/3 avec `effet_clear_retire`, 25 s).
 - [Phase 5]: [Phase 05-02]: Le perimetre du critere 4 est ECRIT dans le module (`LIMITE_PERIMETRE`) et cite par la docstring de `test_commandes_destructrices`, la citation etant elle-meme controlee : le controle porte sur `docs/base-locale.md` et sur ce module, et l'occurrence de `README.md` ligne 80 — seule du depot ou une commande destructrice figure dans un bloc de commandes sans avertissement — reste consignee pour la phase 6 (D-87) sans qu'aucun constat ne la mentionne (`grep -n README` sur le module : constante wave 1, commentaires, constante de perimetre et docstring seulement). — Mesure : suite complete verte (214 passed) avec `README.md` laisse tel quel.
 - [Phase 5]: [Phase 05-02]: Mesures de la passe de plan : `.venv/Scripts/python.exe -m pytest -q` -> 211 passed (tache 1), 213 passed (tache 2), 214 passed (tache 3) ; `tests/test_docs_base_locale.py` passe de 5 a 9 tests verts ; 10/10 morsures detectees sur copie verte avant mutation (2 + 4 + 4, aucune corrigee : toutes discriminantes a la premiere execution, et les douze mutations contre-mesurees une par une) ; `.data/dofus.sqlite3` identique avant et apres chacune des trois suites ; aucun fichier de `dofus_stuff/**` modifie, `pyproject.toml` inchange ; bookkeeping : `progress.completed_plans` portee de 16 a 17, ROADMAP 05-02 coche. Limites declarees NON revendiquees : execution JavaScript de `PURGE OUI` en navigateur et appreciation « aucune invitation » (backstops du plan, D-85).
+- [Phase 5]: 05-03 : le detecteur de renvois du README est une fonction PURE (renvois_morts(texte, racine, fichier)) et sa morsure vit sur une copie en memoire — aucun fichier du depot n'est ecrit pour prouver qu'il mord ; les cibles externes et les formes interdites (ancre, chemin absolu, antislash, file://) sont ecartees de la resolution, la prohibition restant au module de structure de docs/ (D-12, D-87, D-84).
+- [Phase 5]: 05-03 : la dette D-44 est DENOUEE et non supprimee — deux renvois vers docs/base-locale.md dans docs/parcours-simplifie.md, dont un dans la section « Ce que cette page ne decrit pas », qui nomme toujours la base locale en clair ; la cible existe desormais (D-63, D-86).
+- [Phase 5]: 05-03 : la mesure d'integrite de .data/dofus.sqlite3 est faite par lecture d'octets (taille, mtime_ns, sha256) autour des rendus du module ET autour de la suite complete ; quand la base du depot est absente le controle SAUTE sur un motif nomme (« base locale du depot absente »), jamais un vert silencieux ; la limite L-2 est declaree dans la docstring, la mesure locale etant vraie par construction (D-81, D-89, D-85).
+- [Phase 5]: 05-03 : le module de test ne s'ouvre PAS par `from __future__ import annotations` (piege de la vague 1) et la mutation `data_dir_reel` du plan ajoute une fonction, jamais un import ; 9/9 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre.
 
 ### Pending Todos
 
@@ -184,6 +189,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T23:42:17+02:00
-Stopped at: Phase 5 plan 05-02 complete, ready for wave 3 (05-03)
-Resume file: .planning/phases/05-base-locale-hors-ligne-et-resynchronisation/05-02-SUMMARY.md
+Last session: 2026-09-11T22:02:53.662Z
+Stopped at: Phase 5 complete (3/3 plans) : la base locale est documentee, close et gardee ; phase 6 prete
+Resume file: None
