@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Base locale, hors-ligne et resynchronisation
 status: executing
-stopped_at: Phase 5 plan 05-01 complete, ready for wave 2 (05-02)
-last_updated: "2026-09-11T23:32:00.000Z"
+stopped_at: Phase 5 plan 05-02 complete, ready for wave 3 (05-03)
+last_updated: "2026-09-11T21:44:00.000Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 5 plan 05-01 complete (page de la base locale, deux defauts hors-ligne, champs de l'etat par surface)
+last_activity_desc: Phase 5 plan 05-02 complete (cas non evidents du critere 3 et commandes destructrices du critere 4)
 state_head: c22d3edcfa81793b0af8e1981d4945b66ed3f2ad
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
   percent: 67
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 5 — Base locale, hors-ligne et resynchronisation
-Plan: 1 of 3 — 05-01 livré (page `docs/base-locale.md`, index, deux défauts hors-ligne, champs de l'état par surface)
-Status: Executing — vague 1 livrée, vague 2 (05-02) prête à démarrer
-Last activity: 2026-09-11 — 05-01 complete (3 commits, 13 morsures détectées, `.data/dofus.sqlite3` intact)
+Plan: 2 of 3 — 05-02 livré (cas non évidents du critère 3 : création de la base, refus hors-ligne, synchro web qui contacte l'API ; commandes destructrices du critère 4)
+Status: Executing — vague 2 livrée, vague 3 (05-03) prête à démarrer
+Last activity: 2026-09-11 — 05-02 complete (3 commits, 10 morsures détectées, 214 passed, `.data/dofus.sqlite3` intact)
 
 Progress: [███████░░░] 67%
 
@@ -38,7 +38,7 @@ Progress: [███████░░░] 67%
 
 **Velocity:**
 
-- Total plans completed: 17
+- Total plans completed: 18
 - Average duration: -
 - Total execution time: -
 
@@ -77,6 +77,7 @@ Progress: [███████░░░] 67%
 | Phase 4 P04 | 1min | 2 tasks | 2 files |
 | Phase 4 P3 | 6min | 2 tasks | 5 files |
 | Phase 5 P01 | 14min | 3 tasks | 5 files |
+| Phase 5 P02 | 7min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,12 @@ Recent decisions affecting current work:
 - [Phase 5]: [Phase 05-01]: Les champs de l'etat de la base sont verifies par BIJECTION EXACTE dans les deux sens (chaque libelle produit par `_print_db_status` ou rendu par `GET /db/status` doit etre cite, et chaque libelle cite doit etre produit) ; la comparaison n'est jamais normalisee, car `Entrées :` (ligne de commande) et `ENTREES :` (web) sont deux chaines distinctes du code et l'ecart doit rester observable. La conditionnalite du champ par categorie est MESUREE sur les deux etats (base vide construite sous `tmp_path` et base peuplee de la fixture `app`, chaque base refermee dans un `finally` — sans quoi le nettoyage temporaire echoue sur Windows). — Mesure : morsures `champ_cli_renomme`, `champ_web_renomme`, `categorie_inconditionnelle` detectees (3/3) apres correction du constat de conditionnalite, qui portait le motif de surface sans `MOTIF_CONDITION` et n'etait donc pas retrouve par son motif nomme.
 - [Phase 5]: [Phase 05-01]: Le module neuf ne porte PAS `from __future__ import annotations` : la morsure `import_interdit` insere un import interdit en tete du fichier, et un import `__future__` apres une autre instruction est une erreur de syntaxe (`ast.parse` l'accepte, `compile` la refuse — et c'est `compile` que la reecriture d'assertions de pytest emploie), si bien que le module mourait a la collecte au lieu de produire le constat de sa garde de cloture. Meme regle que les phases precedentes : une morsure qui ne mord pas de maniere discriminante se corrige dans le harnais, jamais en affaiblissant le controle. — Mesure : 7/7 morsures de la tache 1 apres correction (fichier renomme, categorie retiree, ligne d'index retiree, H1 desaligne, import interdit, `DEFAULT_DATA_DIR` comme `data_dir`, confirmation destructive).
 - [Phase 5]: [Phase 05-01]: Mesures de la passe de plan : `.venv/Scripts/python.exe -m pytest -q` -> 207 passed (tache 1), 208 passed (tache 2), 210 passed (tache 3) ; 13/13 morsures detectees sur copie verte avant mutation (7 + 3 + 3) ; `.data/dofus.sqlite3` identique avant et apres les trois suites (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; aucun fichier de `dofus_stuff/**` modifie, `pyproject.toml` inchange. Bookkeeping de ce SUMMARY : `progress.completed_plans` portee de 15 a 16 et `total_plans` de 15 a 18 (la valeur 15 etait en retard d'un plan sur les phases 1 a 4, dont la table By Phase compte 16 plans).
+- [Phase 5]: [Phase 05-02]: Les deux oracles de la creation de la base sont PROTEGES : quand `self.data_dir.mkdir(parents=True, exist_ok=True)` est retire de `Database.open`, `sqlite3.connect` leve `OperationalError: unable to open database file` cote ligne de commande et l'erreur remonte sous `TESTING = True` cote web ; l'appel est donc enferme dans un `try` et l'exception devient un CONSTAT portant `MOTIF_CREATION` (surface, exception, fichier producteur) au lieu d'un traceback. Sans cette protection, la morsure `creation_retiree` rapportait `MUTATION NON DETECTEE` sur un module correct — lecon de la vague 1, reprise telle quelle. La base ouverte cote ligne de commande est refermee par `_sortie_db_status` (`db.close()` en `finally`), sans quoi le nettoyage du dossier temporaire echoue sur Windows (`PermissionError [WinError 32]`). — Mesure : 2/2 morsures detectees, 14 s.
+- [Phase 5]: [Phase 05-02]: Le refus de `db sync --offline` est adosse a TROIS ancrages qui se renforcent, `main()` n'etant jamais execute : le litteral `Erreur : --offline incompatible avec db sync` lu par `ast` dans `dofus_stuff/cli.py` ; la STRUCTURE du refus — un `if <args>.offline:` portant un `return` de valeur 1 dont aucun appel a `ensure_up_to_date` ne descend, donc un refus qui precede l'appel reseau ; et la sonde publique `parse_args(["--offline", "db", "sync"])` rendant `offline is True` et `db_command == "sync"`. — Mesure : morsures `refus_message_renomme` et `refus_desactive` detectees (2/2).
+- [Phase 5]: [Phase 05-02]: L'ecran web de synchronisation est adosse au code ET au rendu : l'appel `ensure_up_to_date` de `dofus_stuff/web/routes.py` doit porter l'argument nomme `offline` egal au litteral `False` (le mode hors-ligne ne s'applique pas a cet ecran, D-79), la phrase `CETTE OPERATION CONTACTE L'API DOFUSDUDE` et l'invite `CONFIRMER ? (O=OUI / N=NON)` sont lues dans l'ecran par `ast` et retrouvees dans le corps rendu de `GET /db/sync` apres normalisation (l'apostrophe sort en `&#39;`), et un quatrieme controle lit le module de test lui-meme pour refuser tout appel `post` — aucun POST n'est emis vers `/db/sync` ni `/db/clear`. — Mesure : morsures `synchro_web_hors_ligne_retire` et `corps_confirmation_renomme` detectees (2/2).
+- [Phase 5]: [Phase 05-02]: Les commandes destructrices sont reconnues LIGNE A LIGNE sur le texte entier de la page (D-80) et leur cible reelle est distinguee : la ligne 129 porte `db clear` (alias de cache) avec marque destructrice, « base locale », les deux `DELETE` lus dans le code et la phrase « le fichier n'est pas supprimé » ; la ligne 131 porte `PURGE OUI` avec marque destructrice et « sauvegardes du navigateur » — jamais « la base ». La reconnaissance exige l'avertissement sur CHAQUE ligne porteuse, l'absence de tout bloc de commandes de la console et l'absence de jeton destructeur dans toute ligne d'exemple, et la section dit que ces commandes ne sont l'etape d'aucun parcours. — Mesure : morsures `bloc_console_ajoute`, `ligne_sans_avertissement_added`, `purge_cible_confondue` detectees (3/3 avec `effet_clear_retire`, 25 s).
+- [Phase 5]: [Phase 05-02]: Le perimetre du critere 4 est ECRIT dans le module (`LIMITE_PERIMETRE`) et cite par la docstring de `test_commandes_destructrices`, la citation etant elle-meme controlee : le controle porte sur `docs/base-locale.md` et sur ce module, et l'occurrence de `README.md` ligne 80 — seule du depot ou une commande destructrice figure dans un bloc de commandes sans avertissement — reste consignee pour la phase 6 (D-87) sans qu'aucun constat ne la mentionne (`grep -n README` sur le module : constante wave 1, commentaires, constante de perimetre et docstring seulement). — Mesure : suite complete verte (214 passed) avec `README.md` laisse tel quel.
+- [Phase 5]: [Phase 05-02]: Mesures de la passe de plan : `.venv/Scripts/python.exe -m pytest -q` -> 211 passed (tache 1), 213 passed (tache 2), 214 passed (tache 3) ; `tests/test_docs_base_locale.py` passe de 5 a 9 tests verts ; 10/10 morsures detectees sur copie verte avant mutation (2 + 4 + 4, aucune corrigee : toutes discriminantes a la premiere execution, et les douze mutations contre-mesurees une par une) ; `.data/dofus.sqlite3` identique avant et apres chacune des trois suites ; aucun fichier de `dofus_stuff/**` modifie, `pyproject.toml` inchange ; bookkeeping : `progress.completed_plans` portee de 16 a 17, ROADMAP 05-02 coche. Limites declarees NON revendiquees : execution JavaScript de `PURGE OUI` en navigateur et appreciation « aucune invitation » (backstops du plan, D-85).
 
 ### Pending Todos
 
@@ -177,6 +184,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T23:29:34+02:00
-Stopped at: Phase 5 plan 05-01 complete, ready for wave 2 (05-02)
-Resume file: .planning/phases/05-base-locale-hors-ligne-et-resynchronisation/05-01-SUMMARY.md
+Last session: 2026-09-11T23:42:17+02:00
+Stopped at: Phase 5 plan 05-02 complete, ready for wave 3 (05-03)
+Resume file: .planning/phases/05-base-locale-hors-ligne-et-resynchronisation/05-02-SUMMARY.md

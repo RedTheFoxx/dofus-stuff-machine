@@ -204,7 +204,7 @@ Plans:
 Plans:
 
 - [x] 05-01: Rédiger `docs/base-locale.md` (fichier, catégories, fenêtre 24 h, deux défauts hors-ligne, champs de l'état de la base) et son entrée d'index
-- [ ] 05-02: Couvrir les cas non évidents (création du fichier par `db status`, `db sync` refusé avec `--offline`, synchro web qui contacte l'API) et les avertissements destructifs sur la même ligne
+- [x] 05-02: Couvrir les cas non évidents (création du fichier par `db status`, `db sync` refusé avec `--offline`, synchro web qui contacte l'API) et les avertissements destructifs sur la même ligne
 - [ ] 05-03: Ajouter les contrôles d'ancrage de la page base locale (noms de champs produits par le code, aucun accès `.data/`, aucun réseau)
 
 ### Phase 6: Dépannage, glossaire, complétude et preuve finale
