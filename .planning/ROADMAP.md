@@ -30,7 +30,7 @@ outils interpréteraient sinon comme un chantier frontend.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Socle documentaire, installation et harnais vérifiable** - Le lecteur trouve la doc depuis le `README.md`, installe l'outil, lance CLI et web ; les invariants documentaires et l'ancrage au code sont vérifiés dès les deux premières pages (completed 2026-09-11)
-- [ ] **Phase 2: Référence CLI alignée sur le parseur** - `docs/cli.md` documente des commandes, options et exemples réellement analysables par `fetcher.py`
+- [x] **Phase 2: Référence CLI alignée sur le parseur** - `docs/cli.md` documente des commandes, options et exemples réellement analysables par `fetcher.py` (completed 2026-09-11)
 - [ ] **Phase 3: Parcours simplifié documenté depuis le rendu réel** - Le flux classe → éléments → niveau, la lecture du résultat, la sauvegarde/export et les hypothèses de l'outil sont décrits tels qu'ils s'affichent
 - [ ] **Phase 4: Wizard avancé et résorption de la dette `GUIDE_WIZARD`** - `docs/wizard-avance.md` devient la source unique du flux avancé, et `GUIDE_WIZARD.md` ne contredit plus le produit
 - [ ] **Phase 5: Base locale, hors-ligne et resynchronisation** - Le fichier SQLite, la fenêtre de re-check 24 h, les deux défauts hors-ligne et les commandes destructrices sont expliqués sans être exécutés
@@ -111,7 +111,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03: Ajouter le contrôle bidirectionnel des exemples (présence verbatim + analyse par le parseur) et la garde « commande destructrice jamais dans un parcours »
+- [x] 02-03: Ajouter le contrôle bidirectionnel des exemples (présence verbatim + analyse par le parseur) et la garde « commande destructrice jamais dans un parcours »
 
 ### Phase 3: Parcours simplifié documenté depuis le rendu réel
 
@@ -216,7 +216,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
-| 2. Référence CLI alignée sur le parseur | 3/3 | In Progress|  |
+| 2. Référence CLI alignée sur le parseur | 3/3 | Complete    | 2026-09-11 |
 | 3. Parcours simplifié documenté depuis le rendu réel | 0/4 | Not started | - |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
 | 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |
