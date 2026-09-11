@@ -7,9 +7,9 @@ Le menu principal du produit, lui, garde son arborescence réelle :
 ```text
 1. RECHERCHE D'OBJETS
 2. LISTE DES EQUIPEMENTS
-3. PANOPLIES
+3. LISTE DES PANOPLIES
 
-4. OPTIMISATION
+4. OPTIMISATION DE STUFF
 5. SYSTEME
 ```
 
