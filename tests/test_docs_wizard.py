@@ -701,6 +701,58 @@ def renvois_obsoletes(texte: str, faits: dict) -> list[str]:
     return constats
 
 
+# --- Arborescence de l'aiguillage : egalite avec le menu rendu (CR-01 de `04-REVIEW.md`) ---
+#
+# Le detecteur `renvois_obsoletes` juge un jeton de menu par **appartenance de mots significatifs**
+# (`_mots_significatifs`). Cette tolerance est **voulue** : D-47 fixe des formes abreges dans
+# l'aiguillage corrige, et une comparaison d'egalite les declarerait fautives
+# (`test_renvois_legitimes_non_signales`). C'est aussi ce qui a laisse passer `3. PANOPLIES` et
+# `4. OPTIMISATION` sous la phrase « l'arborescence reelle » : `{PANOPLIES}` et `{OPTIMISATION}`
+# recoupent les libelles rendus, donc aucun constat. La valeur attendue de D-47 a d'ailleurs ete lue
+# au **routage** (`menu_post`, qui ne porte aucun libelle) et non au **corps rendu**, qui les porte.
+#
+# Le controle ci-dessous est donc **complementaire et plus strict** : l'egalite apres la
+# normalisation du depot (D-11), label contre label, contre le menu rendu par `GET /` (D-36). Il ne
+# touche ni la regle d'appartenance du detecteur, ni sa morsure.
+
+
+def _constats_arborescence(texte: str, menus: dict[int, str], normalize) -> list[str]:
+    """Constats sur les lignes `N. LIBELLE` d'un texte, comparees au menu **rendu** (CR-01, D-47).
+
+    Le texte arrive en clair, jamais comme un chemin : c'est ce qui rend la morsure mesurable sur une
+    **copie mutee en memoire** du fichier livre, sans jamais ecrire un fichier de documentation.
+
+    Chaque ligne `N. LIBELLE` est comparee au libelle que `GET /` rend pour ce numero, par **egalite**
+    apres la normalisation du depot (D-11). Une forme abregée partageant un mot avec le libelle rendu
+    — `3. PANOPLIES` contre `3. LISTE DES PANOPLIES` — est donc signalee ici alors que le detecteur,
+    par tolerance voulue, ne la signale pas.
+    """
+    constats: list[str] = []
+    arborescence: list[tuple[int, str]] = []
+    for ligne in texte.splitlines():
+        trouve = MOTIF_LIGNE_MENU_RENDU.match(ligne)
+        if trouve is not None:
+            arborescence.append((int(trouve.group("numero")), trouve.group("libelle").strip()))
+    if not arborescence:
+        constats.append(
+            f"{MOTIF_ARBORESCENCE} : le texte controle ne porte aucune ligne `N. LIBELLE` ; attendu "
+            f"l'arborescence des entrees du menu principal, celui que GET / rend et que construit "
+            f"{SOURCE_ROUTES} (menu)"
+        )
+    for numero, libelle in arborescence:
+        rendu = menus.get(numero, "")
+        if rendu and normalize(libelle) == normalize(rendu):
+            continue
+        constats.append(
+            f"{MOTIF_ARBORESCENCE} : la ligne « {numero}. {libelle} » n'est pas le libelle rendu du "
+            f"menu {numero} ; le rendu de GET / associe {numero} a « {rendu or 'aucun libelle'} », "
+            f"construit par {SOURCE_ROUTES} (menu). Attendu le libelle **rendu**, compare normalise "
+            f"(D-11) : le detecteur, lui, juge par appartenance de mots significatifs et laisse donc "
+            f"passer une forme abregée (D-47)"
+        )
+    return constats
+
+
 def _couples_de_table(sous_texte: str, motif: re.Pattern[str]) -> dict[int, str]:
     """Couples numero -> libelle cites par une table de la page, une ligne de tableau par couple."""
     couples: dict[int, str] = {}
@@ -2414,6 +2466,9 @@ NOM_PAGE_WIZARD = "wizard-avance"
 MOTIF_AIGUILLAGE_BRUYANT = "aiguillage qui decrit encore le wizard"
 MOTIF_LIEN_PRODUIT = "renvoi produit vers un fichier non indexe"
 MOTIF_LIEN_AIGUILLAGE = "aiguillage sans lien vers la page"
+# Motif de morsure du controle d'egalite de l'arborescence (CR-01) : la comparaison d'egalite que le
+# detecteur, par tolerance voulue de D-47, ne fait pas.
+MOTIF_ARBORESCENCE = "arborescence dont un libelle n'est pas celui du menu rendu"
 
 # Cibles de liens markdown d'un texte, telles qu'ecrites entre parentheses : la comparaison porte sur
 # la cible du fichier, jamais sur une cible reecrite.
@@ -2564,6 +2619,103 @@ def test_aiguillage_et_readme(docs_dir: Path, app, normalize) -> None:
         + f" ; attendu un aiguillage d'au plus {LIGNES_MAX_AIGUILLAGE} lignes portant un seul `H1`, un "
         f"lien vers {CIBLE_AIGUILLAGE} et un lien vers {CIBLE_SOMMAIRE}, sans aucun enonce de contenu, "
         f"et un {README} sans renvoi produit et avec un seul lien vers le sommaire (D-46/D-48/D-62)"
+    )
+
+
+def test_arborescence_de_l_aiguillage_egale_le_menu_rendu(docs_dir: Path, app, normalize) -> None:
+    """L'arborescence de `GUIDE_WIZARD.md` porte les libelles que le menu **rend** (CR-01, D-47).
+
+    C'est le seul controle du module qui compare un libelle de l'aiguillage au libelle **rendu**, par
+    egalite, apres la normalisation du depot (D-11). Le detecteur `renvois_obsoletes` juge, lui, un
+    jeton de menu par appartenance de mots significatifs : tolerance voulue, sans laquelle le texte
+    que D-47 prescrit serait declare fautif (`test_renvois_legitimes_non_signales`), et c'est cette
+    meme tolerance qui a laisse passer `3. PANOPLIES` sous une phrase annoncant « l'arborescence
+    reelle » (revue de la phase 4, CR-01). L'attente est donc lue au **rendu** de `GET /` (D-36), et
+    non au routage : `menu_post` ne porte aucun libelle, c'est lui qui avait ete lu.
+
+    Limite honnete : le controle porte sur les lignes `N. LIBELLE` de l'aiguillage ; une arborescence
+    ecrite sans numero (`| 3 | PANOPLIES |`) n'y serait pas mesuree.
+    """
+    chemin = docs_dir.parent / GUIDE_WIZARD
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : aiguillage introuvable ({chemin}) ; attendu le fichier de la racine "
+            f"dont l'arborescence est comparee label contre label au menu rendu (D-47)"
+        )
+    menus = _faits_du_rendu(app, normalize)["menus"]
+    constats = _constats_arborescence(chemin.read_text(encoding="utf-8"), menus, normalize)
+
+    assert not constats, (
+        f"{GUIDE_WIZARD} : constats sur l'arborescence de l'aiguillage : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque ligne `N. LIBELLE` egale, apres la normalisation du depot (D-11), au "
+        f"libelle que le menu rend pour ce numero ({SOURCE_ROUTES}, corps de menu)"
+    )
+
+
+# Mutations de l'arborescence : les deux formes abreges trouvees par la revue de la phase 4 (CR-01),
+# que le detecteur, par tolerance voulue, ne signale pas. Chaque couple est (forme rendue, forme
+# abregée) : la mutation substitue la seconde a la premiere dans une **copie en memoire** du fichier
+# livre, jamais sur le fichier lui-meme.
+MUTATIONS_ARBORESCENCE = (
+    ("3. LISTE DES PANOPLIES", "3. PANOPLIES"),
+    ("4. OPTIMISATION DE STUFF", "4. OPTIMISATION"),
+)
+
+
+def test_arborescence_abregee_signalee_par_le_controle(docs_dir: Path, app, normalize) -> None:
+    """La morsure du controle d'arborescence est prouvee par mutation (CR-01, arbitrage D-59b).
+
+    Le temoin est mesure d'abord : le texte **livre** est conforme. Chaque mutation s'applique ensuite
+    a une **copie en memoire** du fichier — le fichier du depot n'est jamais ecrit — et doit produire
+    au moins un constat. Sans cette preuve, un controle d'egalite vert ne dirait pas qu'il mord : les
+    deux formes abreges de `MUTATIONS_ARBORESCENCE` sont exactement celles que la suite laissait
+    passer avant la revue, et elles doivent desormais etre refusees.
+
+    Limite honnete : ce controle prouve la morsure sur les deux formes nommees ; il ne revendique
+    aucune exhaustivite sur les facons d'ecrire une arborescence fautive.
+    """
+    chemin = docs_dir.parent / GUIDE_WIZARD
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : aiguillage introuvable ({chemin}) ; attendu le fichier de la racine "
+            f"dont la morsure du controle d'arborescence est mesuree par mutation (CR-01)"
+        )
+    texte = chemin.read_text(encoding="utf-8")
+    menus = _faits_du_rendu(app, normalize)["menus"]
+
+    temoin = _constats_arborescence(texte, menus, normalize)
+    if temoin:
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : le texte livre est deja signale par le controle d'arborescence : "
+            + " ; ".join(temoin)
+            + " ; attendu un texte conforme avant toute mutation, sans quoi la morsure mesuree "
+            "porterait sur le fichier livre et non sur la mutation"
+        )
+
+    constats: list[str] = []
+    for rendue, abregee in MUTATIONS_ARBORESCENCE:
+        if rendue not in texte:
+            constats.append(
+                f"{GUIDE_WIZARD} : la ligne « {rendue} » est absente du texte livre ({chemin}) ; "
+                f"attendu le libelle rendu par GET /, seule cible possible de la mutation "
+                f"« {abregee} » ({SOURCE_ROUTES}, corps de menu)"
+            )
+            continue
+        mute = _constats_arborescence(texte.replace(rendue, abregee), menus, normalize)
+        if not mute:
+            constats.append(
+                f"{MOTIF_ARBORESCENCE} : la copie mutee portant « {abregee} » au lieu de "
+                f"« {rendue} » n'est signalee par aucun constat ; attendu au moins un constat, sans "
+                f"quoi les formes abreges que le detecteur tolere (D-47) passeraient une seconde fois "
+                f"sous une phrase annoncant « l'arborescence reelle » (CR-01 de 04-REVIEW.md)"
+            )
+
+    assert not constats, (
+        f"{GUIDE_WIZARD} : constats sur la morsure du controle d'arborescence : "
+        + " ; ".join(constats)
+        + f" ; attendu un texte conforme, et chaque mutation de {MUTATIONS_ARBORESCENCE} signalee par "
+        f"le controle d'egalite adosse au rendu de {SOURCE_ROUTES} (menu)"
     )
 
 
