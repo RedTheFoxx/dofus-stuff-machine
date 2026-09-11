@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import html
+import re
+import unicodedata
+from pathlib import Path
+
 import pytest
 
 from dofus_stuff.catalog import Catalog
@@ -108,3 +113,23 @@ def app(catalog: Catalog, tmp_path):
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+def _normalize(text: str) -> str:
+    """Normalise un libellé pour comparaison (D-11) : entités HTML, accents, casse, espaces."""
+    text = html.unescape(text)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+@pytest.fixture(scope="session")
+def docs_dir() -> Path:
+    """Racine du dossier docs/ du dépôt, indépendante du répertoire courant."""
+    return Path(__file__).resolve().parents[1] / "docs"
+
+
+@pytest.fixture(scope="session")
+def normalize():
+    """Expose _normalize aux modules de test sans import inter-modules."""
+    return _normalize
