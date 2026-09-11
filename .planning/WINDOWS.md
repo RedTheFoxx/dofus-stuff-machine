@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 1
+open_count: 2
 waived_count: 0
 fixed_count: 0
-total_count: 1
-last_updated: 2026-09-11T10:24:55.610Z
+total_count: 2
+last_updated: 2026-09-11T12:19:29.230Z
 ---
 
 # Broken Windows Ledger
@@ -16,6 +16,7 @@ last_updated: 2026-09-11T10:24:55.610Z
 | id | phase | kind | file | line | description | status | reason | recorded_at | resolved_at |
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 01 | stub | docs/installation.md | 1 | Squelette D-01 volontairement partiel : contenu complet livre par le plan 01-02 | open |  | 2026-09-11T10:24:55.610Z |  |
+| 2 | 2 | deviation | docs/cli.md | 1 | Ecart assume avec .claude/CLAUDE.md DOCS-06 (tableau unique commande->role->exemple) : la page suit D-16/D-17/D-18 (une section par sous-commande, tables d'options par section, aucune table recapitulative unique) | open |  | 2026-09-11T12:19:29.230Z |  |
 
 ````json
 [
@@ -29,6 +30,18 @@ last_updated: 2026-09-11T10:24:55.610Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-11T10:24:55.610Z",
+    "resolved_at": null
+  },
+  {
+    "id": 2,
+    "kind": "deviation",
+    "phase": "2",
+    "file": "docs/cli.md",
+    "line": 1,
+    "description": "Ecart assume avec .claude/CLAUDE.md DOCS-06 (tableau unique commande->role->exemple) : la page suit D-16/D-17/D-18 (une section par sous-commande, tables d'options par section, aucune table recapitulative unique)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-11T12:19:29.230Z",
     "resolved_at": null
   }
 ]

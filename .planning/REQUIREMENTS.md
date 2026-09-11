@@ -38,9 +38,9 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Référence CLI
 
-- [ ] **CLI-01** : Chaque sous-commande documentée de `fetcher.py` est réellement analysable par le parseur d'arguments du code — dérivé de DOCS-06
-- [ ] **CLI-02** : Chaque option globale et chaque option d'optimisation documentée est réellement analysable par le parseur — dérivé de DOCS-06
-- [ ] **CLI-03** : Chaque exemple de commande cité dans `docs/cli.md` est analysable et apparaît verbatim dans la page — dérivé de DOCS-06
+- [x] **CLI-01** : Chaque sous-commande documentée de `fetcher.py` est réellement analysable par le parseur d'arguments du code — dérivé de DOCS-06
+- [x] **CLI-02** : Chaque option globale et chaque option d'optimisation documentée est réellement analysable par le parseur — dérivé de DOCS-06
+- [x] **CLI-03** : Chaque exemple de commande cité dans `docs/cli.md` est analysable et apparaît verbatim dans la page — dérivé de DOCS-06
 
 ### Base locale et hors-ligne
 
@@ -119,9 +119,9 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | WIZ-01 | Phase 4 | Pending |
 | WIZ-02 | Phase 4 | Pending |
 | WIZ-03 | Phase 4 | Pending |
-| CLI-01 | Phase 2 | Pending |
-| CLI-02 | Phase 2 | Pending |
-| CLI-03 | Phase 2 | Pending |
+| CLI-01 | Phase 2 | Complete |
+| CLI-02 | Phase 2 | Complete |
+| CLI-03 | Phase 2 | Complete |
 | BASE-01 | Phase 5 | Pending |
 | BASE-02 | Phase 5 | Pending |
 | BASE-03 | Phase 5 | Pending |

@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Référence CLI alignée sur le parseur
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-09-11T12:13:46.334Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-09-11T12:19:48.170Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 1 complete, transitioned to Phase 2
-state_head: 2f876e90c387164125d4732342b384e2ab162aa6
+last_activity_desc: Phase 2 execution started
+state_head: dcb65bc34e5a142dbd1d6cf7d1f5601c74a25409
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 17
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-10)
 
 **Core value:** Un utilisateur qui n'a jamais vu le projet peut installer l'outil, lancer le flux simplifié classe → éléments → niveau, lire son résultat et retrouver chaque commande/menu cité dans le code réel — sans lire le code et sans rencontrer de documentation périmée.
-**Current focus:** Phase 1 — Socle documentaire, installation et harnais vérifiable
+**Current focus:** Phase 2 — Référence CLI alignée sur le parseur
 
 ## Current Position
 
-Phase: 2 (Référence CLI alignée sur le parseur) — READY TO EXECUTE
-Plan: Not started
+Phase: 2 (Référence CLI alignée sur le parseur) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-09-11 — Phase 1 complete, transitioned to Phase 2
+Last activity: 2026-09-11 — Phase 2 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -62,6 +62,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 1 P02 | 4min | 2 tasks | 2 files |
 | Phase 01 P03 | 3min | 2 tasks | 1 files |
 | Phase 1 P04 | 2 min | 2 tasks | 1 files |
+| Phase 2 P01 | 3min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,10 @@ Recent decisions affecting current work:
 - [Phase 1]: [Phase 1]: Chaque derive injectee doit etre nommee dans le message de l'invariant qui la refuse (any(cible injectee in probleme ...)) : un harnais casse pour une autre raison ne peut pas faire passer le test de mutation (critere de succes 5)
 - [Phase 1]: [Phase 1]: Les quatre helpers de gabarit (pages_listees, problemes_h1, problemes_retour_sommaire, problemes_encodage) restent des fonctions pures parametrees par docs_dir, donc executables contre l'arbre livre et contre une copie tmp_path sans dupliquer la logique
 - [Phase 1]: tests/test_docs_code_anchor.py ancré sur le produit : chemins source, commandes fetcher.py hors-ligne, adresse derivee du parseur, options web verifiees des deux cotes, libelles ancres sur la ligne porteuse
+- [Phase 2]: [Phase 2]: docs/cli.md suit le gabarit de la phase 1 (H1 unique, phrase d'introduction, sections courtes, bloc Source de verite accentue, ligne de retour) ; Options globales precede ## version pour que la mutation option inventee de 02-02 tombe dans le perimetre de la garde non vide, et Source de verite reste la derniere section avant la ligne de retour
+- [Phase 2]: [Phase 2]: Le mode interactif (python fetcher.py --offline optimize) est decrit en prose et dans aucun bloc console : le temoin marque de l'ordre global-avant-sous-commande reste unique (--offline optimize --demo) et la mutation d'ordre de 02-03 t1 garde son motif
+- [Phase 2]: [Phase 2]: Les trois descriptions verbatim de l'aide (Afficher l'état de la base, Forcer la synchronisation complète, Vider la base locale) sont citees une seule fois, dans ## db ; ## cache declare l'alias et renvoie a cette section sans en reprendre aucune (D-20) ; db sync et cache fill reecrivent la base et exigent le reseau mais ne portent pas le jeton destructeur (classement A2)
+- [Phase 2]: [Phase 2]: La regle de docs/installation.md « toutes les commandes portent --offline » n'est pas reconduite sur la page CLI (mesure M5 : --offline db sync sort en code 1) ; le renvoi vers la future page base-locale est fait en prose sans lien markdown, pour ne pas creer de cible morte sous problemes_liens
 
 ### Pending Todos
 
@@ -104,6 +109,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T11:03:05.437Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-r-f-rence-cli-align-e-sur-le-parseur/02-CONTEXT.md
+Last session: 2026-09-11T12:19:48.144Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
