@@ -48,7 +48,13 @@ def problemes_liens(docs_dir: Path) -> list[str]:
     for page in _pages(docs_dir):
         nom = page.relative_to(docs_dir.parent).as_posix()
         for cible in LINK.findall(page.read_text(encoding="utf-8")):
-            if cible.startswith(LIENS_EXTERNES) or cible.startswith("#"):
+            if cible.startswith(LIENS_EXTERNES):
+                continue
+            if "#" in cible:
+                problemes.append(
+                    f"{nom} : ancre interdite : {cible} ; attendu un lien de fichier a "
+                    f"fichier vers une page de {docs_dir.name}/ (D-01, T-01-04)"
+                )
                 continue
             if cible.startswith("/") or MOTIF_ABSOLU.match(cible):
                 problemes.append(
@@ -152,7 +158,7 @@ def test_no_anchor_or_absolute_links(docs_dir: Path) -> None:
         for cible in LINK.findall(page.read_text(encoding="utf-8")):
             if cible.startswith(LIENS_EXTERNES):
                 continue
-            if cible.startswith("#"):
+            if "#" in cible:
                 problemes.append(
                     f"{nom} : ancre interdite : {cible} ; attendu un lien de fichier a "
                     f"fichier vers une page de {docs_dir.name}/ (T-01-04)"
