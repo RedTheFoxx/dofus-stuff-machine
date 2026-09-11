@@ -1,6 +1,7 @@
 """Invariants de structure de la documentation utilisateur (sans import du produit)."""
 
 import re
+import shutil
 from pathlib import Path
 
 LINK = re.compile(r"\[[^\]]*\]\((?P<target>[^)\s]+)\)")
@@ -498,4 +499,76 @@ def test_normalisation_insensible_aux_accents_et_casse(normalize) -> None:
     assert normalize("a\r\nb") == normalize("a\nb"), (
         "normalisation : les fins de ligne CRLF et LF doivent donner la meme valeur "
         f"normalisee ; attendu la normalisation de {reference}"
+    )
+
+
+def test_mutation_detecte_les_trois_derives(tmp_path: Path, docs_dir: Path, normalize) -> None:
+    """Trois derives injectees dans une copie de docs/ sont detectees, l'arbre livre restant sain (critere 5)."""
+    copie = tmp_path / "docs"
+    shutil.copytree(docs_dir, copie)
+
+    sain = (
+        problemes_liens(docs_dir)
+        + problemes_index(docs_dir)
+        + problemes_h1(docs_dir, normalize)
+    )
+    assert sain == [], (
+        "docs/ livre deja en derive avant toute mutation ; attendu un arbre sain garde "
+        "par tests/test_docs_structure.py (critere 5, GARD-01)\n" + "\n".join(sain)
+    )
+
+    page = copie / "installation.md"
+    livree = docs_dir / "installation.md"
+
+    # Derive (a) : ligne de retour devenue un lien mort dans la copie.
+    page.write_text(
+        page.read_text(encoding="utf-8").replace("(sommaire.md)", "(sommaire.mrd)"),
+        encoding="utf-8",
+    )
+    liens = problemes_liens(copie)
+    assert any("sommaire.mrd" in probleme for probleme in liens), (
+        "copie de docs/ : le lien mort vers sommaire.mrd injecte dans installation.md "
+        "n'est pas detecte par problemes_liens() ; attendu un probleme nommant la "
+        "cible injectee (critere 5, GARD-01)\n" + "\n".join(liens)
+    )
+
+    # Derive (b) : page presente dans la copie mais absente de l'index du sommaire.
+    (copie / "glossaire.md").write_text(
+        "# Glossaire\r\n\r\nPage injectee par le test de mutation.\r\n", encoding="utf-8"
+    )
+    index = problemes_index(copie)
+    assert any("glossaire.md" in probleme for probleme in index), (
+        "copie de docs/ : la page glossaire.md non listee dans sommaire.md n'est pas "
+        "detectee par problemes_index() ; attendu un probleme nommant glossaire.md "
+        "(critere 5, GARD-01)\n" + "\n".join(index)
+    )
+
+    # Derive (c) : H1 divergent du libelle d'index, dans la copie seulement.
+    page.write_text(
+        page.read_text(encoding="utf-8").replace("# Installation", "# Installation provisoire", 1),
+        encoding="utf-8",
+    )
+    titres = problemes_h1(copie, normalize)
+    assert any("Installation provisoire" in probleme for probleme in titres), (
+        "copie de docs/ : le H1 divergent « Installation provisoire » injecte dans "
+        "installation.md n'est pas detecte par problemes_h1() ; attendu un probleme "
+        "nommant le H1 injecte (critere 5, SOMM-03, D-11)\n" + "\n".join(titres)
+    )
+
+    # L'arbre livre n'a pas ete touche : la mutation ne vit que dans tmp_path (T-01-07).
+    texte_livre = livree.read_text(encoding="utf-8")
+    assert "(sommaire.md)" in texte_livre, (
+        f"docs/installation.md livre : la ligne de retour vers sommaire.md a disparu de "
+        f"{livree.as_posix()} ; attendu un arbre livre intact, la mutation ne s'appliquant "
+        f"qu'a {copie.as_posix()} (T-01-07, critere 5)"
+    )
+    assert texte_livre.startswith("# Installation"), (
+        f"docs/installation.md livre : le H1 « # Installation » a disparu de "
+        f"{livree.as_posix()} ; attendu un arbre livre intact, la mutation ne s'appliquant "
+        f"qu'a {copie.as_posix()} (T-01-07, critere 5)"
+    )
+    assert not (docs_dir / "glossaire.md").exists(), (
+        f"docs/glossaire.md : page injectee presente dans l'arbre livre : "
+        f"{(docs_dir / 'glossaire.md').as_posix()} ; attendu cette page uniquement dans la "
+        f"copie jetable, jamais sous docs/ (T-01-07, critere 5)"
     )
