@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Base locale, hors-ligne et resynchronisation
 status: executing
-stopped_at: "Phase 5 complete (3/3 plans) : la base locale est documentee, close et gardee ; phase 6 prete"
-last_updated: "2026-09-11T22:03:01.847Z"
+stopped_at: "Phase 5 plan 05-04 complete : critere 1 ferme (quatre conditions reelles du declencheur dans docs/base-locale.md, controle qui les mesure, base absente bornee) ; les 4 plans de la phase 5 sont executes"
+last_updated: "2026-09-11T22:33:43.082Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 5 plan 05-03 complete (renvois du README resolus, dette D-44 denouee, page close, integrite de .data/ mesuree) — les 3 plans de la phase 5 sont executes
-state_head: 703f2ed1d0c50c78d18840ee2482c1bdd2bd2d51
+last_activity_desc: Phase 5 plan 05-04 complete (critere 1 ferme : les quatre conditions reelles du declencheur sont dites par docs/base-locale.md, mesurees par un nouveau controle qui mord, et la base absente est bornee) — les 4 plans de la phase 5 sont executes
+state_head: b6bc8321f6144202d1134e2ab1ea3515b0a2f0de
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 19
+  completed_plans: 19
   percent: 67
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 5 — Base locale, hors-ligne et resynchronisation
-Plan: 3 of 3 — phase 5 entièrement livrée (05-01 la page, 05-02 les cas non évidents et les commandes destructrices, 05-03 la clôture : renvois du `README.md`, dette D-44 dénouée, page close, intégrité de `.data/` mesurée). Vérification de phase à jouer.
-Status: Executing — les 3 plans de la phase 5 sont livrés (vagues 1 à 3), `/gsd:verify-work` reste à jouer
-Last activity: 2026-09-11 — 05-03 complete (3 commits, 9/9 morsures détectées, 218 passed, `.data/dofus.sqlite3` intact)
+Plan: 4 of 4 — phase 5 entièrement livrée (05-01 la page, 05-02 les cas non évidents et les commandes destructrices, 05-03 la clôture : renvois du `README.md`, dette D-44 dénouée, page close, intégrité de `.data/` mesurée, et 05-04 la fermeture du gap du critère 1 : les quatre conditions réelles du déclencheur dites par la page et **mesurées** par un contrôle qui mord). Vérification de phase à jouer.
+Status: Executing — les 4 plans de la phase 5 sont livrés (vagues 1 à 3 puis la fermeture de gap 05-04), `/gsd:verify-work` reste à jouer
+Last activity: 2026-09-11 — 05-04 complete (2 commits, 3/3 morsures détectées + contrôle rouge sur la page d'avant correction, 219 passed, `.data/dofus.sqlite3` intact)
 
-Progress: [████████░░] 83% (18/18 plans exécutés ; 4 phases closes, la 5e attend sa vérification)
+Progress: [███████░░░] 67% (19/19 plans exécutés ; 4 phases closes, la 5e attend sa vérification)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [████████░░] 83% (18/18 plans exécutés ; 4 phase
 | Phase 5 P01 | 14min | 3 tasks | 5 files |
 | Phase 5 P02 | 7min | 3 tasks | 2 files |
 | Phase 5 P03 | 9 | 3 tasks | 1 files |
+| Phase 5 P04 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -169,6 +170,8 @@ Recent decisions affecting current work:
 - [Phase 5]: 05-03 : la dette D-44 est DENOUEE et non supprimee — deux renvois vers docs/base-locale.md dans docs/parcours-simplifie.md, dont un dans la section « Ce que cette page ne decrit pas », qui nomme toujours la base locale en clair ; la cible existe desormais (D-63, D-86).
 - [Phase 5]: 05-03 : la mesure d'integrite de .data/dofus.sqlite3 est faite par lecture d'octets (taille, mtime_ns, sha256) autour des rendus du module ET autour de la suite complete ; quand la base du depot est absente le controle SAUTE sur un motif nomme (« base locale du depot absente »), jamais un vert silencieux ; la limite L-2 est declaree dans la docstring, la mesure locale etant vraie par construction (D-81, D-89, D-85).
 - [Phase 5]: 05-03 : le module de test ne s'ouvre PAS par `from __future__ import annotations` (piege de la vague 1) et la mutation `data_dir_reel` du plan ajoute une fonction, jamais un import ; 9/9 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre.
+- [Phase 5]: 05-04 (fermeture du critere 1) : la page dit les quatre conditions reelles du declencheur lues dans dofus_stuff/sync.py:32 (fenetre ecoulee, base vide, aucun dernier controle enregistre, --force-sync), le cas de non-contact est dit pour ce qu'il est, et l'affirmation de la base absente est bornee par la limite mesuree de la ligne de commande (sync.py:43) sans contredire la section de la ligne de commande. Mesure : 219 passed, `.data/dofus.sqlite3` intact (24989696:1788730056843137500:e3793d64cb79...), dofus_stuff/** non modifie (D-88).
+- [Phase 5]: 05-04 : le controle du declencheur mesure le CODE avant de juger la page — six cas sur des bases construites sous tmp_path, dofus_stuff.sync.fetch_version et pull_all remplaces par des doubles compteurs avant l'appel, chargement par Catalog.load (jamais ensure_up_to_date, refuse par APPELS_SYNCHRO_PRODUIT) ; les contacts attendus sont 0/1/1/1/1/0 et le cas hors-ligne leve en portant le message reel de sync.py:43. La prohibition des marques d'exclusivite de la fenetre est CONDITIONNEE a la mesure qui la contredit (un contact sur une base vide a fenetre fraiche), jamais une liste en dur ; le message de l'assertion finale ne porte aucun des trois motifs, sans quoi une morsure matcherait sur une implementation aveugle (T-05-20). Preuve de voyance : sur une copie de la page livree par 05-03 le controle est ROUGE pour trois constats independants (1 failed, 12 passed, 1 skipped) ; 3/3 morsures detectees sur copie verte avant mutation, aucune corrigee.
 
 ### Pending Todos
 
@@ -189,6 +192,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T22:02:53.662Z
-Stopped at: Phase 5 complete (3/3 plans) : la base locale est documentee, close et gardee ; phase 6 prete
+Last session: 2026-09-11T22:33:43.024Z
+Stopped at: Phase 5 plan 05-04 complete : critere 1 ferme (quatre conditions reelles du declencheur dans docs/base-locale.md, controle qui les mesure, base absente bornee) ; les 4 plans de la phase 5 sont executes
 Resume file: None
