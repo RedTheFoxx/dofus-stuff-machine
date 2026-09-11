@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Parcours simplifie documente depuis le rendu reel
 status: executing
-stopped_at: "Completed 03-03-PLAN.md (sauvegarde et export : limite ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur ; suite verte a 181 tests)"
-last_updated: "2026-09-11T17:03:17.618Z"
+stopped_at: Completed 03-04-PLAN.md (les deux sections d'hypotheses et de limites, la cloture de la page en neuf sections CRLF sans BOM et l'empreinte .data/ intacte autour de la suite entiere ; 186 tests verts)
+last_updated: "2026-09-11T17:24:17.856Z"
 last_activity: 2026-09-11
-last_activity_desc: Phase 3 plan 03-03 complete
-state_head: 045d93a0ca2e124569ef75f617054867a1876ec4
+last_activity_desc: Plan 03-04 complete (neuf sections closes, empreinte .data/ identique autour de la suite entiere, 186 tests verts)
+state_head: 75619402665f15418a4c1c9acf5df26fda4cf22e
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 33
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 3 (Parcours simplifie documente depuis le rendu reel) — EXECUTING
-Plan: 3 of 4 (03-03 complete)
+Plan: 4 of 4 (03-03 complete)
 Status: Ready to execute
-Last activity: 2026-09-11 — Plan 03-03 complete (section « Sauvegarder et exporter » ; limite de sauvegarde ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur : 16 emplacements, prysma exclue ; 181 tests verts)
+Last activity: 2026-09-11 — Plan 03-04 complete (neuf sections closes, empreinte .data/ identique autour de la suite entiere, 186 tests verts)
 
 Progress: [███░░░░░░░] 33%
 
@@ -69,6 +69,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 3 P01 | 7min | 3 tasks | 4 files |
 | Phase 03 P02 | 6min | 2 tasks | 2 files |
 | Phase 03 P03 | 4min | 2 tasks | 2 files |
+| Phase 03 P04 | 17 min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,9 @@ Recent decisions affecting current work:
 - [Phase 3]: [Phase 3 03-03]: L'export est prouve par la surface publique pure `build_dofusbook_url` : 17 emplacements fournis (les seize exportes plus la `prysma`), charge utile decodee de forme [caracs(51), points(51), niveau, flags, counts(10), ids], `sum(counts) == 16` et identifiant 999 absent des `ids`. L'ordre des dix groupes n'est PAS re-teste car deja prouve par tests/test_web.py:713-750 (D-12, cite en commentaire) ; le nombre cite par la page est celui du calcul, jamais un 16 ecrit de memoire, et l'URL d'import est lue sur l'attribut public du module par `importlib` puis exigee entre accents graves (D-01, adresse technique et non lien externe).
 - [Phase 3]: [Phase 3 03-03]: Le rendu du resultat est obtenu sans poster la saisie `DB` (injection de `optimize_result_lines` dans la session, patron de tests/test_web.py:668-671) et le module porte sa propre garde `ast` (`test_aucun_post_db_sans_patch`) interdisant tout import de `webbrowser` et tout appel dont l'argument nomme `data` porte un dictionnaire litteral `cmd=DB` : la suite ne peut pas lancer de navigateur (T-12), et le comportement reste couvert, patche, par tests/test_web.py:668. Le motif de morsure est porte par une constante du module (`MOTIF_EMPREINTE_EXPORT`) et jamais ecrit en clair dans la ligne d'assertion : pytest reproduit la ligne source du `assert` dans sa sortie, un motif en clair y serait trouve meme sans qu'aucun constat soit produit.
 - [Phase 3]: [Phase 3 03-03]: Mesures de la passe de tache : `.venv/Scripts/python.exe -m pytest -q` -> 181 passed (178 avant ce plan) ; les six morsures des deux batteries (2 pour t1, 4 pour t2) rapportent toutes « mutation detectee » sur une copie verte verifiee avant mutation, et la batterie de t1 a ete rejouee apres t2 (toujours 2/2) ; sur la mutation de l'export la sortie montre des constats reels (« 17 pour 17 emplacements fournis ; attendu 16 », identifiant 999 present) et non un echo de ligne source ; .data/dofus.sqlite3 identique (24 989 696 octets, mtime_ns 1788730056843137500) ; le module de test passe a 12 tests.
+- [Phase 3]: [Phase 3 03-04]: Les hypotheses de loutil sont MESUREES par balayage sur la surface publique pure (capital 5 * (niveau - 1), cibles PA/PM aux niveaux de bordure 39/40, 99/100, 149/150, 200), les quatre ensembles de classes sont extraits par ast et le nombre de classes sans objectif (9) est calcule : deplacer un seuil ou retirer une classe rougit sans que la page change (D-42). Les heuristiques de classe sont presentees comme telles, avec le commentaire du code exige a cote de la tournure « preferences de style de jeu » (ECR-3). — docs/parcours-simplifie.md, tests/test_docs_parcours.py, plan 03-04 taches 1 et 2 ; mesure : 186 passed apres le plan, morsures 4/4 en tache 1 et 4/4 en tache 2
+- [Phase 3]: [Phase 3 03-04]: La section des limites est adossee au code (modes de compatibilite de score.py, filtre de plausibilite de candidates.py, profondeur top_k=40, coupe url[:COLS] de routes.py:1336) et ne cite aucun nombre de trois chiffres ou plus hors la valeur de COLS lue dans screens.py:5 ; une morsure mesuree a montre quun titre derive rend la regle scopee inoperante, d ou une garde NON scopee conservee a cote (aucun nombre de quatre chiffres ou plus dans la page). RF-2 est traite : la page cite len-tete rendu (OPT-SIMPLE / RECOMMANDATION DE STUFF) et un controle le relit par _entete, le code exige comme mot entier. — mesure : morsure chiffre_volatile (le sed du plan renomme le titre) et deux morsures RF-2 (page sans OPT-SIMPLE, pgm derive en OPT-SIMPL) ; 0 nombre a quatre chiffres dans la page
+- [Phase 3]: [Phase 3 03-04]: La page est close sur ses neuf sections (CRLF sans BOM, un seul H1, ligne de retour, aucun bloc console, aucun lien externe ni vers wizard-avance.md / base-locale.md) et lempreinte de .data/dofus.sqlite3 (taille, mtime_ns, sha256) est identique avant et apres la suite ENTIERE : 24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b. La re-mesure locale du module est nommee pour ce quelle mesure (conftest construit sa base sous tmp_path, donc elle ne peut pas detecter une ecriture dun autre module) et la morsure de la mesure est demontree sur une COPIE temporaire, jamais sur .data/ (T-17, T-18). — mesure : 186 passed, 11/11 morsures du plan + 2/2 RF-2, base du depot reference 24989696 / 1788730056843137500 inchangee
 
 ### Pending Todos
 
@@ -150,6 +154,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T17:03:17.552Z
-Stopped at: Completed 03-03-PLAN.md (sauvegarde et export : limite ancree sur les litteraux du JS, eviction silencieuse dite honnetement, export Dofusbook prouve pur ; suite verte a 181 tests)
+Last session: 2026-09-11T17:23:48.113Z
+Stopped at: Completed 03-04-PLAN.md (les deux sections d'hypotheses et de limites, la cloture de la page en neuf sections CRLF sans BOM et l'empreinte .data/ intacte autour de la suite entiere ; 186 tests verts)
 Resume file: None

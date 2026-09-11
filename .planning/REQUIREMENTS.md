@@ -25,10 +25,10 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 ### Flux simplifié (cœur de la valeur produit)
 
-- [ ] **SIMP-01** : Un lecteur peut ouvrir l'optimisation depuis le menu réel et dérouler les trois questions (classe → éléments → niveau), avec les entrées acceptées et les messages d'erreur réels — dérivé de DOCS-04
+- [x] **SIMP-01** : Un lecteur peut ouvrir l'optimisation depuis le menu réel et dérouler les trois questions (classe → éléments → niveau), avec les entrées acceptées et les messages d'erreur réels — dérivé de DOCS-04
 - [x] **SIMP-02** : Un lecteur peut lire son résultat : pagination, emplacement réel des informations de calcul, correspondance des libellés abrégés à l'écran — dérivé de DOCS-04
 - [x] **SIMP-03** : Un lecteur peut sauvegarder un stuff dans son navigateur et l'exporter vers Dofusbook — dérivé de DOCS-04
-- [ ] **SIMP-04** : Un lecteur sait ce que l'outil suppose (répartition des points, paliers, heuristiques) et ce qu'il ne fait pas — dérivé de DOCS-04
+- [x] **SIMP-04** : Un lecteur sait ce que l'outil suppose (répartition des points, paliers, heuristiques) et ce qu'il ne fait pas — dérivé de DOCS-04
 
 ### Flux avancé (wizard)
 
@@ -112,10 +112,10 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | INST-01 | Phase 1 | Complete |
 | INST-02 | Phase 1 | Complete |
 | INST-03 | Phase 1 | Complete |
-| SIMP-01 | Phase 3 | Pending |
+| SIMP-01 | Phase 3 | Complete |
 | SIMP-02 | Phase 3 | Complete |
 | SIMP-03 | Phase 3 | Complete |
-| SIMP-04 | Phase 3 | Pending |
+| SIMP-04 | Phase 3 | Complete |
 | WIZ-01 | Phase 4 | Pending |
 | WIZ-02 | Phase 4 | Pending |
 | WIZ-03 | Phase 4 | Pending |
