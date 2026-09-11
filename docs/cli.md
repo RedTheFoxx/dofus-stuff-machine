@@ -155,9 +155,31 @@ Gérer la base locale.
 python fetcher.py --offline db status
 ```
 
+| Sous-commande | Rôle |
+|---------------|------|
+| `status` | Afficher l'état de la base |
+| `stats` | alias de `status`, sans description dans l'aide du parseur |
+| `sync` | Forcer la synchronisation complète |
+| `fill` | alias de `sync`, sans description dans l'aide du parseur |
+| `clear` | Vider la base locale |
+
+Les sous-commandes `stats` et `fill` n'ont **pas de description dans l'aide** du parseur : elles y apparaissent sous la forme littérale `==SUPPRESS==`. Elles ne sont pas pour autant absentes du parseur, qui les accepte : `stats` équivaut à `status` (lecture seule) et `fill` à `sync` (réécriture avec le réseau), d'après la table d'alias de `dofus_stuff/cli.py`.
+
+Les deux sous-commandes de synchronisation — `db sync` et `cache fill` — réécrivent la base locale à partir de l'API et exigent donc **le réseau** : elles sont incompatibles avec `--offline`, et une telle commande sort avec le code de retour 1 et le message suivant. Ce sont les seules commandes de cette page qui ne s'emploient pas hors-ligne.
+
+```text
+Erreur : --offline incompatible avec db sync
+```
+
+### `db clear`, commande destructrice
+
+Les commandes destructrices `db clear` et `cache clear` vident **entièrement** la base locale : `DELETE FROM items` puis `DELETE FROM meta`, sans aucune confirmation (source : `dofus_stuff/database.py`).
+
+Ces commandes ne sont l'étape d'aucun parcours de cette page et aucun bloc d'exemple n'en contient : les lancer détruit la base locale, qui doit ensuite être resynchronisée depuis l'API. Aucun fichier n'est supprimé du disque, c'est la base locale qui est vidée.
+
 ## cache
 
-`cache` est le second nom des mêmes sous-commandes que `db` : la forme `cache <sous-commande>` est équivalente à `db <sous-commande>`.
+`cache` est le second nom de `db` : la forme `cache <sous-commande>` équivaut à `db <sous-commande>`, avec les mêmes options et les mêmes valeurs par défaut. Les cinq sous-commandes sont décrites une seule fois, dans la section `db` ci-dessus.
 
 ```console
 python fetcher.py --offline cache status
