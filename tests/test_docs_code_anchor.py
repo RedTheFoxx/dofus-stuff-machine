@@ -6,8 +6,10 @@ ouverte : les contrôles passent par les parseurs publics et par la lecture des 
 
 from __future__ import annotations
 
+import io
 import re
 import shlex
+from contextlib import redirect_stderr
 from pathlib import Path
 
 from dofus_stuff.cli import build_parser as build_cli_parser
@@ -21,6 +23,12 @@ SOURCE_CLI = "dofus_stuff/cli.py"
 # Bloc « Source de vérité » de la page d'installation (D-01, D-03).
 TITRE_SOURCE = "## Source de vérité"
 CHEMIN_CITE = re.compile(r"`(?P<chemin>[\w./-]+\.(?:py|toml))`")
+
+# Section de lancement de l'interface web : la page y cite la surface d'entree du parseur web.
+TITRE_LANCEMENT_WEB = "## Lancement de l'interface web"
+OPTION_CITEE = re.compile(r"`(?P<option>--[a-z][a-z-]*)`")
+OPTION_LONGUE = re.compile(r"--[a-z][a-z-]*")
+JETON_AIDE = "--help"
 
 TITRE_H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
 DELIMITEUR_CODE = re.compile(r"^\s*```")
@@ -88,6 +96,27 @@ def _section(texte: str, titre: str) -> str:
         f"{PAGE} : section « {titre} » introuvable ; attendu un titre de niveau 2 "
         f"« ## {attendu} » dans la page ({PAGE})"
     )
+
+
+def _option_acceptee(parser, option: str) -> bool:
+    """Vrai si le parseur accepte `option`, seule ou portee par une valeur (D-14 : parse_args public).
+
+    Les valeurs d'essai couvrent les options a valeur entiere (`1`), a valeur libre (`x`) et les
+    drapeaux sans valeur : une option inventee par la page est refusee par les trois essais.
+    """
+    for argv in ([option], [option, "1"], [option, "x"]):
+        try:
+            with redirect_stderr(io.StringIO()):
+                parser.parse_args(argv)
+        except SystemExit:
+            continue
+        return True
+    return False
+
+
+def _options_aide_web() -> set[str]:
+    """Options longues de l'aide publique du parseur web, hors `--help` (D-14 : format_help public)."""
+    return set(OPTION_LONGUE.findall(build_parser().format_help())) - {JETON_AIDE}
 
 
 def _lignes_de_code(texte: str) -> list[str]:
@@ -212,6 +241,30 @@ def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> N
                 f"réservé au développement ; attendu « {MENTION_DEVELOPPEMENT} » dans la même "
                 f"section (source : {SOURCE_WEB}::build_parser())"
             )
+
+
+def test_options_citees_par_la_page_sont_acceptees_par_le_parseur(docs_dir: Path) -> None:
+    """La page est la source des options citees : chacune est acceptee par le parseur web (D-14)."""
+    texte = (docs_dir / PAGE).read_text(encoding="utf-8")
+    citees = set(OPTION_CITEE.findall(_section(texte, TITRE_LANCEMENT_WEB)))
+    assert citees, (
+        f"{PAGE} : aucune option « --… » citee par la section « {TITRE_LANCEMENT_WEB} » ; "
+        f"attendu la surface d'entree du parseur {SOURCE_WEB}::build_parser()"
+    )
+
+    parser = build_parser()
+    inventees = sorted(option for option in citees if not _option_acceptee(parser, option))
+    assert not inventees, (
+        f"{PAGE} : option(s) citee(s) par la section « {TITRE_LANCEMENT_WEB} » mais refusee(s) "
+        f"par le parseur : {', '.join(inventees)} ; attendu chaque option citee acceptee par "
+        f"{SOURCE_WEB}::build_parser().parse_args()"
+    )
+
+    surface = _options_aide_web()
+    assert citees == surface, (
+        f"{PAGE} : surface citee par la section « {TITRE_LANCEMENT_WEB} » = {sorted(citees)} ; "
+        f"attendu la surface de {SOURCE_WEB}::build_parser().format_help() = {sorted(surface)}"
+    )
 
 
 def test_libelles_cites_sont_produits_par_le_code(docs_dir: Path) -> None:
