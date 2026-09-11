@@ -164,6 +164,39 @@ Le **seul** refus de cet écran est le message rendu quand la saisie n'est ni `C
 
 Un identifiant **sans préfixe**, par exemple `12345`, tombe dans ce cas et est donc refusé, alors que `+12345` ne l'est pas.
 
+## Touches et commandes
+
+Chaque écran du wizard porte sa propre barre de touches, et les libellés de cette barre changent d'un bout à l'autre du parcours. Ils ne sont pas choisis par l'écran, mais par ce qui existe autour de lui : `F7` n'affiche `Precedent` que lorsqu'un écran précédent existe, et `F8` n'affiche `Suivant` que lorsqu'un écran suivant existe. Voici ce que les neuf écrans rendent :
+
+| Étape | `F7` | `F8` | `ESC` |
+| --- | --- | --- | --- |
+| 1. `SLOTS ET FILTRES` (`slots`) | `Page prec` | `Suivant` | `Retour` |
+| 2. `OPTIONS SOLVEUR` (`options`) | `Precedent` | `Suivant` | `Retour` |
+| 3. `CARACTERISTIQUES` (`caracs`) | `Precedent` | `Suivant` | `Retour` |
+| 4. `PA / PM / PO` (`papmpo`) | `Precedent` | `Suivant` | `Retour` |
+| 5. `RESISTANCES` (`resistances`) | `Precedent` | `Suivant` | `Retour` |
+| 6. `DOMMAGES` (`damages`) | `Precedent` | `Suivant` | `Retour` |
+| 7. `DIVERS` (`misc`) | `Precedent` | `Suivant` | `Retour` |
+| 8. `ITEMS INTERDITS / FORCES` (`items`) | `Precedent` | `Suivant` | `Retour` |
+| 9. `RECAPITULATIF` (`recap`) | `Precedent` | `Page suiv` | `Retour` |
+
+Aux deux extrémités, il n'y a pas d'écran voisin de ce côté : l'étape 1 n'a pas de précédent et rend `Page prec`, l'étape 9 n'a pas de suivant et rend `Page suiv`. Entre les deux, les étapes 2 à 8 rendent `Precedent` et `Suivant`. Une barre de touches ne dit donc pas à quelle famille appartient l'écran : elle dit seulement où l'on peut aller. `ESC`, lui, porte `Retour` sur les neuf.
+
+Le récapitulatif porte une particularité mesurée : il rend `Page suiv` alors qu'il n'a **aucune pagination**. La touche se comporte comme un `Suivant` sans destination ; pour quitter le récapitulatif, ce sont les commandes ci-dessous qui agissent.
+
+### Les commandes du récapitulatif
+
+Sous ses listes, le récapitulatif annonce ses commandes : `GO = LANCER`, `RESET = REINITIALISER`, `1-8 = RETOUR ECRAN` et `SAVES = STUFFS SAUVEGARDES`.
+
+| Saisie | Ce qu'elle fait |
+| --- | --- |
+| `GO` | lance le calcul ; le résultat remplace l'écran. L'entrée vide fait la même chose. |
+| `RESET` | remet le wizard à zéro (`WIZARD REINITIALISE`) et ramène au premier écran, les emplacements. |
+| `SAVES` | ouvre les stuffs sauvegardés ; la casse est ignorée. |
+| `1` à `8` | ramène à l'écran qui porte ce numéro dans la liste des neuf étapes. Le récapitulatif lui-même n'a pas de chiffre. |
+
+Toute autre saisie est refusée, et la ligne de statut porte alors la liste `GO | RESET | SAVES | 1-8`. Les écrans de sauvegarde et l'export ne sont pas décrits ici : ils appartiennent à [le parcours simplifié](parcours-simplifie.md).
+
 ## Exemple guidé
 
 Objectif : un premier stuff **Intelligence** au niveau `123`. L'exemple ne fait que ce que les écrans acceptent, et il passe par le chemin d'arrivée réel décrit plus haut.

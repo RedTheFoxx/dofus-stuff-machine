@@ -20,8 +20,11 @@ revendique aucune exhaustivite de la redaction.
 from __future__ import annotations
 
 import ast
+import hashlib
 import re
 from pathlib import Path
+
+import pytest
 
 from dofus_stuff.model.solver_spec import SLOT_GROUPS, TYPE_FILTER_KEYS
 from dofus_stuff.web.optimize_wizard import (
@@ -54,6 +57,7 @@ TITRE_SLOTS = "## Slots et filtres"
 TITRE_OPTIONS = "## Les 11 options du solveur"
 TITRE_NOMBRES = "## Les quatre nombres d'une ligne"
 TITRE_ITEMS = "## Interdire, forcer, retirer un objet"
+TITRE_TOUCHES = "## Touches et commandes"
 TITRE_EXEMPLE = "## Exemple guidé"
 TITRE_SOURCE = "## Source de vérité"
 
@@ -64,6 +68,7 @@ TITRES_SECTION_ATTENDUS = (
     TITRE_OPTIONS,
     TITRE_NOMBRES,
     TITRE_ITEMS,
+    TITRE_TOUCHES,
     TITRE_EXEMPLE,
     TITRE_SOURCE,
 )
@@ -150,6 +155,14 @@ MOTIF_LIGNE_MENU = re.compile(r"^\s*(?P<numero>\d)\.\s+(?P<libelle>OPTIMISATION.
 MOTIF_LIGNE_AVANCE = re.compile(r"^(?P<mot>AVANCE)\s*:\s*(?P<libelle>.+?)\s*$")
 MOTIF_LIGNE_QUESTION = re.compile(r"^(?P<rang>[1-3])/3\s*-\s*(?P<question>.+?)\s*$")
 
+# Ligne de tableau de la page associant une etape a ses trois couples touche/libelle :
+# `| 1. `SLOTS ET FILTRES` (`slots`) | `Page prec` | `Suivant` | `Retour` |`, tel que la barre de
+# raccourcis le rend (`dofus_stuff/web/routes.py:137-141`).
+MOTIF_LIGNE_TOUCHES = re.compile(
+    r"^\|\s*(?P<numero>\d{1,2})\.\s*`(?P<titre>[^`]+)`\s*\(`(?P<etape>[a-z]+)`\)\s*"
+    r"\|\s*`(?P<f7>[^`]+)`\s*\|\s*`(?P<f8>[^`]+)`\s*\|\s*`(?P<esc>[^`]+)`\s*\|\s*$"
+)
+
 # Commandes annoncees par le corps du recapitulatif (`GO = LANCER`, `RESET = REINITIALISER`,
 # `1-8 = RETOUR ECRAN`, `SAVES = STUFFS SAUVEGARDES`) et la forme sous laquelle la page les cite.
 # Les couples d'une meme ligne rendue sont separes par au moins deux espaces
@@ -163,6 +176,15 @@ SEPARATEUR_COMMANDES = re.compile(r"\s{2,}")
 # guide migre n'en contient aucun. Le motif est celui deja employe par la garde de la page
 # d'installation (`tests/test_docs_structure.py`), repris ici pour la seule section de l'exemple.
 COMMANDE_DESTRUCTRICE = re.compile(r"\bdb\s+clear\b")
+
+# Base locale du depot : lue pour y prendre une empreinte, jamais modifiee (T-04-08). La mesure locale
+# de ce module est nommee pour ce qu'elle mesure : `tests/conftest.py` construit sa propre base sous
+# `tmp_path/data`, aucun test de la suite n'ouvre ce chemin, donc cette re-mesure ne peut pas detecter
+# une ecriture faite par un autre module. Le controle qui possede ce pouvoir est la mesure avant/apres
+# autour de la suite entiere, executee par la verification du plan.
+BASE_LOCALE = (".data", "dofus.sqlite3")
+MOTIF_BASE_ABSENTE = "base locale absente : la mesure d'empreinte n'a pas d'objet"
+MOTIF_EMPREINTE_CHANGEE = "empreinte de la base locale changee"
 
 # Etat vide cite par la page, lu a cote de la phrase qui le porte.
 MOTIF_ETAT_VIDE_CITE = re.compile(r"l'état vide `(?P<etat>\([^`]+\))`")
@@ -188,6 +210,9 @@ MOTIF_ORDRE_ETAPES = "ordre de WIZARD_STEPS"
 MOTIF_ARRIVEE = "arrivee du wizard"
 MOTIF_IDENTIFIANT_ECRAN = "identifiant d'ecran"
 MOTIF_EXEMPLE = "exemple guide"
+MOTIF_TOUCHE = "couple touche/libelle"
+MOTIF_COMMANDE_RECAP = "commande du recapitulatif"
+MOTIF_COMMANDE_NUMERIQUE = "commande numerique"
 
 # Racines dont un import signalerait un risque reel : ouvrir la base, lancer un processus, ouvrir une
 # socket, joindre le reseau. Le controle porte sur le risque, jamais sur une liste blanche de modules
@@ -359,6 +384,35 @@ def _couples_de_commandes(lignes: list[str]) -> dict[str, str]:
             if trouve is not None:
                 couples[trouve.group("cle")] = trouve.group("verbe").strip()
     return couples
+
+
+def _touches_citees(corps: str) -> dict[int, dict[str, str]]:
+    """Couples touche -> libelle cites par la table des touches, indexes par numero d'etape.
+
+    La table de la page porte une ligne par etape ; chaque ligne cite les trois couples de cette
+    etape. Une ligne qui ne porte pas exactement cette forme n'entre pas dans le dictionnaire, donc
+    une ligne manquante ou deformee ne peut pas passer pour une citation.
+    """
+    citees: dict[int, dict[str, str]] = {}
+    for ligne in corps.splitlines():
+        trouve = MOTIF_LIGNE_TOUCHES.match(ligne)
+        if trouve is not None:
+            citees[int(trouve.group("numero"))] = {
+                "F7": trouve.group("f7").strip(),
+                "F8": trouve.group("f8").strip(),
+                "ESC": trouve.group("esc").strip(),
+            }
+    return citees
+
+
+def _empreinte(chemin: Path) -> tuple[int, int, str]:
+    """Empreinte `(taille, mtime_ns, sha256)` d'un fichier, pour comparer deux instants (T-04-08).
+
+    Les trois composantes sont rendues pour qu'un ecart dise laquelle a bouge : le SHA-256 porte le
+    contenu, `mtime_ns` porte la modification a contenu identique. Le fichier est lu, jamais ecrit.
+    """
+    octets = chemin.read_bytes()
+    return (len(octets), chemin.stat().st_mtime_ns, hashlib.sha256(octets).hexdigest())
 
 
 def _options_du_rendu(lignes: list[str]) -> dict[int, str]:
@@ -1685,4 +1739,168 @@ def test_exemple_guide_ancre_au_rendu(docs_dir: Path, app, normalize, section) -
         + f" ; attendu les trois editions de l'{MOTIF_EXEMPLE} rejouees sur le rendu de {SOURCE_WIZARD}, "
         f"leurs lignes rendues citees par la section « {TITRE_EXEMPLE} », et le libelle de lancement lu "
         f"dans le corps du recapitulatif"
+    )
+
+
+def test_touches_et_commandes_par_etape(docs_dir: Path, app, normalize, section) -> None:
+    """Les couples touche/libelle et les commandes du recapitulatif sont lus au rendu (D-64, WIZ-02).
+
+    Les couples sont exiges **par etape**, extremites comprises : l'etape 1 rend `Page prec` et
+    `Suivant`, les etapes 2 a 8 rendent `Precedent` et `Suivant`, l'etape 9 rend `Precedent` et
+    `Page suiv`, et `ESC` porte `Retour` sur les neuf. Aucune assertion de ce module n'exige
+    `Precedent`/`Suivant` sur les neuf etapes : une telle assertion contredirait le rendu des
+    extremites et l'affirmation de `docs/parcours-simplifie.md:140` (D-64, Pitfall 2).
+
+    Les commandes du recapitulatif sont prouvees par l'**action** — `RESET`, `SAVES` et les chiffres
+    `1` a `8` sont postes et leurs redirections comparees a `WIZARD_STEPS[n - 1]` lu au code — et par
+    le **rendu** : les quatre libelles du corps sont exiges dans la page. `GO` est le seul qui n'est
+    jamais poste, car il execute le solveur (`{SOURCE_ROUTES}`) : seule sa citation est controlee.
+
+    Limite nommee (sonde d'aretes WIZ-02, ligne `unclassified`, qui reste `unresolved`) : ce controle
+    porte sur les couples `F7`/`F8`/`ESC` des neuf etapes et sur les quatre commandes du corps du
+    recapitulatif. Aucune exhaustivite de la surface des touches n'est revendiquee : une touche rendue
+    hors de ces couples resterait hors du controle.
+    """
+    texte = _texte_page(docs_dir)
+    corps = section(texte, TITRE_TOUCHES, PAGE)
+    constats: list[str] = []
+
+    # 1. Les couples touche/libelle, etape par etape, lus dans la barre que le rendu produit.
+    citees = _touches_citees(corps)
+    if sorted(citees) != list(range(1, len(WIZARD_STEPS) + 1)):
+        constats.append(
+            f"{PAGE} : la table des touches couvre les etapes {sorted(citees)} ; attendu les "
+            f"{len(WIZARD_STEPS)} etapes numerotees 1 a {len(WIZARD_STEPS)}, une ligne par etape "
+            f"({MOTIF_TOUCHE})"
+        )
+    for numero, etape in enumerate(WIZARD_STEPS, start=1):
+        rendues = dict(_touches(app.test_client().get(f"/optimize/wizard/{etape}")))
+        citee = citees.get(numero, {})
+        for touche in ("F7", "F8", "ESC"):
+            attendu = rendues.get(touche, "")
+            cite = citee.get(touche, "")
+            if attendu != cite:
+                constats.append(
+                    f"{PAGE} : {MOTIF_TOUCHE} de l'etape {numero} ({etape}) — la touche « {touche} » "
+                    f"est citee « {cite} » ; attendu « {attendu} », lu dans la barre de raccourcis "
+                    f"rendue par /optimize/wizard/{etape} ({SOURCE_ROUTES})"
+                )
+
+    # 2. Les quatre libelles annonces par le corps du recapitulatif, exiges dans la section.
+    recap = app.test_client().get("/optimize/wizard/recap")
+    annoncees = _couples_de_commandes(_lignes_du_corps(recap))
+    citees_commandes = {
+        trouve.group("cle").strip(): trouve.group("verbe").strip()
+        for trouve in MOTIF_COMMANDE_CITEE.finditer(corps)
+    }
+    if not annoncees:
+        constats.append(
+            f"{PAGE} : {MOTIF_COMMANDE_RECAP} — le corps du recapitulatif n'annonce aucune commande "
+            f"sous la forme `CLE = VERBE` ; attendu les libelles de {SOURCE_WIZARD} (body_recap)"
+        )
+    if annoncees != citees_commandes:
+        constats.append(
+            f"{PAGE} : {MOTIF_COMMANDE_RECAP} — la section « {TITRE_TOUCHES} » cite "
+            f"{citees_commandes} ; attendu {annoncees}, les libelles lus dans le corps du "
+            f"recapitulatif ({SOURCE_WIZARD})"
+        )
+
+    # 3. Les commandes agissantes : RESET, SAVES et les chiffres, postes puis compares a leur cible.
+    for commande, attendue, motif in (
+        ("RESET", "/optimize/wizard/slots", MOTIF_COMMANDE_RECAP),
+        ("saves", "/saves", MOTIF_COMMANDE_RECAP),
+    ):
+        client = app.test_client()
+        client.get("/optimize/wizard/recap")
+        reponse = client.post("/optimize/wizard/recap", data={"cmd": commande})
+        cible = reponse.headers.get("Location", "")
+        if reponse.status_code != 302 or cible != attendue:
+            constats.append(
+                f"{PAGE} : {motif} — la saisie « {commande} » du recapitulatif repond "
+                f"{reponse.status_code} vers « {cible} » ; attendu « {attendue} », la redirection "
+                f"posee par {SOURCE_ROUTES}"
+            )
+
+    for chiffre in range(1, len(WIZARD_STEPS)):
+        attendue = f"/optimize/wizard/{WIZARD_STEPS[chiffre - 1]}"
+        client = app.test_client()
+        client.get("/optimize/wizard/recap")
+        reponse = client.post("/optimize/wizard/recap", data={"cmd": str(chiffre)})
+        cible = reponse.headers.get("Location", "")
+        if reponse.status_code != 302 or cible != attendue:
+            constats.append(
+                f"{PAGE} : {MOTIF_COMMANDE_NUMERIQUE} — le chiffre « {chiffre} » du recapitulatif "
+                f"repond {reponse.status_code} vers « {cible} » ; attendu « {attendue} », soit "
+                f"WIZARD_STEPS[n - 1] lu dans {SOURCE_WIZARD}"
+            )
+
+    # 4. Une saisie hors liste : la liste rendue dans la ligne de statut, exigee dans la page.
+    refus = app.test_client()
+    refus.get("/optimize/wizard/recap")
+    reponse = refus.post("/optimize/wizard/recap", data={"cmd": "9"})
+    cible = reponse.headers.get("Location", "")
+    if reponse.status_code != 302 or not cible.startswith("/optimize/wizard/recap"):
+        constats.append(
+            f"{PAGE} : {MOTIF_COMMANDE_RECAP} — la saisie « 9 » du recapitulatif repond "
+            f"{reponse.status_code} vers « {cible} » ; attendu un retour sur le recapitulatif, "
+            f"la saisie etant refusee ({SOURCE_ROUTES})"
+        )
+    liste = _message_de_statut(_statut(refus.get("/optimize/wizard/recap")))
+    if normalize(liste) not in normalize(corps):
+        constats.append(
+            f"{PAGE} : {MOTIF_COMMANDE_RECAP} — la section « {TITRE_TOUCHES} » ne cite pas le refus "
+            f"rendu « {liste} » ; attendu la liste que {SOURCE_ROUTES} affiche pour une saisie hors "
+            f"des commandes du recapitulatif"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les touches et les commandes : "
+        + " ; ".join(constats)
+        + f" ; attendu les {MOTIF_TOUCHE} par etape lus au rendu de {SOURCE_ROUTES}, les "
+        f"{MOTIF_COMMANDE_RECAP} du corps du recapitulatif citees, et l'action de {MOTIF_COMMANDE_NUMERIQUE} "
+        f"comparee a WIZARD_STEPS"
+    )
+
+
+def test_data_locale_non_modifiee_autour_des_rendus(docs_dir: Path, app) -> None:
+    """La base locale du depot est intacte autour des rendus reels de ce module (T-04-08).
+
+    Limite nommee, ecrite ici pour ne pas etre lue comme une preuve plus large qu'elle ne l'est :
+    `tests/conftest.py` construit sa propre base sous `tmp_path/data` et aucun test de la suite
+    n'ouvre `.data/dofus.sqlite3`, donc cette re-mesure locale ne peut pas detecter une ecriture faite
+    par un **autre** module ; elle prouve que **ce module** n'y touche pas pendant qu'il rend les
+    ecrans du wizard. Le controle qui possede ce pouvoir est la mesure avant/apres autour de la suite
+    entiere, executee par la verification du plan. Le fichier est lu, jamais ecrit, et un `skip`
+    explicite remplace un faux vert quand la base est absente.
+    """
+    chemin = docs_dir.parent.joinpath(*BASE_LOCALE)
+    if not chemin.exists():
+        pytest.skip(MOTIF_BASE_ABSENTE)
+
+    avant = _empreinte(chemin)
+    constats: list[str] = []
+
+    client = app.test_client()
+    for numero, etape in enumerate(WIZARD_STEPS, start=1):
+        rendu = client.get(f"/optimize/wizard/{etape}")
+        if rendu.status_code != 200:
+            constats.append(
+                f"l'ecran « {etape} » (etape {numero}) repond {rendu.status_code} ; attendu 200, sans "
+                f"quoi la seconde empreinte serait prise sans qu'aucun rendu n'ait eu lieu "
+                f"({SOURCE_ROUTES})"
+            )
+
+    apres = _empreinte(chemin)
+    if avant != apres:
+        constats.append(
+            f"la base locale a change pendant les rendus du wizard : avant {avant}, apres {apres} ; "
+            f"attendu une empreinte identique (taille, mtime_ns, sha256) — le harnais n'ecrit rien "
+            f"sous .data/ ({MOTIF_EMPREINTE_CHANGEE})"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur l'empreinte de la base locale : "
+        + " ; ".join(constats)
+        + f" ; attendu des rendus de {SOURCE_ROUTES} qui ne touchent ni ne modifient "
+        f".data/dofus.sqlite3"
     )
