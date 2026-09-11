@@ -159,6 +159,46 @@ MOTIF_PAGE_CLI = "ne pose pas ces trois questions"
 SOURCE_PROFIL = "dofus_stuff/optimize/profile_input.py"
 MOTS_PROFIL_INTERDITS = (r"\bclasses?\b", r"\belements?\b")
 
+# --- Resultat : pagination, emplacement du calcul, libelles de slot (plan 03-02) ---
+
+# Session du resultat : les quatre elements. Mesure : la fixture rend alors trois pages et les
+# diagnostics tombent en page 2/3, jamais sur la derniere page — d'ou l'assertion POSITIONNELLE.
+ETAT_RESULTAT = {"classe": "Cra", "elements": list(ELEMENTS)}
+NIVEAU_RESULTAT = "200"
+
+# Carte de pagination lue dans la ligne de statut, jamais dans le corps (dofus_stuff/web/routes.py:145).
+MOTIF_PAGE_STATUT = re.compile(r"PAGE (?P<page>\d+)/(?P<total>\d+)")
+
+# Attributs de la coquille qui doivent s'accorder avec la ligne de statut (screen.html:13-14,19).
+ATTRIBUTS_COQUILLE = ("data-body-page", "data-body-total", "data-mode")
+
+# Les trois libelles du bloc de diagnostics (dofus_stuff/optimize/api.py:329,338-340), inseres en fin
+# de resultat par dofus_stuff/optimize/api.py:432-434 pour le flux simplifie.
+MARQUEURS_DIAGNOSTICS = ("Méthode : ", "Score : ", "Indice de recherche : ")
+PHRASE_CATALOGUE = "Recherche sur une sélection du catalogue ; optimalité globale non garantie."
+PREFIXE_EQUIPEMENT = "Équipement :"
+PREFIXE_GREEDY = "Greedy:"
+EMPLACEMENT_VIDE = "(vide)"
+
+# Touches du resultat, mesurees : dofus_stuff/web/routes.py:137-141 produit « Page prec » / « Page
+# suiv » pour le resultat ; « Precedent » / « Suivant » ne sont produits que pour le wizard avance.
+TOUCHES_RESULTAT = (("F7", "Page prec"), ("F8", "Page suiv"), ("ESC", "Retour"))
+TOUCHES_WIZARD = (("F7", "Precedent"), ("F8", "Suivant"))
+
+# Tournure interdite par la reformulation enregistree d'ECR-2 : les diagnostics sont en fin de
+# resultat, jamais « sur la derniere page » (mesure M6 : page 2/3 sur la fixture ; M11 : 6 puis 7
+# pages sur la base reelle). Comparee apres normalisation, comme le reste de la page (D-11).
+TOURNURE_DERNIERE_PAGE = "dernière page"
+
+# Valeurs volatiles : une methode, un score, un indice ou un total figes dans la page seraient faux
+# a la prochaine execution (mesure M11 : deux executions, deux methodes, six puis sept pages).
+MOTIFS_VALEURS_VOLATILES = (
+    r"Score :\s*\d",
+    r"Indice de recherche :\s*\d",
+    r"Greedy:\s*\d",
+    r"Méthode :\s*[a-z]",
+)
+
 # Etat minimal de session par etape, ecrit sous la cle que la vue lit. La forme est mesuree et ne
 # doit pas etre « simplifiee » : injecter les memes cles a la racine de la session laisse l'etat
 # vide et fait repondre une redirection vers `/optimize` a tous les POST d'elements et de niveau,
@@ -621,6 +661,225 @@ def test_couples_numeros_libelles_par_section(docs_dir: Path, app, section, norm
         + f" ; attendu les couples des menus rendus par {SOURCE_ROUTES}:{LIGNE_MENU_CLASSE} et "
         f"{SOURCE_ROUTES}:{LIGNE_MENU_ELEMENTS}, compares section par section, la page non mutee "
         f"etant verte"
+    )
+
+
+def _attribut(reponse, nom: str) -> str | None:
+    """Valeur d'un attribut `data-*` de la coquille, ou None si l'attribut est absent du rendu."""
+    trouve = re.search(rf'{nom}="(?P<valeur>[^"]*)"', reponse.get_data(as_text=True))
+    return None if trouve is None else trouve.group("valeur")
+
+
+def test_pagination_et_emplacement_du_calcul(app, docs_dir, section, normalize) -> None:
+    """La carte de pagination et l'emplacement des diagnostics sont lus sur le rendu reel (V5, V6).
+
+    Le controle est **positionnel**, jamais indexe sur un numero de page : sur la fixture les
+    diagnostics tombent en page 2/3, et la meme execution sur la base reelle donne six puis sept
+    pages pour la meme demande (mesures M6 et M11). Exiger la derniere page serait donc faux sur une
+    implementation correcte — c'est la reformulation enregistree d'ECR-2. Aucune assertion ne porte
+    sur `data-stuff-payload` ni sur la reponse entiere : la charge utile y porte tout le resultat sur
+    chaque page, accents echappes, ce qui rendrait `« Méthode » in response.data` faux sur la page 1
+    et `« Score » in response.data` vrai sur une page qui ne l'affiche pas (mesure M6).
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    # 1. Rendu reel du resultat : un seul calcul de solveur sur la fixture (mesure 0,29 s).
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["recommendation_input"] = dict(ETAT_RESULTAT)
+    reponse = client.post("/optimize/quick/niveau", data={"cmd": NIVEAU_RESULTAT})
+    cible = reponse.headers.get("Location", "")
+    if reponse.status_code != 302 or not cible.endswith("/optimize/result"):
+        constats.append(
+            f"{PAGE} : le calcul du niveau {NIVEAU_RESULTAT} repond {reponse.status_code} vers "
+            f"« {cible} » ; attendu une redirection vers « /optimize/result », seul ecran qui rend "
+            f"la carte de pagination et le bloc de diagnostics ({SOURCE_ROUTES})"
+        )
+    premiere = client.get("/optimize/result")
+    if premiere.status_code != 200:
+        constats.append(
+            f"{PAGE} : l'ecran du resultat repond {premiere.status_code} ; attendu 200, rendu par "
+            f"{SOURCE_ROUTES} (optimize_result)"
+        )
+    if constats:
+        assert not constats, (
+            f"{PAGE} : constat sur le rendu du resultat du parcours simplifie : " + " ; ".join(constats)
+        )
+
+    # 2. Carte de pagination dans la ligne de statut, coherente avec les attributs de la coquille.
+    statut = _statut(premiere)
+    trouve = MOTIF_PAGE_STATUT.search(statut)
+    total: int | None = None
+    if trouve is None:
+        constats.append(
+            f"{PAGE} : la ligne de statut « {statut} » de la premiere page ne porte pas la carte de "
+            f"pagination « PAGE 1/<total> » ; attendu cette carte, posee par {SOURCE_ROUTES}:145 "
+            f"quand le resultat depasse une page"
+        )
+    else:
+        numero_page, total_lu = int(trouve.group("page")), int(trouve.group("total"))
+        total = total_lu
+        if numero_page != 1:
+            constats.append(
+                f"{PAGE} : la premiere page porte « PAGE {numero_page}/{total_lu} » ; attendu "
+                f"« PAGE 1/<total> », comme rendu par {SOURCE_ROUTES}:145"
+            )
+        if total_lu < 2:
+            constats.append(
+                f"{PAGE} : le resultat de la fixture tient sur {total_lu} page(s) ; attendu au moins "
+                f"2, faute de quoi la carte et les touches F7/F8 n'existent pas et ce controle ne "
+                f"mesurerait rien ({SOURCE_ROUTES}:143-146)"
+            )
+
+    attendus_attributs = {
+        "data-body-page": "1",
+        "data-body-total": None if total is None else str(total),
+        "data-mode": "result",
+    }
+    for nom in ATTRIBUTS_COQUILLE:
+        valeur = _attribut(premiere, nom)
+        if valeur is None:
+            constats.append(
+                f"{PAGE} : l'attribut « {nom} » est absent du rendu du resultat ; attendu cet "
+                f"attribut de la coquille, renseigne par {SOURCE_ROUTES} (screen.html)"
+            )
+            continue
+        attendu = attendus_attributs[nom]
+        if attendu is not None and valeur != attendu:
+            constats.append(
+                f"{PAGE} : l'attribut « {nom} » vaut « {valeur} » ; attendu « {attendu} », coherent "
+                f"avec la ligne de statut « {statut} » ({SOURCE_ROUTES}:143-150)"
+            )
+
+    if total is not None:
+        statut_derniere = _statut(client.get(f"/optimize/result?page={total}"))
+        if f"PAGE {total}/{total}" not in statut_derniere:
+            constats.append(
+                f"{PAGE} : la ligne de statut de la page {total} vaut « {statut_derniere} » ; "
+                f"attendu le fragment « PAGE {total}/{total} », comme rendu par {SOURCE_ROUTES}:145"
+            )
+
+    # 3. Barre de touches du resultat, distincte de celle du wizard avance.
+    touches = _touches(premiere)
+    for touche in TOUCHES_RESULTAT:
+        if touche not in touches:
+            constats.append(
+                f"{PAGE} : le couple de touche (« {touche[0]} », « {touche[1]} ») est absent de la "
+                f"barre du resultat ; attendu ce couple rendu par {SOURCE_ROUTES}:137-141"
+            )
+    for touche in TOUCHES_WIZARD:
+        if touche in touches:
+            constats.append(
+                f"{PAGE} : le couple de touche (« {touche[0]} », « {touche[1]} ») est rendu sur le "
+                f"resultat ; attendu les libelles du resultat, ceux du wizard avance etant reserves "
+                f"aux ecrans qui passent f7_url/f8_url ({SOURCE_ROUTES}:137-141)"
+            )
+
+    # 4. Position des diagnostics, sur les pages concatenees dans l'ordre du resultat.
+    if total is not None:
+        toutes: list[str] = []
+        for numero in range(1, total + 1):
+            toutes.extend(_lignes_du_corps(client.get(f"/optimize/result?page={numero}")))
+        equipements = [index for index, ligne in enumerate(toutes) if ligne.startswith(PREFIXE_EQUIPEMENT)]
+        greeds = [index for index, ligne in enumerate(toutes) if ligne.startswith(PREFIXE_GREEDY)]
+        if not equipements:
+            constats.append(
+                f"{PAGE} : aucune ligne « {PREFIXE_EQUIPEMENT} » dans le resultat concatene ; attendu "
+                f"la liste des emplacements rendue par {SOURCE_API}:384"
+            )
+        if not greeds:
+            constats.append(
+                f"{PAGE} : aucune ligne « {PREFIXE_GREEDY} » dans le resultat concatene ; attendu la "
+                f"borne du solveur rendue par {SOURCE_API}:436"
+            )
+        positions = {
+            marqueur: [index for index, ligne in enumerate(toutes) if marqueur in ligne]
+            for marqueur in MARQUEURS_DIAGNOSTICS
+        }
+        for marqueur, ou in positions.items():
+            if not ou:
+                constats.append(
+                    f"{PAGE} : le marqueur « {marqueur} » est absent du resultat concatene ; attendu "
+                    f"ce diagnostic en fin de resultat, apres le dernier « {PREFIXE_EQUIPEMENT} » et "
+                    f"avant « {PREFIXE_GREEDY} », insere par {SOURCE_API}:432-434"
+                )
+                continue
+            if equipements and ou[0] <= equipements[-1]:
+                constats.append(
+                    f"{PAGE} : le marqueur « {marqueur} » apparait avant le dernier "
+                    f"« {PREFIXE_EQUIPEMENT} » (lignes {ou} contre {equipements[-1]}) ; attendu les "
+                    f"diagnostics en fin de resultat ({SOURCE_API}:432-434)"
+                )
+            if greeds and ou[-1] >= greeds[0]:
+                constats.append(
+                    f"{PAGE} : le marqueur « {marqueur} » apparait apres « {PREFIXE_GREEDY} » "
+                    f"(lignes {ou} contre {greeds[0]}) ; attendu les diagnostics avant cette ligne "
+                    f"({SOURCE_API}:432-436)"
+                )
+        if all(positions.values()):
+            dernier_diagnostic = max(max(ou) for ou in positions.values())
+            catalogue = [
+                index for index, ligne in enumerate(toutes) if ligne.strip() == PHRASE_CATALOGUE
+            ]
+            if not catalogue:
+                constats.append(
+                    f"{PAGE} : la phrase « {PHRASE_CATALOGUE} » est absente du resultat concatene ; "
+                    f"attendu cette phrase juste apres le dernier diagnostic ({SOURCE_API}:434)"
+                )
+            elif catalogue[0] != dernier_diagnostic + 1:
+                constats.append(
+                    f"{PAGE} : la phrase du catalogue est en position {catalogue[0]} ; attendu la "
+                    f"position {dernier_diagnostic + 1}, immediatement apres le dernier diagnostic "
+                    f"({SOURCE_API}:432-434)"
+                )
+        if not any(EMPLACEMENT_VIDE in ligne for ligne in toutes):
+            constats.append(
+                f"{PAGE} : aucune ligne du resultat ne porte « {EMPLACEMENT_VIDE} » ; attendu un "
+                f"emplacement vide rendu tel quel par {SOURCE_API}:384-385"
+            )
+
+    # 5. Cote page : la section « Lire le resultat » cite ce que le rendu produit, et ne fige rien.
+    corps_page = section(texte, TITRE_RESULTAT, PAGE)
+    for attendu in (
+        "ENTREE=VALIDER",
+        "F7=Page prec",
+        "F8=Page suiv",
+        "PAGE n/total",
+        "en fin de résultat",
+        PHRASE_CATALOGUE,
+        EMPLACEMENT_VIDE,
+    ):
+        if attendu not in corps_page:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_RESULTAT} » ne cite pas « {attendu} » ; attendu ce "
+                f"fragment du resultat, rendu par {SOURCE_ROUTES}:143-147 et {SOURCE_API}:432-434"
+            )
+    if normalize(TOURNURE_DERNIERE_PAGE) in normalize(corps_page):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_RESULTAT} » dit « {TOURNURE_DERNIERE_PAGE} » ; attendu "
+            f"« en fin de résultat », la position reelle des diagnostics etant relative a la fin du "
+            f"resultat, pas a la derniere page ({SOURCE_API}:432-434)"
+        )
+    for motif in MOTIFS_VALEURS_VOLATILES:
+        trouve_valeur = re.search(motif, corps_page)
+        if trouve_valeur is not None:
+            constats.append(
+                f"{PAGE} : la section « {TITRE_RESULTAT} » fige la valeur "
+                f"« {trouve_valeur.group(0)} » (motif {motif!r}) ; attendu aucune valeur volatile : "
+                f"methode, score, indice et total de pages changent d'une execution a l'autre "
+                f"({SOURCE_API}:329-341)"
+            )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la pagination et l'emplacement du calcul (marqueurs attendus : "
+        + ", ".join(MARQUEURS_DIAGNOSTICS)
+        + ") : "
+        + " ; ".join(constats)
+        + f" ; attendu la carte « PAGE 1/<total> » dans la ligne de statut ({SOURCE_ROUTES}:145), la "
+        f"derniere page atteinte, les trois marqueurs en fin de resultat, apres le dernier "
+        f"« {PREFIXE_EQUIPEMENT} » et avant « {PREFIXE_GREEDY} » ({SOURCE_API}:432-434), et aucune "
+        f"valeur volatile dans la section « {TITRE_RESULTAT} »"
     )
 
 

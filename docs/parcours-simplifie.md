@@ -133,6 +133,16 @@ Le niveau doit être un nombre entier compris entre 1 et 200 : une valeur décim
 
 La ligne `AVANCE : personnaliser les réglages` accepte les mêmes orthographes que les autres saisies du parcours : `AVANCE` fonctionne quelle que soit la casse et avec des espaces autour. Elle est rendue sur les trois étapes, y compris celle du niveau, et elle ouvre les réglages détaillés du stuff.
 
+## Lire le résultat
+
+Quand le calcul se termine, le résultat remplace l'écran de la question : c'est un écran plein, dans la même fenêtre de cent colonnes. Tant que le résultat tient sur une seule page, il n'y a **aucune carte de pagination et aucune touche F7 ni F8** : la carte et les deux touches ne sont ajoutées que si le résultat dépasse une page.
+
+Quand le résultat s'étale sur plusieurs pages, la **ligne de statut**, en bas de l'écran, l'annonce sous la forme `PAGE n/total`, et la fin de cette ligne porte `ENTREE=VALIDER`, parce que l'écran garde un champ de saisie. Deux touches parcourent alors le résultat : `F7=Page prec` recule d'une page, `F8=Page suiv` avance d'une page, et `ESC=Retour` revient à l'écran précédent. Ces libellés sont ceux du résultat : le wizard avancé, qui n'est pas décrit ici, affiche `Precedent` et `Suivant` à la place.
+
+Les informations de calcul apparaissent **en fin de résultat — jusqu'à `PAGE n/n`**, après la liste des emplacements et après les statistiques. Elles portent trois libellés, rendus tels quels : `Méthode : `, `Score : ` et `Indice de recherche : `. La méthode nommée après `Méthode : ` est celle que le solveur a retenue ; la page ne la recopie pas, parce qu'elle change d'une exécution à l'autre, comme le score et l'indice de recherche : deux exécutions de la même demande peuvent donner deux méthodes différentes. `Score : ` et `Indice de recherche : ` sont des observations du solveur, pas une qualité de votre personnage en combat. Juste après ces trois informations vient la phrase `Recherche sur une sélection du catalogue ; optimalité globale non garantie.`, qui rappelle que la recherche porte sur une sélection du catalogue.
+
+La liste des emplacements est introduite par `Équipement : `. Chaque ligne commence par le libellé technique de l'emplacement, puis l'objet équipé ou `(vide)` quand l'emplacement est vide : c'est ce libellé technique que le résultat affiche, et la section suivante en donne le nom complet. Neuf emplacements font exception : les six Dofus, le familier, la prysmaradite et le bouclier sont **omis de l'affichage quand ils sont vides**, au lieu d'afficher `(vide)`.
+
 ## Source de vérité
 
 - `dofus_stuff/web/routes.py` : écrans et libellés des trois questions.
