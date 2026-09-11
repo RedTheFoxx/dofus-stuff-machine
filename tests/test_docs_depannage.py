@@ -160,6 +160,13 @@ MOTIF_BLOC_EXEMPLE = "bloc de commandes"
 MOTIF_CHEMIN_DESTRUCTIF = "chemin destructif"
 MOTIF_DATA_DIR = "repertoire de donnees non isole"
 MOTIF_GARDE = "garde de cloture du harnais"
+MOTIF_BUDGET = "budget de calcul non cite"
+
+# Ce que le produit expose pour un calcul est un **budget** reglable — l'option lue sur l'aide du
+# parseur — et un **etat**, jamais une duree d'attente promise (D-19, D-76). La rubrique du calcul long
+# doit donc citer cette option, et ce controle est localise a la rubrique : le controle de page, lui, ne
+# dit rien de la rubrique qui porte le budget.
+OPTION_BUDGET = "--time-limit"
 
 # Deux refus de valeur de la page : un nombre de quatre chiffres ou plus est un compteur, une version,
 # un horodatage ou une taille de fichier (D-73) ; un chemin de poste commence par une lettre de lecteur
@@ -675,6 +682,39 @@ def problemes_clavier(docs_dir: Path, rendus: dict[str, str], sections) -> list[
     return constats
 
 
+def problemes_budget(docs_dir: Path, sections, normalize) -> list[str]:
+    """La rubrique du calcul long cite le budget du produit, sans promettre de duree d'attente.
+
+    Le produit regle un calcul par un budget (`OPTION_BUDGET`, lue sur l'aide du parseur) et l'expose par
+    un etat ; il ne promet aucun delai (D-19). La rubrique doit donc citer l'option, et aucun jeton de
+    `JETONS_PROMESSE_DUREE` ne doit apparaitre dans *cette* rubrique — controle localise, le controle de
+    page ne distinguant pas la rubrique qui porte le budget des autres.
+    """
+    titre = dict(RUBRIQUES)["calcul"]
+    corps = _corps_par_titre(_texte_page(docs_dir), sections).get(titre)
+    constats: list[str] = []
+    if corps is None:
+        constats.append(
+            f"{MOTIF_BUDGET} : la rubrique « {titre} » est absente de {PAGE} ; attendu la rubrique du "
+            f"calcul long, qui cite le budget du produit ({SOURCE_CLI}, D-19)"
+        )
+        return constats
+    if OPTION_BUDGET not in corps:
+        constats.append(
+            f"{MOTIF_BUDGET} : la rubrique « {titre} » de {PAGE} ne cite pas « {OPTION_BUDGET} » ; "
+            f"attendu l'option de budget du produit, lue sur l'aide du parseur ({SOURCE_CLI}, D-19)"
+        )
+    normalise = normalize(corps)
+    for jeton in JETONS_PROMESSE_DUREE:
+        if jeton in normalise:
+            constats.append(
+                f"{MOTIF_PROMESSE_DUREE} : la rubrique « {titre} » de {PAGE} porte « {jeton} » ; attendu "
+                f"un budget reglable et un etat rendu, jamais un delai d'attente annonce "
+                f"({SOURCE_CLI}, D-19)"
+            )
+    return constats
+
+
 def problemes_page(docs_dir: Path, sections, normalize) -> list[str]:
     """Cloture de la page et absence de valeur volatile : les gardes de structure ne les verifient pas.
 
@@ -1005,7 +1045,9 @@ def test_messages_de_saisie_invalide(docs_dir: Path, client, tmp_path, sections)
     )
 
 
-def test_messages_de_calcul_long(docs_dir: Path, client, tmp_path, sections) -> None:
+def test_messages_de_calcul_long(
+    docs_dir: Path, client, tmp_path, sections, normalize
+) -> None:
     """Ce que le produit expose pour un calcul, ce sont un etat et un budget, jamais une duree.
 
     Le seul message d'attente et la fin de calcul sont des litteraux lus dans leurs fichiers
@@ -1013,7 +1055,9 @@ def test_messages_de_calcul_long(docs_dir: Path, client, tmp_path, sections) -> 
     n'est lance, et aucune duree d'attente n'est promise par la page.
     """
     produites = _produire(client, tmp_path)
-    constats = problemes_messages(docs_dir, produites, sections)
+    constats = problemes_messages(docs_dir, produites, sections) + problemes_budget(
+        docs_dir, sections, normalize
+    )
     assert not constats, (
         f"{PAGE} : constats sur la famille du calcul : "
         + " ; ".join(constats)
