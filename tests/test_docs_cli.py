@@ -24,6 +24,7 @@ option reelle.
 
 from __future__ import annotations
 
+import ast
 import io
 import re
 import shlex
@@ -126,7 +127,7 @@ SOUS_COMMANDES_DB = ("status", "stats", "sync", "fill", "clear")
 
 
 # ---------------------------------------------------------------------------------------------
-# Exemples marques de la page (CLI-03, D-24, D-25, D-27)
+# Exemples marques de la page (CLI-03, D-24, D-25, D-27) et garde de la commande destructrice (D-22)
 #
 # Un exemple est une ligne d'un bloc de code dont la balise d'ouverture est `console`
 # (`BALISE_EXEMPLE` de `tests/conftest.py`, D-24) : une commande citee en prose n'en est pas un, et
@@ -134,7 +135,8 @@ SOUS_COMMANDES_DB = ("status", "stats", "sync", "fill", "clear")
 #
 # Chaque exemple est decoupe par `shlex.split` puis soumis a `build_parser().parse_args` (D-25,
 # D-14 : parseur public seul). La commande est *parsee*, jamais executee : ni `main()`, ni
-# sous-processus, ni base ouverte, ni socket (D-15).
+# sous-processus, ni base ouverte, ni socket (D-15) — `test_sans_execution_ni_base_locale` verifie
+# cette propriete sur le texte de ce module.
 #
 # Quatre regles de redaction mesurees pour un exemple (02-RESEARCH.md, Pitfall 9) :
 #   1. aucun commentaire en fin de ligne : il devient des arguments et le parseur sort en code 2 ;
@@ -148,7 +150,9 @@ SOUS_COMMANDES_DB = ("status", "stats", "sync", "fill", "clear")
 # page, l'exigence « verbatim » de CLI-03 est une garantie de construction, pas une exigence de
 # validation qui pourrait echouer seule ; la completude inverse (toute option du parseur
 # documentee) n'est pas revendiquee — une option ajoutee plus tard au parseur sans etre documentee
-# ne fera pas rougir cette suite.
+# ne fera pas rougir cette suite. La qualite « hors parcours recommande » du critere 4b n'est pas
+# decidable mecaniquement : elle n'est approchee que par la co-presence de l'avertissement sur la
+# meme ligne et par l'absence de la commande destructrice dans tout bloc marque.
 
 # Forme dont la page doit porter au moins un exemple : l'option globale *avant* sa sous-commande
 # (`db status --offline` sort en code 2, `fetcher.py: error: unrecognized arguments: --offline`).
@@ -160,6 +164,25 @@ FORME_ATTENDUE = ("--offline", "optimize")
 # Options globales du parseur racine qui consomment le jeton suivant : la projection du nom de
 # sous-commande saute leur valeur, sinon `--data-dir x` ferait lire `x` comme une sous-commande.
 OPTIONS_GLOBALES_A_VALEUR = ("--timeout", "--data-dir")
+
+# Commande destructrice : `db` ou `cache`, des espaces quelconques (`\s+`), puis `clear`, chaque mot
+# delimite. Le motif doit couvrir `cache clear` autant que `db clear` — sinon il laisserait passer
+# exactement la meme destruction sous l'autre nom (lecon WR-01).
+JETON_DESTRUCTEUR = re.compile(r"(?<![\w-])(?:db|cache)\s+clear(?![\w-])")
+
+# Jeton d'avertissement, cherche sur la ligne normalisee (D-11) : couvre aussi bien « destructif »
+# que « destructrice » ou « destruction ». Le classement « destructeur » de `db clear` et
+# `cache clear` est un jugement derive du code (`dofus_stuff/database.py`, `Database.clear` supprime
+# `items` et `meta` sans confirmation), pas une propriete declaree par le parseur : ce motif prouve
+# que le classement retenu est applique, pas qu'il est complet.
+JETON_AVERTISSEMENT = "destruct"
+
+# Modules dont l'import, dans ce module d'ancrage, trahirait une execution ou un acces a la base
+# locale (D-15) : `shlex` decoupe sans executer et `parse_args` ne construit rien.
+INTERDITS_EXECUTION = ("subprocess", "socket", "sqlite3")
+
+# Seul module du produit que ce module a le droit d'importer : le parseur public (D-14, D-15).
+IMPORT_PRODUIT_AUTORISE = "dofus_stuff.cli"
 
 
 def _texte_page(docs_dir: Path) -> str:
@@ -596,5 +619,128 @@ def test_exemple_hors_ligne_avec_option_globale_avant_sous_commande(
         + " ; ".join(constats)
         + f" ; attendu un exemple hors-ligne enseignant l'ordre reel du parseur de {SOURCE_CLI}"
     )
+
+
+def test_commande_destructrice_avertie_et_jamais_dans_un_exemple(
+    docs_dir: Path, lignes_exemple, normalize
+) -> None:
+    """La commande destructrice porte son avertissement sur sa ligne et n'est jamais un exemple (D-22)."""
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    # (a) Presence : sans ligne citant la commande, la regle suivante serait vide, donc infalsifiable.
+    lignes_citantes = [
+        (numero, ligne)
+        for numero, ligne in enumerate(texte.splitlines(), start=1)
+        if JETON_DESTRUCTEUR.search(ligne)
+    ]
+    if not lignes_citantes:
+        constats.append(
+            f"aucune ligne de {PAGE} ne cite la commande destructrice ; la regle de co-presence "
+            f"serait alors vide, donc infalsifiable — attendu au moins une ligne citant "
+            f"« db clear » ou « cache clear » avec son avertissement (D-22)"
+        )
+
+    # (b) Co-presence sur la meme ligne, comparaison normalisee (D-11). Le perimetre est le texte
+    # entier, ligne a ligne, jamais une section : l'en-tete de page echapperait a une regle evaluee
+    # par section (lecon WR-02).
+    for numero, ligne in lignes_citantes:
+        if JETON_AVERTISSEMENT not in normalize(ligne):
+            constats.append(
+                f"ligne {numero} de {PAGE} : « {ligne.strip()} » cite la commande destructrice sans "
+                f"l'avertissement attendu (jeton « {JETON_AVERTISSEMENT} » : destructif, "
+                f"destructrice, destruction) ; attendu l'avertissement sur la meme ligne (D-22)"
+            )
+
+    # (c) Jamais un exemple marque : vider la base locale ne doit jamais etre presente comme une
+    # commande a recopier (D-22). La commande est *parsee* pour prouver que la page cite une
+    # commande reelle, et jamais executee — cette distinction ne doit pas se perdre a la lecture.
+    for ligne in lignes_exemple(texte):
+        if JETON_DESTRUCTEUR.search(ligne):
+            constats.append(
+                f"l'exemple « {ligne} » de {PAGE} cite la commande destructrice ; vider la base "
+                f"locale ne doit jamais etre une commande a recopier (D-22), aucun bloc marque n'en "
+                f"contenant — attendu cette mention hors de tout exemple"
+            )
+
+    # Les trois constats sont accumules et joints a *une seule* assertion : les regles (b) et (c)
+    # portent souvent sur la meme ligne, et une assertion par constat rendrait le motif « recopier »
+    # inatteignable des que la co-presence manque aussi (mesure : une assertion par constat
+    # rapportait cette mutation « non detectee » sur une page pourtant correcte, la premiere
+    # assertion levant avant d'atteindre la seconde).
+    assert not constats, (
+        f"{PAGE} : constats sur la garde de la commande destructrice : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque mention de la commande destructive citee avec son avertissement sur "
+        f"la meme ligne et hors de tout exemple marque (D-22, critere de succes 4b)"
+    )
+
+
+def test_sans_execution_ni_base_locale() -> None:
+    """Le module d'ancrage n'importe du produit que le parseur et n'execute rien (D-15, critere 5).
+
+    La propriete est verifiee sur le texte de ce module par `ast`, et non par une recherche de
+    chaines : le module cite lui-meme les noms interdits (`subprocess`, `socket`, `sqlite3`,
+    `dofus_stuff.database`), donc une recherche textuelle se detecterait elle-meme. Un echec nomme
+    le module fautif, la propriete attendue et le fichier de code concernee.
+    """
+    arbre = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    importes: set[str] = set()
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            importes.update(alias.name for alias in noeud.names)
+        elif isinstance(noeud, ast.ImportFrom) and noeud.module is not None:
+            importes.add(noeud.module)
+    appeles = {
+        noeud.func.attr
+        if isinstance(noeud.func, ast.Attribute)
+        else getattr(noeud.func, "id", "")
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Call)
+    }
+    ancrage_public = any(
+        isinstance(noeud, ast.ImportFrom)
+        and noeud.module == IMPORT_PRODUIT_AUTORISE
+        and any(alias.name == "build_parser" for alias in noeud.names)
+        for noeud in ast.walk(arbre)
+    )
+
+    constats: list[str] = []
+    hors_parseur = sorted(
+        module
+        for module in importes
+        if (module == "dofus_stuff" or module.startswith("dofus_stuff."))
+        and module != IMPORT_PRODUIT_AUTORISE
+    )
+    if hors_parseur:
+        constats.append(
+            f"import(s) du produit hors du parseur public : {', '.join(hors_parseur)} ; attendu "
+            f"{IMPORT_PRODUIT_AUTORISE} seul — un module de base ou de catalogue importe ici "
+            f"ouvrirait la base locale (D-15)"
+        )
+    interdits = sorted(module for module in importes if module.split(".")[0] in INTERDITS_EXECUTION)
+    if interdits:
+        constats.append(
+            f"import(s) d'execution ou d'acces local : {', '.join(interdits)} ; attendu ni "
+            f"subprocess, ni socket, ni sqlite3 dans le module d'ancrage decrit par {PAGE} (D-15)"
+        )
+    if "main" in appeles:
+        constats.append(
+            f"appel a main() dans le module d'ancrage ; attendu l'ancrage par le parseur de "
+            f"{SOURCE_CLI} seul, la commande n'etant jamais executee (D-15)"
+        )
+    if not ancrage_public:
+        constats.append(
+            f"import « from {IMPORT_PRODUIT_AUTORISE} import build_parser » absent ; attendu "
+            f"l'ancrage sur le parseur public de {SOURCE_CLI} decrit par {PAGE}"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la propriete « aucun test n'execute rien » : "
+        + " ; ".join(constats)
+        + f" ; attendu un module d'ancrage qui n'importe du produit que {IMPORT_PRODUIT_AUTORISE} "
+        f"et n'ouvre ni base ni connexion"
+    )
+
 
 
