@@ -1989,3 +1989,186 @@ def test_renvoi_base_locale_legitime(docs_dir: Path, normalize) -> None:
         f"la section nommant toujours la base locale en clair, et la page cible presente sur disque "
         f"(D-44, D-63, D-86)"
     )
+
+
+def test_page_close_et_sans_valeur_volatile(docs_dir: Path, section, normalize) -> None:
+    """La page est close : sections epinglees dans les deux sens, octets CRLF, valeurs et chemins (D-69).
+
+    Derniere ecriture de la page, donc seul moment ou les regles d'ensemble s'appliquent a l'objet fini :
+
+    - la cloture est comparee **dans les deux sens** : aucun titre de `TITRES_SECTION_ATTENDUS` ne
+      manque, aucun titre de niveau 2 de la page n'est hors de cette liste, et ceux qui y appartiennent y
+      sont **dans l'ordre** — quel que soit le nombre d'entrees de la constante a ce stade ;
+    - `## Source de verite` reste le dernier titre epingle, et la derniere ligne non vide reste la ligne
+      de retour vers le sommaire ;
+    - les octets sont lus **en binaire** (`read_bytes`), jamais sur un texte re-encode : aucun BOM,
+      decodage UTF-8 strict, et autant de retours chariot que de fins de ligne (CRLF sur toutes les
+      lignes). Cette assertion depend de la configuration Git du poste : `core.autocrlf=true` sur ce
+      poste, et **aucun `.gitattributes`** dans le depot — elle **n'est pas portable** (AR-5). Elle est
+      ecrite ici comme les phases 3 et 4 l'ont ecrite, sans etre presentee comme telle ;
+    - aucune valeur volatile (compteur d'objets, version de jeu, horodatage, taille figee), aucune porte
+      de sortie (aucun lien externe, aucune adresse en clair), et chaque chemin cite entre accents graves
+      dans le bloc « Source de verite » existe depuis la racine du depot.
+
+    Le texte vient du lecteur local `_texte_page` quand les octets se decodent ; quand ils ne se decodent
+    pas, le constat est produit et les controles de texte sont ecrits sur une chaine vide, plutot que de
+    laisser `read_text` lever avant tout constat.
+
+    Limite honnete : ce controle ne verifie **pas** la prose libre de la page, la formulation des
+    avertissements ni l'appreciation de lisibilite : ces trois points restent hors de portee d'un
+    controle, et ce module ne revendique aucune exhaustivite de la redaction (D-85).
+    """
+    chemin = docs_dir / PAGE
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{PAGE} : page introuvable ({chemin}) ; attendu la page de la base locale, lue en binaire "
+            f"pour la cloture de ses octets et de ses sections (D-67, D-69)"
+        )
+    octets = chemin.read_bytes()
+    constats: list[str] = []
+
+    # 1. Les octets, lus en binaire : BOM, UTF-8 strict, CRLF sur toutes les lignes.
+    if octets.startswith(BOM_UTF8):
+        constats.append(
+            f"{PAGE} : {MOTIF_CRLF} — la page commence par un BOM ; attendu un fichier UTF-8 sans BOM, "
+            f"lu en binaire (D-67)"
+        )
+    decode_refuse = False
+    try:
+        octets.decode("utf-8")
+    except UnicodeDecodeError as erreur:
+        decode_refuse = True
+        constats.append(
+            f"{PAGE} : {MOTIF_CRLF} — les octets de la page ne se decodent pas en UTF-8 strict "
+            f"(« {erreur} ») ; attendu un fichier UTF-8 sans BOM, lu en binaire et jamais sur un texte "
+            f"re-encode (D-67)"
+        )
+    fins = octets.count(b"\n")
+    retours = octets.count(b"\r\n")
+    if retours != fins:
+        constats.append(
+            f"{PAGE} : {MOTIF_CRLF} — la page porte {fins} fin(s) de ligne pour {retours} retour(s) "
+            f"chariot ; attendu des fins de ligne CRLF sur toutes les lignes, comme le reste du depot "
+            f"(D-67, D-69)"
+        )
+    texte = "" if decode_refuse else _texte_page(docs_dir)
+
+    if texte:
+        # 2. Un seul titre de niveau 1, et c'est celui de la page.
+        h1 = [ligne.strip() for ligne in texte.splitlines() if ligne.startswith(FRAGMENT_H1)]
+        if len(h1) != 1:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — la page porte {len(h1)} titre(s) de niveau 1 "
+                f"({', '.join(h1) or 'aucun'}) ; attendu un seul titre de niveau 1, « {TITRE_H1} » (D-69)"
+            )
+        elif h1[0] != TITRE_H1:
+            lisse = normalize(h1[0]) == normalize(TITRE_H1)
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — le titre de niveau 1 vaut « {h1[0]} » ; attendu "
+                f"« {TITRE_H1} »"
+                + (
+                    " (ecart de casse ou d'accent seulement : la forme ecrite au caractere pres est "
+                    "exigee, la normalisation ne sert ici qu'au diagnostic)"
+                    if lisse
+                    else " (titre different de celui attendu)"
+                )
+                + f" ; attendu le titre de la page de la base locale (D-69)"
+            )
+
+        # 3. La cloture des sections, dans les deux sens : aucun titre attendu manquant, aucun titre de
+        #    la page hors de la liste, et l'ordre de ceux qui appartiennent a la liste.
+        titres = [ligne.strip() for ligne in texte.splitlines() if ligne.startswith("## ")]
+        attendus = list(TITRES_SECTION_ATTENDUS)
+        manquants = [titre for titre in attendus if titre not in titres]
+        etrangers = [titre for titre in titres if titre not in attendus]
+        presents = [titre for titre in titres if titre in attendus]
+        if manquants:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — {len(manquants)} section(s) attendue(s) absente(s) de la "
+                f"page : {', '.join(manquants)} ; attendu les {len(attendus)} sections de "
+                f"TITRES_SECTION_ATTENDUS, quelle que soit la longueur de cette constante (D-69)"
+            )
+        if presents != attendus:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — les sections attendues ne se suivent pas dans l'ordre du "
+                f"document : lu ({', '.join(presents) or 'aucune'}) ; attendu ({', '.join(attendus)}) "
+                f"(D-69)"
+            )
+        if etrangers:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — la page porte {len(etrangers)} titre(s) de niveau 2 hors de "
+                f"TITRES_SECTION_ATTENDUS : {', '.join(etrangers)} ; attendu aucun titre de niveau 2 hors "
+                f"de la liste epinglee, un titre inattendu etant une derive de structure et non une "
+                f"liberte de redaction (D-69)"
+            )
+        if titres and titres[-1] != TITRE_SOURCE:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — la derniere section de la page est « {titres[-1]} » ; attendu "
+                f"« {TITRE_SOURCE} » comme dernier titre epingle (D-69)"
+            )
+        remplies = [ligne.strip() for ligne in texte.splitlines() if ligne.strip()]
+        derniere = remplies[-1] if remplies else ""
+        if derniere != LIEN_RETOUR:
+            constats.append(
+                f"{PAGE} : {MOTIF_SECTION} — la derniere ligne non vide vaut « {derniere} » ; attendu "
+                f"« {LIEN_RETOUR} » comme derniere ligne de la page (D-69)"
+            )
+
+        # 4. Aucune valeur volatile epinglee (D-73, D-75).
+        volatiles = sorted(set(MOTIF_VOLATILE.findall(texte)))
+        if volatiles:
+            constats.append(
+                f"{PAGE} : {MOTIF_VOLATILES} — la page porte {', '.join(volatiles)} ; attendu aucun "
+                f"nombre de quatre chiffres ou plus — ni compteur d'objets, ni version de jeu, ni "
+                f"horodatage, ni taille de fichier (D-73, D-75)"
+            )
+
+        # 5. Aucune porte de sortie : ni lien externe, ni adresse en clair.
+        sortants = sorted(
+            {cible for _, cible in _cibles_de_liens(texte) if cible.startswith(CIBLES_EXTERNES)}
+        )
+        if sortants:
+            constats.append(
+                f"{PAGE} : {MOTIF_LIEN_EXTERNE} — la page porte {len(sortants)} lien(s) sortant(s) : "
+                f"{', '.join(sortants)} ; attendu des liens internes seulement, la page decrivant le "
+                f"produit de ce depot (D-01, D-03)"
+            )
+        for schema in CIBLES_EXTERNES:
+            if schema in texte:
+                constats.append(
+                    f"{PAGE} : {MOTIF_LIEN_EXTERNE} — la page porte « {schema} » ; attendu aucune adresse "
+                    f"externe, meme en clair, aucune porte de sortie n'etant ouverte par cette page "
+                    f"(D-01, D-03)"
+                )
+
+        # 6. Le bloc « Source de verite » : chaque chemin cite existe depuis la racine du depot.
+        corps_source = section(texte, TITRE_SOURCE, PAGE)
+        jetons = sorted(
+            {
+                trouve.group("jeton")
+                for trouve in MOTIF_JETON_ACCENTS.finditer(corps_source)
+                if "/" in trouve.group("jeton")
+                or trouve.group("jeton").endswith(SUFFIXES_CHEMIN)
+            }
+        )
+        if not jetons:
+            constats.append(
+                f"{PAGE} : {MOTIF_SOURCE} — la section « {TITRE_SOURCE} » ne cite aucun chemin entre "
+                f"accents graves ; attendu au moins un chemin, la page ancrant ses valeurs sur le code "
+                f"de ce depot (D-03, D-69)"
+            )
+        for jeton in jetons:
+            if not (RACINE_DEPOT / jeton).exists():
+                constats.append(
+                    f"{PAGE} : {MOTIF_SOURCE} — la section « {TITRE_SOURCE} » cite « {jeton} » et ce "
+                    f"chemin n'existe pas sous {RACINE_DEPOT} ; attendu un chemin existant, un chemin "
+                    f"disparu signalant une page desalignee (D-03, D-69)"
+                )
+
+    assert not constats, (
+        f"{PAGE} : constats de cloture de la page : "
+        + " ; ".join(constats)
+        + f" ; attendu une page close — sections epinglees dans les deux sens, « {TITRE_SOURCE} » en "
+        f"dernier titre, « {LIEN_RETOUR} » en derniere ligne, octets CRLF sans BOM, aucune valeur "
+        f"volatile, aucun lien externe et chaque chemin du bloc source existant (D-67, D-69, D-73)"
+    )
