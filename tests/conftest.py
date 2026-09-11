@@ -1,4 +1,5 @@
-"""Fixtures pytest pour l'interface web."""
+"""Fixtures pytest partagees : interface web (`catalog`, `app`, `client`) et harnais documentaire
+(scanner de blocs de code, helpers de section et de normalisation, D-11/D-12)."""
 
 from __future__ import annotations
 

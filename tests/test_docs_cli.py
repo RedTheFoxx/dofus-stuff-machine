@@ -2,8 +2,12 @@
 
 Le contrat va de la page vers le parseur : chaque jeton epingle ci-dessous est cherche dans la
 page, puis sonde sur `build_parser().parse_args` — et chaque option longue citee par les lignes
-de tableau des sections « Options globales » et « optimize » est sondee de la meme facon, de
-sorte qu'une option inventee par la page soit nommee par l'echec.
+de tableau des sections « Options globales », « search », « list » et « optimize » est sondee de la
+meme facon, de sorte qu'une option inventee par la page soit nommee par l'echec. La troisieme
+colonne de ces tableaux (« Defaut ») est lue et comparee aux valeurs par defaut reellement rendues
+par le parseur, et chaque jeton qui y est cite est exige parmi les options que le parseur declare
+dans ses aides publiques (`format_help()` du parseur racine et aide de chaque sous-commande) : un
+prefixe non ambigu accepte par `argparse` ne suffit donc plus a faire passer un jeton perime.
 
 Limite honnete (D-26) : la completude inverse n'est pas revendiquee. Une sous-commande ou une
 option ajoutee plus tard a `dofus_stuff/cli.py` et non documentee ne fera pas echouer cette
@@ -14,12 +18,15 @@ Rien n'est execute : `main()` n'est jamais appele, aucune base n'est ouverte, au
 et aucune socket ne sont crees, rien n'est ecrit sous `.data/` (D-15). `db clear` est *parse* pour
 prouver que la page cite une commande reelle, jamais execute.
 
-Limite de lecture mesuree : `argparse` accepte le prefixe non ambigu d'une option reelle (mesure :
-`--force-sync` reste accepte apres renommage en `--force-synchronisation` dans une copie du
-parseur). Un jeton cite par la page qui serait un tel prefixe passerait donc ce controle, et
-exiger la forme stricte demanderait l'introspection privee d'`argparse` interdite par D-14 ; les
-mutations de ce plan choisissent pour cette raison des jetons qui ne sont le prefixe d'aucune
-option reelle.
+Limite de lecture mesuree, corrigee apres revue de code (WR-05) : `argparse` accepte le prefixe non
+ambigu d'une option reelle (mesure : `--force-sync` reste accepte apres renommage en
+`--force-synchronisation` dans une copie du parseur), donc la sonde `parse_args` seule ne prouve pas
+la forme stricte d'un jeton. L'ensemble exact des jetons declares est pourtant accessible par API
+publique — `format_help()` du parseur racine et l'aide de chaque sous-commande epinglee capturee sur
+sa sortie standard — et c'est lui que compare le controle d'appartenance stricte du test des
+tableaux d'options. La sonde par `parse_args` garde son role propre : « les exemples et les lignes de
+tableau sont analysables » ; elle ne pretend pas etre le controle de forme. Aucune introspection
+privee d'`argparse` n'est utilisee (D-14).
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ import ast
 import io
 import re
 import shlex
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from dofus_stuff.cli import build_parser as build_cli_parser
@@ -39,6 +46,7 @@ SOURCE_CLI = "dofus_stuff/cli.py"
 
 TITRE_OPTIONS_GLOBALES = "## Options globales"
 TITRE_OPTIMIZE = "## optimize"
+TITRE_DB = "## db"
 TITRE_CACHE = "## cache"
 TITRE_SOURCE = "## Source de vérité"
 
@@ -125,9 +133,36 @@ SONDES_OPTIMIZE = (
 # Sous-commandes de db dont l'alias `cache` doit produire le meme espace de noms (D-21).
 SOUS_COMMANDES_DB = ("status", "stats", "sync", "fill", "clear")
 
+# Valeurs d'essai des options d'`optimize` dont la valeur epinglee dans SONDES_OPTIMIZE est *egale*
+# au defaut du parseur (`--jet average`) : la mesure d'un defaut se fait par difference des deux
+# espaces de noms, donc la sonde de defaut a besoin d'une valeur qui differe du defaut. La valeur
+# epinglee, elle, ne change pas : `_option_optimize_acceptee` doit continuer d'essayer une valeur
+# acceptee par les `choices` du parseur.
+VALEURS_ESSAI_DEFAUT = {"--jet": "min"}
+
+# Appariement jeton de la page -> (argv *sans* l'option, argv *avec* l'option), pour les options
+# globales et de sous-commande autres que les 30 d'`optimize` : celles-ci sont derivees de
+# `SONDES_OPTIMIZE` par `_sondes_defauts()`, chaque entree y portant deja sa valeur d'essai.
+#
+# La clef de destination de chaque option n'est jamais lue dans le code (`argparse` ne l'expose que
+# par introspection privee, interdite par D-14) : elle est mesuree par difference des deux espaces
+# de noms, et la valeur par defaut est celle que l'argv sans l'option rend reellement (WR-01).
+SONDES_DEFAUTS_FIXES: dict[str, tuple[list[str], list[str]]] = {
+    # Options globales : declarees sur le parseur racine, donc ecrites avant la sous-commande.
+    "--timeout": (["version"], ["--timeout", "120", "version"]),
+    "--data-dir": (["version"], ["--data-dir", "x", "version"]),
+    "--force-sync": (["version"], ["--force-sync", "version"]),
+    "--offline": (["db", "status"], ["--offline", "db", "status"]),
+    # Options propres a une sous-commande, ecrites apres elle.
+    "--limit": (["search", "Atcham"], ["search", "Atcham", "--limit", "3"]),
+    "--page": (["list"], ["list", "--page", "3"]),
+    "--size": (["list"], ["list", "--size", "3"]),
+}
+
 
 # ---------------------------------------------------------------------------------------------
-# Exemples marques de la page (CLI-03, D-24, D-25, D-27) et garde de la commande destructrice (D-22)
+# Exemples marques de la page (CLI-03, D-24, D-25, D-27) et garde des commandes destructrices
+# (D-22, D-23)
 #
 # Un exemple est une ligne d'un bloc de code dont la balise d'ouverture est `console`
 # (`BALISE_EXEMPLE` de `tests/conftest.py`, D-24) : une commande citee en prose n'en est pas un, et
@@ -167,8 +202,18 @@ OPTIONS_GLOBALES_A_VALEUR = ("--timeout", "--data-dir")
 
 # Commande destructrice : `db` ou `cache`, des espaces quelconques (`\s+`), puis `clear`, chaque mot
 # delimite. Le motif doit couvrir `cache clear` autant que `db clear` — sinon il laisserait passer
-# exactement la meme destruction sous l'autre nom (lecon WR-01).
+# exactement la meme destruction sous l'autre nom (lecon WR-01). Il sert aux regles (a) et (b)
+# ci-dessous, celles du classement « destructeur » et de son avertissement.
 JETON_DESTRUCTEUR = re.compile(r"(?<![\w-])(?:db|cache)\s+clear(?![\w-])")
+
+# Commandes qui vident la base **ou** la reecrivent avec le reseau : `clear`, mais aussi `sync` et
+# `fill` (alias de `sync`), que D-23 classe comme destructrices — elles reecrivent la base locale et
+# exigent le reseau. Ce motif n'est volontairement PAS utilise pour la co-presence de
+# l'avertissement de la regle (b) : la page cite `db sync` et `cache fill` dans une phrase qui ne
+# porte pas le mot « destruct », et une co-presence etendue a `sync`/`fill` rendrait la page livree
+# faussement rouge (mesure de revue, WR-02). Seule la regle (c) — « jamais une commande a recopier »
+# — en depend.
+JETONS_RESEAU = re.compile(r"(?<![\w-])(?:db|cache)\s+(?:clear|sync|fill)(?![\w-])")
 
 # Jeton d'avertissement, cherche sur la ligne normalisee (D-11) : couvre aussi bien « destructif »
 # que « destructrice » ou « destruction ». Le classement « destructeur » de `db clear` et
@@ -203,15 +248,147 @@ def _texte_page(docs_dir: Path) -> str:
 def _accepte(argv: list[str]) -> bool:
     """Vrai si `build_parser().parse_args(argv)` accepte cet argv complet (D-14 : API publique).
 
-    Le `SystemExit` d'`argparse` ne traverse jamais : chaque refus devient un constat nomme, et
-    la sortie d'erreur du parseur est capturee pour ne pas polluer le rapport pytest.
+    Le `SystemExit` d'`argparse` ne traverse jamais : chaque refus devient un constat nomme, et les
+    deux sorties du parseur sont capturees pour ne pas polluer le rapport pytest. Le succes se lit au
+    code de sortie, jamais a la seule absence d'exception : `argparse` leve `SystemExit(0)` apres
+    avoir imprime une aide, et `--help` est une option reelle du parseur (WR-03).
     """
     try:
-        with redirect_stderr(io.StringIO()):
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            build_cli_parser().parse_args(argv)
+    except SystemExit as sortie:
+        return sortie.code in (0, None)
+    return True
+
+
+def _aide_capturee(argv: list[str]) -> str:
+    """Sortie standard d'un argv d'aide du parseur public, sans jamais l'executer (D-14, D-15).
+
+    `format_help()` du parseur racine ne rend que les options globales : l'aide d'un sous-parseur
+    s'obtient par `parse_args([... \"--help\"])`, qui leve `SystemExit(0)` apres avoir ecrit sur la
+    sortie standard — d'ou la capture des deux flux, la sortie d'erreur ne portant rien ici.
+    """
+    tampon = io.StringIO()
+    try:
+        with redirect_stdout(tampon), redirect_stderr(io.StringIO()):
             build_cli_parser().parse_args(argv)
     except SystemExit:
+        pass
+    return tampon.getvalue()
+
+
+def _options_declarees() -> set[str]:
+    """Jetons d'option longue que le parseur declare, lus par API publique seule (WR-05, D-14).
+
+    Chaque aide est une aide publique : `format_help()` du parseur racine pour la surface globale,
+    puis l'aide capturee de chaque sous-commande epinglee (`<argv> --help`), dont les options
+    propres ne figurent pas dans l'aide racine. Un prefixe non ambigu accepte par `parse_args` ne
+    figure pas forcement dans cet ensemble : c'est precisement le controle d'appartenance stricte
+    que la tolerance d'`argparse` rend necessaire. Aucune introspection privee n'est employee.
+    """
+    aides = [build_cli_parser().format_help()]
+    aides.extend(_aide_capturee([*argv, "--help"]) for _, argv in SONDES_SOUS_COMMANDES)
+    return {option for aide in aides for option in OPTION_LONGUE.findall(aide)}
+
+
+def _sondes_defauts() -> dict[str, tuple[list[str], list[str]]]:
+    """Appariement jeton de la page -> (argv sans l'option, argv avec l'option), `optimize` compris."""
+    sondes = dict(SONDES_DEFAUTS_FIXES)
+    for jeton, valeur in SONDES_OPTIMIZE:
+        sondes[jeton] = (
+            ["optimize"],
+            _argv_optimize(jeton, VALEURS_ESSAI_DEFAUT.get(jeton, valeur)),
+        )
+    return sondes
+
+
+def _clef_et_defaut(
+    argv_base: list[str], argv_sonde: list[str]
+) -> tuple[str | None, object, str | None]:
+    """(clef de destination, defaut reel, constat) mesures par difference des espaces de noms.
+
+    La clef de destination n'est jamais lue dans le code de `dofus_stuff/cli.py` (D-14) : c'est
+    celle qui change entre l'argv sans l'option et l'argv sans elle. Une sonde qui ne fait changer
+    aucune clef, ou plus d'une, est un defaut de la liste epinglee de ce module : elle le dit au
+    lieu de laisser croire a un defaut de la page.
+    """
+    try:
+        avant = dict(vars(build_cli_parser().parse_args(argv_base)))
+        apres = dict(vars(build_cli_parser().parse_args(argv_sonde)))
+    except SystemExit:
+        return None, None, (
+            f"la sonde de defaut « {' '.join(argv_sonde)} » est refusee par "
+            f"{SOURCE_CLI}::build_parser().parse_args() ; attendu un argv epingle accepte"
+        )
+    changees = sorted(
+        clef for clef in set(avant) | set(apres) if avant.get(clef) != apres.get(clef)
+    )
+    if len(changees) != 1:
+        return None, None, (
+            f"la sonde de defaut « {' '.join(argv_sonde)} » fait changer {len(changees)} clef(s) "
+            f"({', '.join(changees) or 'aucune'}) par rapport a « {' '.join(argv_base)} » ; attendu "
+            f"exactement la clef de l'option sondee"
+        )
+    return changees[0], avant[changees[0]], None
+
+
+def _valeur_de_cellule(cellule: str) -> object:
+    """Valeur d'une cellule « Defaut » de la page, ou son texte si elle n'est pas litterale.
+
+    Les formes non litterales employees par la page sont traduites : `faux` -> `False`,
+    `aucun`/`aucune` -> `None`, `0` -> `0.0` (nombre). Toute autre forme (prose, jeton inconnu) est
+    rendue telle quelle : la comparaison la declare fautive en nommant la cellule, donc une cellule
+    non analysable devient un constat nomme et jamais un saut silencieux (WR-01).
+    """
+    texte = cellule.strip()
+    if len(texte) >= 2 and texte.startswith("`") and texte.endswith("`"):
+        texte = texte[1:-1].strip()
+    if texte in ("faux", "false"):
         return False
-    return True
+    if texte in ("aucun", "aucune", "none"):
+        return None
+    try:
+        return float(texte)
+    except ValueError:
+        return texte
+
+
+def _defaut_correspond(cellule: str, defaut: object) -> bool:
+    """Vrai si la cellule de la page annonce le defaut reellement rendu par le parseur (WR-01)."""
+    valeur = _valeur_de_cellule(cellule)
+    if isinstance(defaut, Path):
+        # Cellule en prose (« le dossier `.data/` a la racine du depot ») : la comparaison porte sur
+        # le nom du dossier resolu, seule partie stable d'un chemin propre au poste (D-19).
+        return bool(defaut.name) and defaut.name in cellule
+    if isinstance(defaut, bool):
+        return isinstance(valeur, bool) and valeur is defaut
+    if defaut is None:
+        return valeur is None
+    if isinstance(defaut, (int, float)):
+        return (
+            isinstance(valeur, (int, float))
+            and not isinstance(valeur, bool)
+            and float(valeur) == float(defaut)
+        )
+    return isinstance(valeur, str) and valeur == defaut
+
+
+def _lignes_option(texte: str) -> list[tuple[int, list[str], list[str]]]:
+    """Lignes de tableau citant une option longue : (numero de ligne, jetons, cellules).
+
+    Une ligne est une ligne d'option des que sa premiere cellule porte un jeton `--…` ; le numero de
+    ligne permet au constat de nommer l'endroit fautif (D-13). Les en-tetes, les lignes de
+    separation et les tables sans option (les cinq verbes de `## db`) n'en sont pas.
+    """
+    lignes: list[tuple[int, list[str], list[str]]] = []
+    for numero, ligne in enumerate(texte.splitlines(), start=1):
+        if not ligne.lstrip().startswith("|"):
+            continue
+        cellules = [cellule.strip() for cellule in ligne.strip().strip("|").split("|")]
+        jetons = OPTION_LONGUE.findall(cellules[0]) if cellules else []
+        if jetons:
+            lignes.append((numero, jetons, cellules))
+    return lignes
 
 
 def _espace_de_noms_brut(argv: list[str]) -> dict:
@@ -305,8 +482,8 @@ def _option_optimize_acceptee(option: str) -> bool:
     return False
 
 
-def test_sous_commandes_documentees_et_acceptees(docs_dir: Path) -> None:
-    """Chaque sous-commande documentee est citee par la page et acceptee par une sonde d'argv complet."""
+def test_sous_commandes_documentees_et_acceptees(docs_dir: Path, sections) -> None:
+    """Chaque sous-commande documentee est citee et acceptee, et ses sections suivent l'ordre du parseur."""
     texte = _texte_page(docs_dir)
     constats: list[str] = []
     for nom, argv in SONDES_SOUS_COMMANDES:
@@ -317,6 +494,23 @@ def test_sous_commandes_documentees_et_acceptees(docs_dir: Path) -> None:
                 f"la sonde de sous-commande « {' '.join(argv)} » est refusee par "
                 f"{SOURCE_CLI}::build_parser().parse_args()"
             )
+
+    # Le nom d'une sous-commande etant de toute facon cite par son propre exemple (le test de
+    # couverture le garantit), la recherche de sous-chaine ne peut plus etre le premier controle a
+    # rougir : elle est completee ici par l'existence d'une *section* de niveau 2 par sous-commande,
+    # dans l'ordre du parseur (D-16). Un renommage ou une suppression de section est ainsi nomme,
+    # et une occurrence fortuite ne suffit plus (mesure de revue : `item` etait satisfait par le mot
+    # `items`, `version` par la prose « synchronisation de version »).
+    attendus = [nom for nom, _ in SONDES_SOUS_COMMANDES]
+    titres = [titre for titre, _ in sections(texte) if titre is not None]
+    trouves = [titre for titre in titres if titre in set(attendus)]
+    if trouves != attendus:
+        constats.append(
+            f"les sections de niveau 2 de {PAGE} ne portent pas les huit sous-commandes epinglees "
+            f"dans l'ordre du parseur : lues {trouves or ['aucune']} ; attendu {attendus} "
+            f"(une section par sous-commande, dans l'ordre declare par {SOURCE_CLI}::build_parser())"
+        )
+
     assert not constats, (
         f"{PAGE} : constats sur les sous-commandes : "
         + " ; ".join(constats)
@@ -394,6 +588,91 @@ def test_options_optimize_documentees_et_acceptees(docs_dir: Path, section) -> N
     )
 
 
+def test_valeurs_par_defaut_des_tables_egales_a_celles_du_parseur(docs_dir: Path) -> None:
+    """La colonne « Defaut » des tableaux d'options est celle du parseur, ligne par ligne (WR-01, WR-05).
+
+    Deux proprietes distinctes, mesurees sur la meme passe :
+
+    - chaque ligne de tableau qui cite une option longue est appariee a une sonde de defaut, et
+      chaque sonde a sa ligne : une ligne ne peut donc etre ni sautee ni inventee, et la cellule
+      « Defaut » est comparee a la valeur que le parseur rend reellement (WR-01). Les valeurs non
+      litterales de la page sont traduites (`faux`, `aucun`/`aucune`, `0`, et pour `--data-dir` le
+      nom du dossier resolu, seule partie stable d'un chemin propre au poste) ;
+    - chaque jeton cite figure aussi dans les aides publiques du parseur, lu par `format_help()` et
+      par l'aide capturee d'`optimize` (WR-05) : `argparse` accepte le prefixe non ambigu d'une
+      option reelle, donc un renommage cote parseur resterait invisible a la seule sonde d'analyse
+      — c'est exactement la « documentation perimee » que le projet doit empecher.
+    """
+    texte = _texte_page(docs_dir)
+    sondes = _sondes_defauts()
+    declarees = _options_declarees()
+    constats: list[str] = []
+
+    lignes = _lignes_option(texte)
+    citees = sorted({jeton for _, jetons, _ in lignes for jeton in jetons})
+    if not citees:
+        constats.append(
+            f"aucune ligne de tableau de {PAGE} ne cite d'option longue ; la colonne « Defaut » "
+            f"serait alors vide, donc infalsifiable — attendu les options de "
+            f"{SOURCE_CLI}::build_parser() en lignes de tableau"
+        )
+
+    inventees = sorted(jeton for jeton in citees if jeton not in sondes)
+    if inventees:
+        constats.append(
+            f"option(s) citee(s) par les tableaux de {PAGE} sans sonde de defaut epinglee : "
+            f"{', '.join(inventees)} ; attendu une sonde par option citee, aucune ligne n'etant ni "
+            f"sautee ni inventee"
+        )
+    non_documentees = sorted(jeton for jeton in sondes if jeton not in citees)
+    if non_documentees:
+        constats.append(
+            f"option(s) epinglee(s) sans ligne de tableau dans {PAGE} : "
+            f"{', '.join(non_documentees)} ; attendu une ligne de tableau par option epinglee, la "
+            f"colonne « Defaut » ne pouvant plus etre verifiee pour une option absente"
+        )
+
+    for numero, jetons, cellules in lignes:
+        for jeton in jetons:
+            if jeton not in sondes:
+                continue
+            if len(cellules) < 3:
+                constats.append(
+                    f"ligne {numero} de {PAGE} : la ligne de « {jeton} » ne porte pas de colonne "
+                    f"« Defaut » ; attendu trois colonnes (option, role, defaut) pour que le defaut "
+                    f"reel du parseur puisse etre compare"
+                )
+                continue
+            argv_base, argv_sonde = sondes[jeton]
+            clef, defaut, echec = _clef_et_defaut(argv_base, argv_sonde)
+            if echec is not None:
+                constats.append(f"ligne {numero} de {PAGE} : {echec}")
+                continue
+            cellule = cellules[2]
+            if not _defaut_correspond(cellule, defaut):
+                constats.append(
+                    f"ligne {numero} de {PAGE} : la colonne « Defaut » de « {jeton} » annonce "
+                    f"« {cellule} » ; attendu le defaut reel du parseur pour la clef « {clef} » : "
+                    f"{defaut!r} (lu par {SOURCE_CLI}::build_parser().parse_args())"
+                )
+
+    perimees = sorted(jeton for jeton in citees if jeton not in declarees)
+    if perimees:
+        constats.append(
+            f"option(s) citee(s) par les tableaux de {PAGE} mais absente(s) des aides publiques du "
+            f"parseur ({SOURCE_CLI}) : {', '.join(perimees)} ; attendu chaque jeton parmi les "
+            f"options reellement declarees, un prefixe non ambigu accepte par `parse_args` ne "
+            f"suffisant pas"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les valeurs par defaut des tableaux d'options : "
+        + " ; ".join(constats)
+        + f" ; attendu la colonne « Defaut » de chaque ligne egale au defaut rendu par "
+        f"{SOURCE_CLI}::build_parser().parse_args() et chaque jeton declare par ses aides publiques"
+    )
+
+
 def test_alias_cache_equivalent_a_db_dans_le_parseur(docs_dir: Path, section, normalize) -> None:
     """`cache` equivaut a `db` pour le parseur, modulo la cle `command`, et la page ne duplique pas."""
     constats: list[str] = []
@@ -413,7 +692,23 @@ def test_alias_cache_equivalent_a_db_dans_le_parseur(docs_dir: Path, section, no
                     f"(lu : {brut.get('command')!r})"
                 )
 
-    corps_cache = section(_texte_page(docs_dir), TITRE_CACHE, PAGE)
+    texte = _texte_page(docs_dir)
+    corps_db = section(texte, TITRE_DB, PAGE)
+    normalise_db = normalize(corps_db)
+    absentes = [
+        description for description in DESCRIPTIONS_DB if normalize(description) not in normalise_db
+    ]
+    if absentes:
+        # Le controle anti-duplication ci-dessous n'exige que l'*absence* dans `## cache` : a lui
+        # seul, il est satisfait par une page qui ne decrit la table nulle part (mesure de revue :
+        # la table entiere des cinq verbes pouvait disparaitre sans qu'aucun test ne rougisse,
+        # WR-04). La presence dans `## db` est donc exigee ici, en regard de la meme promesse.
+        constats.append(
+            f"la section « {TITRE_DB} » de {PAGE} ne decrit pas : {', '.join(absentes)} ; attendu "
+            f"ces trois descriptions une seule fois, dans la section « {TITRE_DB} » (D-20)"
+        )
+
+    corps_cache = section(texte, TITRE_CACHE, PAGE)
     if "db" not in corps_cache:
         constats.append(f"la section « {TITRE_CACHE} » de {PAGE} ne cite pas « db »")
     normalise = normalize(corps_cache)
@@ -427,7 +722,7 @@ def test_alias_cache_equivalent_a_db_dans_le_parseur(docs_dir: Path, section, no
         constats.append(
             f"la section « {TITRE_CACHE} » de {PAGE} duplique la description de db : "
             f"{', '.join(dupliquees)} ; attendu ces trois descriptions une seule fois, dans la "
-            f"section « ## db » (D-20)"
+            f"section « {TITRE_DB} » (D-20)"
         )
 
     assert not constats, (
@@ -496,12 +791,19 @@ def _jetons(ligne: str) -> list[str]:
 
 
 def _exemple_accepte(ligne: str) -> bool:
-    """Vrai si l'exemple complet est accepte par le parseur, sans jamais l'executer (D-15, D-25)."""
+    """Vrai si l'exemple complet est accepte par le parseur, sans jamais l'executer (D-15, D-25).
+
+    Le succes se lit au code de sortie et non a l'absence d'exception : `argparse` leve
+    `SystemExit(0)` apres avoir imprime son aide, et `python fetcher.py --help` est une ligne de
+    reference legitime pour une page qui documente une ligne de commande (WR-03) — la compter comme
+    un refus produirait un faux positif sur une page correcte. La sortie standard est capturee avec
+    la sortie d'erreur, sinon les 28 lignes d'aide pollueraient le rapport pytest.
+    """
     try:
-        with redirect_stderr(io.StringIO()):
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             build_cli_parser().parse_args(_jetons(ligne)[2:])
-    except SystemExit:
-        return False
+    except SystemExit as sortie:
+        return sortie.code in (0, None)
     return True
 
 
@@ -624,7 +926,13 @@ def test_exemple_hors_ligne_avec_option_globale_avant_sous_commande(
 def test_commande_destructrice_avertie_et_jamais_dans_un_exemple(
     docs_dir: Path, lignes_exemple, normalize
 ) -> None:
-    """La commande destructrice porte son avertissement sur sa ligne et n'est jamais un exemple (D-22)."""
+    """La commande destructrice porte son avertissement, et aucune commande de base locale n'est un exemple.
+
+    Les regles (a) et (b) portent sur les commandes destructrices au sens strict — `db clear` et
+    `cache clear`, lues dans le code (D-22) — tandis que la regle (c) refuse aussi `db sync` et
+    `cache fill` comme commandes a recopier, D-23 les classant destructrices parce qu'elles
+    reecrivent la base locale.
+    """
     texte = _texte_page(docs_dir)
     constats: list[str] = []
 
@@ -652,15 +960,21 @@ def test_commande_destructrice_avertie_et_jamais_dans_un_exemple(
                 f"destructrice, destruction) ; attendu l'avertissement sur la meme ligne (D-22)"
             )
 
-    # (c) Jamais un exemple marque : vider la base locale ne doit jamais etre presente comme une
-    # commande a recopier (D-22). La commande est *parsee* pour prouver que la page cite une
-    # commande reelle, et jamais executee — cette distinction ne doit pas se perdre a la lecture.
+    # (c) Jamais un exemple marque : ni la commande destructrice (`clear`) ni les deux commandes qui
+    # reecrivent la base avec le reseau (`db sync`, `cache fill`) ne doivent apparaitre comme des
+    # commandes a recopier (D-22, D-23). Le motif est volontairement plus large ici qu'en (a) et (b),
+    # qui gardent le classement « destructeur » et son avertissement : etendre *celles-la* a
+    # `sync`/`fill` rendrait la page livree faussement rouge, sa phrase sur les deux sous-commandes de
+    # synchronisation ne portant pas le mot « destruct ». La commande est *parsee* dans les exemples
+    # pour prouver que la page cite des commandes reelles, et jamais executee — cette distinction ne
+    # doit pas se perdre a la lecture.
     for ligne in lignes_exemple(texte):
-        if JETON_DESTRUCTEUR.search(ligne):
+        if JETONS_RESEAU.search(ligne):
             constats.append(
-                f"l'exemple « {ligne} » de {PAGE} cite la commande destructrice ; vider la base "
-                f"locale ne doit jamais etre une commande a recopier (D-22), aucun bloc marque n'en "
-                f"contenant — attendu cette mention hors de tout exemple"
+                f"l'exemple « {ligne} » de {PAGE} cite une commande qui vide ou reecrit la base "
+                f"locale (`db clear`, `db sync`, `cache fill`) ; aucune ne doit etre une commande a "
+                f"recopier (D-22, D-23), aucun bloc marque n'en contenant — attendu ces mentions "
+                f"hors de tout exemple"
             )
 
     # Les trois constats sont accumules et joints a *une seule* assertion : les regles (b) et (c)
