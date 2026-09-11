@@ -32,6 +32,7 @@ SOURCE_ROUTES = "dofus_stuff/web/routes.py"
 SOURCE_RECOMMEND = "dofus_stuff/optimize/recommend.py"
 SOURCE_API = "dofus_stuff/optimize/api.py"
 SOURCE_JS = "dofus_stuff/web/static/js/terminal.js"
+SOURCE_SCREENS = "dofus_stuff/web/screens.py"
 SOURCE_DOFUSBOOK = "dofus_stuff/web/dofusbook_export.py"
 SOURCE_SPEC = "dofus_stuff/model/solver_spec.py"
 SOURCE_SCORE = "dofus_stuff/optimize/score.py"
@@ -664,6 +665,56 @@ def test_couples_numeros_libelles_par_section(docs_dir: Path, app, section, norm
     )
 
 
+# --- Correspondance libelle technique -> nom complet des emplacements (plan 03-02, ECR-1) ---
+
+# Nom de la table de libelles rendue par le resultat, extraite par `ast` et jamais recopiee de
+# memoire (D-42) : dofus_stuff/optimize/api.py:362-380.
+TABLE_SLOTS = "display_slots"
+
+# Nombre de libelles rendus, mesure sur la table `display_slots` : la garde empeche qu'une verite
+# vide ou tronquee rende le controle silencieusement vert.
+NOMBRE_SLOTS = 17
+
+# Table epinglee (libelle, nom complet, fichier source, aiguille de ligne) : l'aiguille est le
+# fragment qui porte le nom dans sa source, patron `LIBELLES_SOURCE` de
+# tests/test_docs_code_anchor.py:61-74. Les noms complets sont recopies exactement du commentaire de
+# `_GROUP_SLOTS` (dofus_stuff/web/dofusbook_export.py:26-37), codes Dofusbook inclus ; `prysma` est
+# le seul emplacement absent de cet export, son nom venant de dofus_stuff/model/solver_spec.py:53.
+SLOTS_MESURE = (
+    ("amulet", "amulette (am)", SOURCE_DOFUSBOOK, '"amulet",'),
+    ("ring_a", "anneaux (a1, a2)", SOURCE_DOFUSBOOK, '"ring_a"'),
+    ("ring_b", "anneaux (a1, a2)", SOURCE_DOFUSBOOK, '"ring_b"'),
+    ("belt", "ceinture (ce)", SOURCE_DOFUSBOOK, '"belt",'),
+    ("boots", "bottes (bo)", SOURCE_DOFUSBOOK, '"boots",'),
+    ("hat", "coiffe (ch)", SOURCE_DOFUSBOOK, '"hat",'),
+    ("cape", "cape (ca)", SOURCE_DOFUSBOOK, '"cape",'),
+    ("weapon", "arme (ar)", SOURCE_DOFUSBOOK, '"weapon",'),
+    ("shield", "bouclier (br)", SOURCE_DOFUSBOOK, '"shield",'),
+    ("dofus_1", "dofus", SOURCE_DOFUSBOOK, '"dofus_1"'),
+    ("dofus_2", "dofus", SOURCE_DOFUSBOOK, '"dofus_2"'),
+    ("dofus_3", "dofus", SOURCE_DOFUSBOOK, '"dofus_3"'),
+    ("dofus_4", "dofus", SOURCE_DOFUSBOOK, '"dofus_4"'),
+    ("dofus_5", "dofus", SOURCE_DOFUSBOOK, '"dofus_5"'),
+    ("dofus_6", "dofus", SOURCE_DOFUSBOOK, '"dofus_6"'),
+    ("pet", "familier/monture (fa)", SOURCE_DOFUSBOOK, '"pet",'),
+    ("prysma", "prysmaradite", SOURCE_SPEC, '"prysmaradite",'),
+)
+
+# Libelle de tableau : seules les cellules ecrites entre accents graves sont des libelles, la prose
+# n'en portant pas — les lignes du tableau sont lues, pas la prose.
+LIBELLE_ENTRE_ACCENTS = re.compile(r"`([^`]+)`")
+
+# Titre de la section qui porte la table de correspondance (posee par ce plan).
+TITRE_CORRESPONDANCE = "## Correspondance des libellés"
+
+# Tournures interdites par la reformulation enregistree d'ECR-1 : la regle de troncature `clip`
+# existe (dofus_stuff/web/screens.py:14-20) mais ne se declenche pas dans ce flux (mesure M7 : zero
+# ligne rendue du resultat ne porte de points de suspension, et les libelles sont completes par le
+# format `f\"  {slot:8s} : \"`, jamais coupes).
+TRONCATURE_PAGE = "libellé tronqué"
+POINTS_DE_SUSPENSION = "…"
+
+
 def _attribut(reponse, nom: str) -> str | None:
     """Valeur d'un attribut `data-*` de la coquille, ou None si l'attribut est absent du rendu."""
     trouve = re.search(rf'{nom}="(?P<valeur>[^"]*)"', reponse.get_data(as_text=True))
@@ -936,6 +987,175 @@ def test_parcours_cli_ne_pose_pas_les_trois_questions(docs_dir: Path, normalize)
         + " ; ".join(constats)
         + f" ; attendu la phrase « {MOTIF_PAGE_CLI} » et aucun litteral de classe ni d'element "
         f"dans {SOURCE_PROFIL}"
+    )
+
+
+def _libelles_display_slots() -> tuple[str, ...]:
+    """Libelles de la table `display_slots`, extraits par `ast` de `dofus_stuff/optimize/api.py`.
+
+    La verite vient du code, jamais d'une liste ecrite de memoire (D-42). Un echec nomme le fichier,
+    la table et la plage de lignes, et dit que la table a peut-etre ete renommee : jamais un
+    `AttributeError` brut, qui ne dirait ni quel fichier ni quelle table lire.
+    """
+    chemin = RACINE_DEPOT / SOURCE_API
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{SOURCE_API} : module introuvable ({chemin}) ; attendu la table « {TABLE_SLOTS} » "
+            f"(lignes 362-380), qui porte les libelles d'emplacement rendus par le resultat"
+        )
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    for noeud in ast.walk(arbre):
+        cibles: list[str] = []
+        valeur: ast.expr | None = None
+        if isinstance(noeud, ast.Assign):
+            cibles = [cible.id for cible in noeud.targets if isinstance(cible, ast.Name)]
+            valeur = noeud.value
+        elif isinstance(noeud, ast.AnnAssign) and isinstance(noeud.target, ast.Name):
+            cibles = [noeud.target.id]
+            valeur = noeud.value
+        if TABLE_SLOTS not in cibles or not isinstance(valeur, ast.Tuple):
+            continue
+        elements = [
+            element.value
+            for element in valeur.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        ]
+        if not elements or len(elements) != len(valeur.elts):
+            continue
+        return tuple(elements)
+    raise AssertionError(
+        f"{SOURCE_API} : table « {TABLE_SLOTS} » (lignes 362-380) introuvable, ou non lisible comme "
+        f"un tuple de chaines ; attendu cette table, qui porte les libelles d'emplacement rendus par "
+        f"le resultat — elle a peut-etre ete renommee ou remplacee"
+    )
+
+
+def test_correspondance_libelles_slots(docs_dir: Path, section, normalize) -> None:
+    """La table de la page couvre exactement les libelles de `display_slots` (V7, ECR-1).
+
+    La correspondance porte sur le **libelle technique** et son nom complet, jamais sur une
+    troncature : dans ce flux aucun libelle n'est coupe (mesure M7). Chaque nom complet est recopie
+    de la source qui le porte et re-verifie sur la ligne qui le porte (patron `LIBELLES_SOURCE`),
+    jamais ecrit de memoire (D-42). Les libelles du tableau sont lus **lignes de tableau**, jamais
+    la prose : une meme ligne peut en porter plusieurs, comme les six `dofus_1` a `dofus_6`.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+    epingles = tuple(entree[0] for entree in SLOTS_MESURE)
+
+    # 1. La verite des libelles est lue dans le code, et une verite vide est un echec nomme.
+    try:
+        libelles = _libelles_display_slots()
+    except AssertionError as erreur:
+        libelles = ()
+        constats.append(str(erreur))
+
+    if libelles and len(libelles) != NOMBRE_SLOTS:
+        manquants = [libelle for libelle in epingles if libelle not in libelles]
+        inventes = [libelle for libelle in libelles if libelle not in epingles]
+        constats.append(
+            f"{SOURCE_API}:362-380 : la table « {TABLE_SLOTS} » compte {len(libelles)} libelles ; "
+            f"attendu {NOMBRE_SLOTS} (mesure). Libelles epingles absents du code : "
+            f"{', '.join(manquants) or 'aucun'} ; libelles du code absents de la table epinglee : "
+            f"{', '.join(inventes) or 'aucun'} ; si un emplacement est ajoute ou retire, la page et "
+            f"ce module changent dans le meme commit"
+        )
+
+    # 2. Chaque entree epinglee est re-verifiee dans la source citee.
+    for libelle, nom_complet, chemin_source, aiguille in SLOTS_MESURE:
+        chemin = RACINE_DEPOT / chemin_source
+        if not chemin.is_file():
+            constats.append(
+                f"{chemin_source} : source introuvable ({chemin}) ; attendu le fichier qui porte le "
+                f"nom complet « {nom_complet} » du libelle « {libelle} » cite par {PAGE}"
+            )
+            continue
+        portantes = [
+            ligne for ligne in chemin.read_text(encoding="utf-8").splitlines() if aiguille in ligne
+        ]
+        if not portantes:
+            constats.append(
+                f"{chemin_source} : aucune ligne ne porte l'aiguille « {aiguille} » ; attendu la "
+                f"ligne qui porte a la fois cette aiguille et le nom complet « {nom_complet} » du "
+                f"libelle « {libelle} » cite par {PAGE}"
+            )
+            continue
+        if not any(normalize(nom_complet) in normalize(ligne) for ligne in portantes):
+            constats.append(
+                f"{chemin_source} : le nom complet « {nom_complet} » du libelle « {libelle} » cite "
+                f"par {PAGE} n'est plus lisible sur la ligne qui porte « {aiguille} » ; attendu ce "
+                f"nom complet sur cette meme ligne, recopie de la source qui le porte"
+            )
+
+    # 3. Les lignes du tableau couvrent exactement les libelles rendus, chacune avec son nom complet.
+    corps_page = section(texte, TITRE_CORRESPONDANCE, PAGE)
+    lignes_tableau = [
+        ligne for ligne in corps_page.splitlines() if ligne.strip().startswith("|")
+    ]
+    libelles_page: list[str] = []
+    for ligne in lignes_tableau:
+        libelles_page.extend(LIBELLE_ENTRE_ACCENTS.findall(ligne))
+    occurrences = {libelle: libelles_page.count(libelle) for libelle in sorted(set(libelles_page))}
+
+    if not libelles_page:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_CORRESPONDANCE} » ne porte aucun libelle entre accents "
+            f"graves ; attendu la table des {NOMBRE_SLOTS} emplacements rendus par "
+            f"{SOURCE_API}:362-380"
+        )
+    for libelle, nombre in occurrences.items():
+        if libelle not in epingles:
+            constats.append(
+                f"{PAGE} : la table de « {TITRE_CORRESPONDANCE} » cite le libelle « {libelle} », "
+                f"absent de {SOURCE_API}:362-380 ; attendu un libelle reellement rendu par le "
+                f"resultat, jamais un emplacement invente"
+            )
+        elif nombre != 1:
+            constats.append(
+                f"{PAGE} : le libelle « {libelle} » apparait {nombre} fois dans la table de "
+                f"« {TITRE_CORRESPONDANCE} » ; attendu une seule ligne par libelle, un second "
+                f"exemplaire faisant deux verites a tenir ({SOURCE_API}:362-380)"
+            )
+    for libelle in epingles:
+        if occurrences.get(libelle, 0) == 0:
+            constats.append(
+                f"{PAGE} : le libelle « {libelle} » de {SOURCE_API}:362-380 est absent de la table "
+                f"de « {TITRE_CORRESPONDANCE} » ; attendu chaque libelle rendu par le resultat, "
+                f"epingle dans ce module"
+            )
+    for libelle, nom_complet, _, _ in SLOTS_MESURE:
+        porteuses = [ligne for ligne in lignes_tableau if f"`{libelle}`" in ligne]
+        if not porteuses:
+            continue  # deja signale comme manquant
+        if not any(normalize(nom_complet) in normalize(ligne) for ligne in porteuses):
+            constats.append(
+                f"{PAGE} : la ligne de table qui porte « {libelle} » ne porte pas son nom complet "
+                f"« {nom_complet} » ; attendu ce nom sur la meme ligne, recopie de la source qui le "
+                f"porte ({SOURCE_DOFUSBOOK}:26-37, ou {SOURCE_SPEC} pour « prysma »)"
+            )
+
+    # 4. Aucune troncature n'est promise : elle n'existe pas dans ce flux (mesure M7).
+    if normalize(TRONCATURE_PAGE) in normalize(corps_page):
+        constats.append(
+            f"{PAGE} : la section « {TITRE_CORRESPONDANCE} » parle de « {TRONCATURE_PAGE} » ; "
+            f"attendu aucune troncature : la regle `clip` ({SOURCE_SCREENS}:14-20) ne se declenche "
+            f"pas dans ce flux, le resultat completant les libelles par des espaces"
+        )
+    if POINTS_DE_SUSPENSION in corps_page:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_CORRESPONDANCE} » contient le caractere "
+            f"« {POINTS_DE_SUSPENSION} » ; attendu aucun point de suspension : le rendu n'en produit "
+            f"aucun dans ce flux (mesure M7), et une troncature inexistante ne doit pas etre promise "
+            f"au lecteur ({SOURCE_SCREENS}:14-20)"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur la correspondance des libelles d'emplacement (table "
+        f"« {TABLE_SLOTS} » de {SOURCE_API}:362-380) : "
+        + " ; ".join(constats)
+        + f" ; attendu la table des {NOMBRE_SLOTS} libelles rendus par le resultat, chacun avec le "
+        f"nom complet recopie de sa source ({SOURCE_DOFUSBOOK}:26-37, {SOURCE_SPEC} pour "
+        f"« prysma »), sans aucune troncature"
     )
 
 

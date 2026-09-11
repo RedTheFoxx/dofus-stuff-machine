@@ -143,6 +143,26 @@ Les informations de calcul apparaissent **en fin de résultat — jusqu'à `PAGE
 
 La liste des emplacements est introduite par `Équipement : `. Chaque ligne commence par le libellé technique de l'emplacement, puis l'objet équipé ou `(vide)` quand l'emplacement est vide : c'est ce libellé technique que le résultat affiche, et la section suivante en donne le nom complet. Neuf emplacements font exception : les six Dofus, le familier, la prysmaradite et le bouclier sont **omis de l'affichage quand ils sont vides**, au lieu d'afficher `(vide)`.
 
+## Correspondance des libellés
+
+Le résultat affiche chaque emplacement sous un **libellé technique** court, écrit tel quel : ces libellés ne sont ni raccourcis ni abrégés à l'affichage — le résultat les complète par des espaces, il ne les coupe pas. Le tableau suivant donne, pour chaque libellé affiché, l'emplacement du jeu correspondant : c'est une correspondance de lecture, pas une sortie de l'outil.
+
+| Libellé affiché | Emplacement |
+|-----------------|-------------|
+| `amulet` | amulette (am) |
+| `ring_a`, `ring_b` | anneaux (a1, a2) |
+| `belt` | ceinture (ce) |
+| `boots` | bottes (bo) |
+| `hat` | coiffe (ch) |
+| `cape` | cape (ca) |
+| `weapon` | arme (ar) |
+| `shield` | bouclier (br) |
+| `dofus_1`, `dofus_2`, `dofus_3`, `dofus_4`, `dofus_5`, `dofus_6` | dofus |
+| `pet` | familier/monture (fa) |
+| `prysma` | prysmaradite |
+
+Les codes entre parenthèses sont ceux des groupes d'import Dofusbook (`ca`, `ch`, `ce`, `bo`, `am`, `a1`, `a2`, `br`, `ar`, `fa`) : ils servent à l'export, pas à l'affichage. Les six emplacements Dofus vont de `dofus_1` à `dofus_6`. Comme vu plus haut, les six Dofus, le familier, la prysmaradite et le bouclier sont omis du résultat quand ils sont vides ; les autres emplacements affichent alors `(vide)`.
+
 ## Source de vérité
 
 - `dofus_stuff/web/routes.py` : écrans et libellés des trois questions.
