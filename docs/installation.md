@@ -50,6 +50,52 @@ C'est le premier contact conseillé avec la ligne de commande :
 
 Les autres commandes (`version`, `search`, `self-test`, `optimize`) n'affichent un résultat que sur une base locale **déjà peuplée**. Obtenir une base peuplée suppose une synchronisation réseau (`db sync`) : cela sort du chemin minimal de cette page et n'y est pas documenté.
 
+## Pilotage clavier
+
+L'interface se pilote entièrement au clavier. Le champ de saisie situé en bas de l'écran reçoit le texte : on y tape la commande ou la réponse, puis on valide avec la touche Entrée (nom d'événement `Enter`). Un clic ailleurs sur la page ramène automatiquement le curseur dans ce champ.
+
+Les touches actives, quel que soit l'écran :
+
+| Touche | Effet | Libellé affiché |
+|--------|-------|-----------------|
+| `F3` | quitter l'interface | « Quitter » |
+| `F7` | écran ou page précédente | « Precedent » ou « Page prec » |
+| `F8` | écran ou page suivante | « Suivant » ou « Page suiv » |
+| `ESC` | revenir en arrière | « Retour » |
+| `PageUp` | page précédente | — |
+| `PageDown` | page suivante | — |
+
+- La touche `ESC` correspond à l'événement clavier nommé `Escape`.
+- La barre de raccourcis affichée en bas d'écran est construite dynamiquement : sur le menu principal elle n'affiche que `F3` (« Quitter ») ; `F7` et `F8` n'y apparaissent que sur un écran paginé ou à une étape du wizard. Les touches du tableau restent actives partout, même quand la barre ne les montre pas.
+
+Sources : `dofus_stuff/web/routes.py` (libellés affichés) et `dofus_stuff/web/static/js/terminal.js` (gestion des touches).
+
+## Lancement de l'interface web
+
+```bash
+python -m dofus_stuff.web
+```
+
+L'interface démarre **en mode hors-ligne par défaut** : `--offline` est actif sans rien préciser. `--no-offline`, ou son équivalent `--online`, autorise le contact avec l'API Dofusdude.
+
+Elle écoute par défaut sur `http://127.0.0.1:5000` : une fois le serveur lancé, ouvrir cette adresse dans un navigateur. `Ctrl+C` dans le terminal arrête le serveur. Sans base locale peuplée, l'interface démarre quand même (la base est créée si elle est absente), mais elle n'affiche alors aucun objet.
+
+Options d'entrée de la commande :
+
+| Option | Rôle |
+|--------|------|
+| `--data-dir` | répertoire de la base locale |
+| `--offline` | ne pas contacter l'API (actif par défaut) |
+| `--no-offline` | contacter l'API au démarrage |
+| `--online` | équivalent de `--no-offline` |
+| `--timeout` | délai HTTP en secondes |
+| `--host` | adresse d'écoute (valeur par défaut `127.0.0.1`) |
+| `--port` | port d'écoute (valeur par défaut `5000`) |
+
+Seule l'adresse locale par défaut est documentée ici : faire écouter ce serveur de développement, qui n'a pas d'authentification, sur une autre interface réseau n'est pas décrit.
+
+L'option `--debug` est réservée au développement : elle active le serveur de débogage de Flask et ne fait pas partie du chemin minimal.
+
 ## Erreurs fréquentes
 
 ### Base locale vide et mode hors-ligne
@@ -88,5 +134,8 @@ Sans `--offline`, la ligne de commande interroge l'API Dofusdude par défaut et 
 - `fetcher.py` : point d'entrée de la ligne de commande.
 - `dofus_stuff/cli.py` : parseur et commandes réellement disponibles.
 - `dofus_stuff/sync.py` : synchronisation de la base locale et garde du mode hors-ligne.
+- `dofus_stuff/web/__main__.py` : options et valeurs par défaut de l'interface web.
+- `dofus_stuff/web/routes.py` : écrans et libellés affichés par l'interface web.
+- `dofus_stuff/web/static/js/terminal.js` : gestion des touches du clavier.
 
 [Retour au sommaire](sommaire.md)

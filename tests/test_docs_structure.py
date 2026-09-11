@@ -8,6 +8,16 @@ H1 = re.compile(r"^#\s+(?P<title>.+?)\s*$", re.MULTILINE)
 
 LIENS_EXTERNES = ("http://", "https://", "mailto:")
 MOTIF_ABSOLU = re.compile(r"^[A-Za-z]:[\\/]")
+H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
+
+# Ancrages du pilotage clavier (INST-03, D-09) et de la commande de lancement web.
+TITRE_CLAVIER = "## Pilotage clavier"
+LANCEMENT_WEB = "python -m dofus_stuff.web"
+TOUCHES_CLAVIER = ("F3", "F7", "F8", "ESC", "PageUp", "PageDown")
+
+# Jetons de commande destructrice interdits dans la page d'installation (T-01-05).
+COMMANDE_DESTRUCTRICE = re.compile(r"\bdb\s+clear\b")
+JETON_PURGE = "PURGE"
 
 
 def _pages(docs_dir: Path) -> list[Path]:
@@ -186,4 +196,95 @@ def test_readme_links_to_sommaire(docs_dir: Path) -> None:
         f"README.md : cible docs/sommaire.md absente sur disque : "
         f"{(racine / 'docs/sommaire.md').as_posix()} ; attendu docs/sommaire.md "
         f"a la racine du depot (SOMM-01, D-10)"
+    )
+
+
+def _page(docs_dir: Path, nom: str) -> Path:
+    """Chemin de la page `nom` sous docs/ ; chemin theorique si elle est absente (D-13)."""
+    for page in _pages(docs_dir):
+        if page.name == nom:
+            return page
+    return docs_dir / nom
+
+
+def _section(texte: str, titre: str) -> str | None:
+    """Contenu de la section `titre` jusqu'au titre de niveau 2 suivant (None si le titre manque)."""
+    debut = texte.find(titre)
+    if debut == -1:
+        return None
+    suite = texte[debut + len(titre) :]
+    suivant = H2.search(suite)
+    return suite if suivant is None else suite[: suivant.start()]
+
+
+def test_pilotage_clavier_avant_lancement(docs_dir: Path) -> None:
+    """Le pilotage clavier est decrit avant la commande de lancement web (INST-03, D-09)."""
+    page = _page(docs_dir, "installation.md")
+    assert page.is_file(), (
+        f"docs/installation.md : page absente : {page.as_posix()} ; attendu la page "
+        f"d'installation du lecteur neuf (INST-01)"
+    )
+    texte = page.read_text(encoding="utf-8")
+
+    position_clavier = texte.find(TITRE_CLAVIER)
+    assert position_clavier != -1, (
+        f"docs/installation.md : titre « {TITRE_CLAVIER} » absent de {page.as_posix()} ; "
+        f"attendu une section decrivant le champ de saisie et les touches, source "
+        f"dofus_stuff/web/static/js/terminal.js (INST-03, D-09)"
+    )
+
+    position_lancement = texte.find(LANCEMENT_WEB)
+    assert position_lancement != -1, (
+        f"docs/installation.md : commande de lancement « {LANCEMENT_WEB} » absente de "
+        f"{page.as_posix()} ; attendu la commande de lancement de l'interface, source "
+        f"dofus_stuff/web/__main__.py (INST-02)"
+    )
+
+    assert position_clavier < position_lancement, (
+        f"docs/installation.md : ordre fautif dans {page.as_posix()} — le titre "
+        f"« {TITRE_CLAVIER} » (position {position_clavier}) doit preceder la commande "
+        f"« {LANCEMENT_WEB} » (position {position_lancement}) ; attendu le pilotage "
+        f"clavier AVANT le lancement de l'interface (INST-03, D-09)"
+    )
+
+    section = _section(texte, TITRE_CLAVIER)
+    assert section is not None, (
+        f"docs/installation.md : section « {TITRE_CLAVIER} » introuvable ou vide dans "
+        f"{page.as_posix()} ; attendu la description du pilotage clavier, source "
+        f"dofus_stuff/web/static/js/terminal.js (INST-03, D-09)"
+    )
+    for touche in TOUCHES_CLAVIER:
+        assert touche in section, (
+            f"docs/installation.md : touche « {touche} » non documentee dans la section "
+            f"« {TITRE_CLAVIER} » de {page.as_posix()} ; attendu cette touche, source "
+            f"dofus_stuff/web/static/js/terminal.js (INST-03, D-09)"
+        )
+
+
+def test_no_destructive_command_in_installation(docs_dir: Path) -> None:
+    """La page d'installation ne porte aucun jeton de commande destructrice (T-01-05)."""
+    page = _page(docs_dir, "installation.md")
+    assert page.is_file(), (
+        f"docs/installation.md : page absente : {page.as_posix()} ; attendu la page "
+        f"d'installation du lecteur neuf (INST-01)"
+    )
+    texte = page.read_text(encoding="utf-8")
+
+    assert "--offline db status" in texte, (
+        f"docs/installation.md : premier contact CLI « --offline db status » absent de "
+        f"{page.as_posix()} ; attendu le seul premier contact hors-ligne de la page, "
+        f"source dofus_stuff/cli.py (INST-01, T-01-06)"
+    )
+
+    destructrice = COMMANDE_DESTRUCTRICE.search(texte)
+    assert destructrice is None, (
+        f"docs/installation.md : commande destructrice trouvee : "
+        f"« {destructrice.group(0) if destructrice else ''} » dans {page.as_posix()} ; "
+        f"attendu aucune commande de vidage de la base locale, source "
+        f"dofus_stuff/cli.py (T-01-05)"
+    )
+    assert JETON_PURGE not in texte, (
+        f"docs/installation.md : jeton « {JETON_PURGE} » trouve dans {page.as_posix()} ; "
+        f"attendu aucune commande de suppression des sauvegardes, source "
+        f"dofus_stuff/web/routes.py (T-01-05)"
     )
