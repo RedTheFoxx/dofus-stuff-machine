@@ -2,7 +2,7 @@
 
 Cette page suit le parcours simplifié de l'interface web, question par question : la classe, les éléments, puis le niveau. Pour chacune, elle recopie l'écran tel qu'il s'affiche et dit ce que la saisie accepte.
 
-Toutes les affirmations de cette page viennent du rendu réel de la vue web. La surface des commandes n'est pas recopiée ici : elle appartient à [la page CLI](cli.md). Les écrans du wizard avancé et le fonctionnement de la base locale seront décrits dans les pages qui leur seront consacrées. Le parcours en ligne de commande, lui, ne pose pas ces trois questions : la classe et les éléments n'existent que dans le parcours guidé de l'interface web.
+Toutes les affirmations de cette page viennent du rendu réel de la vue web. La surface des commandes n'est pas recopiée ici : elle appartient à [la page CLI](cli.md). Les écrans du [wizard avancé](wizard-avance.md) et le fonctionnement de la base locale seront décrits dans les pages qui leur seront consacrées. Le parcours en ligne de commande, lui, ne pose pas ces trois questions : la classe et les éléments n'existent que dans le parcours guidé de l'interface web.
 
 ## Question 1/3 : la classe
 
@@ -253,7 +253,7 @@ Préparer l'envoi vers Dofusbook ouvre une page dans le navigateur. Quand cette 
 
 ### Ce que cette page ne décrit pas
 
-Les **réglages avancés** (les écrans du wizard) et le fonctionnement de la **base locale** ne sont pas décrits ici : chaque sujet appartient à la page qui lui sera consacrée, et cette page ne dit que ce que le parcours simplifié en montre. Le parcours en ligne de commande, lui, ne pose pas ces trois questions : sa surface est décrite dans la page CLI.
+Les **réglages avancés** (les écrans du [wizard avancé](wizard-avance.md)) et le fonctionnement de la **base locale** ne sont pas décrits ici : chaque sujet appartient à la page qui lui sera consacrée, et cette page ne dit que ce que le parcours simplifié en montre. Le parcours en ligne de commande, lui, ne pose pas ces trois questions : sa surface est décrite dans la page CLI.
 
 ## Source de vérité
 

@@ -2227,8 +2227,17 @@ NOM_FILTRE_PLAUSIBILITE = "_is_plausible_equipment"
 FRAGMENT_PROFONDEUR = "top_k=40"
 FRAGMENT_COUPE_URL = "url[:COLS]"
 
-# Pages citees en prose par la section, sans lien : leurs pages n'existent pas encore (D-44).
-PAGES_INEXISTANTES = ("wizard-avance.md", "base-locale.md")
+# Pages citees en prose par la section, sans lien : leurs pages n'existent pas encore (D-44). La
+# reserve est reduite a ce qui est **reellement** inexistant (D-63) : `wizard-avance.md` est livree par
+# la phase 4, donc son lien est desormais legitime, et `test_lien_wizard_avance_legitime` refuse qu'une
+# page existante reste declaree inexistante.
+PAGES_INEXISTANTES = ("base-locale.md",)
+
+# Cibles de liens legitimes de l'aiguillage `GUIDE_WIZARD.md` vers `docs/` (D-60) : chaque cible d'un
+# lien de l'aiguillage vers `docs/` doit etre **declaree ici** et **exister sur disque**. Aucun autre
+# module ne lit ce fichier racine (`test_docs_structure.py` ne parcourt que `docs/**`), donc un lien
+# mort ou un renvoi produit ajoute y passerait inapercu sans cette liste.
+LIENS_LEGITIMES_VERS_L_AIGUILLAGE = ("docs/wizard-avance.md", "docs/sommaire.md")
 
 # Valeur de `COLS` lue dans dofus_stuff/web/screens.py:5, jamais recopiee de memoire (D-42). C'est la
 # seule valeur numerique a trois chiffres admise dans la section des limites, et elle y est exigee :
@@ -2731,4 +2740,158 @@ def test_entete_des_trois_ecrans_de_questions_cite(docs_dir: Path, app) -> None:
         + " ; ".join(constats)
         + f" ; attendu une page qui cite le code de programme et le titre que la ligne d'en-tete des "
         f"trois ecrans de questions rend, lus dans le rendu et jamais recopies de memoire"
+    )
+
+
+# --- Renvoi legitime vers la page du wizard et reserve qui ne peut pas mentir (plan 04-03, tache 2) ---
+#
+# La dette D-44 est levee **dans le meme commit que sa cible** (D-63) : les deux renvois en prose de la
+# page deviennent de vrais liens vers `wizard-avance.md`, et la reserve `PAGES_INEXISTANTES` perd
+# l'entree correspondante. Ce controle vit a cote de son modele — la reserve ci-dessus et le lien de la
+# page — pour que le lien et la reduction ne puissent pas diverger.
+PAGE_WIZARD = "wizard-avance.md"
+GUIDE_WIZARD = "GUIDE_WIZARD.md"
+PREFIXE_DOCS = "docs/"
+
+# Motifs de morsure portes par des constantes du module, jamais ecrits en clair dans la ligne
+# d'assertion (regle posee au plan 03-03, tache 2) : pytest reproduit cette ligne dans sa sortie.
+MOTIF_LIEN_D63 = "renvoi en prose sans lien vers la page du wizard"
+MOTIF_PAGES_INEXISTANTES = "page declaree inexistante alors qu'elle existe"
+MOTIF_LIEN_NON_DECLARE = "lien non declare"
+# Meme formulation que `MOTIF_LIENS_INEXISTANTS` : le fait constate est le meme (une cible de lien qui
+# n'existe pas), et la valeur est celle fixee par le plan de cette tache.
+MOTIF_LIEN_MORT = "lien vers une page inexistante"
+
+# Ancres des deux renvois en prose de la page, chacune identifiant **sa** phrase sans la confondre avec
+# un autre passage : l'en-tete de la page et la section « Ce que cette page ne decrit pas ». La
+# comparaison se fait sur la ligne **depouillee de ses crochets de lien** : sans cela, un renvoi qui
+# vient de perdre sa cible ne serait plus reconnu comme le renvoi a citer, et la morsure deviendrait
+# indiscernable d'une phrase deplacee.
+ANCRES_RENVOI_D63 = (
+    "Les écrans du wizard avancé",
+    "ne sont pas décrits ici",
+)
+
+# Cible d'un lien markdown, telle qu'ecrite entre parentheses.
+MOTIF_LIEN_MARKDOWN = re.compile(r"\[(?P<libelle>[^\]]*)\]\((?P<cible>[^)]+)\)")
+
+
+def test_lien_wizard_avance_legitime(docs_dir: Path, normalize) -> None:
+    """La dette D-44 est levee et sa reserve ne peut plus mentir (D-63, D-60).
+
+    Cinq invariants, dans l'ordre du geste qui les rend vrais :
+
+    1. les deux renvois en prose de `docs/parcours-simplifie.md` portent un lien dont la cible est
+       `wizard-avance.md` : le sujet du wizard avance est desormais decrit par cette page, et le lien
+       le dit ;
+    2. aucune entree de `PAGES_INEXISTANTES` ne correspond a une page qui existe sur disque : c'est
+       cette garde qui rend la reduction obligatoire, verifiable et inversible (remettre
+       `wizard-avance.md` dans la reserve fait rougir la suite) ;
+    3. chaque cible de lien de `GUIDE_WIZARD.md` vers `docs/` est declaree dans
+       `LIENS_LEGITIMES_VERS_L_AIGUILLAGE` ;
+    4. chaque cible declaree **existe** depuis la racine du depot — un lien mort est un echec ;
+    5. les phrases de `RENVOIS_SANS_LIEN` sont toujours presentes (`base-locale.md` n'existe pas encore)
+       et la page cible est citee par `docs/sommaire.md`, donc l'aiguillage mene a un point d'entree
+       reel.
+
+    Limite honnete : la dette restante (`base-locale.md`) reste visible par construction ; ce controle
+    ne dit rien du reste de la prose de la page, seulement des deux renvois qu'il nomme.
+    """
+    chemin_page = docs_dir / PAGE
+    if not chemin_page.is_file():
+        raise AssertionError(
+            f"{PAGE} : page introuvable ({chemin_page}) ; attendu la page du parcours simplifie livree "
+            f"par la phase 3, dont les deux renvois deviennent des liens (D-63)"
+        )
+    chemin_aiguillage = RACINE_DEPOT / GUIDE_WIZARD
+    if not chemin_aiguillage.is_file():
+        raise AssertionError(
+            f"{GUIDE_WIZARD} : aiguillage introuvable ({chemin_aiguillage}) ; attendu le fichier de la "
+            f"racine dont les cibles de liens vers `docs/` sont declarees legitimes (D-60)"
+        )
+
+    texte_page = chemin_page.read_text(encoding="utf-8")
+    lignes_page = texte_page.splitlines()
+    texte_aiguillage = chemin_aiguillage.read_text(encoding="utf-8")
+    constats: list[str] = []
+
+    # 1. Les deux renvois en prose portent un vrai lien vers la page du wizard.
+    for ancre in ANCRES_RENVOI_D63:
+        attendue = normalize(ancre)
+        trouvees = [
+            ligne
+            for ligne in lignes_page
+            if attendue in normalize(ligne.replace("[", "").replace("]", ""))
+        ]
+        if not trouvees:
+            constats.append(
+                f"{MOTIF_LIEN_D63} : le renvoi « {ancre} » est introuvable dans {PAGE} ; attendu la "
+                f"phrase qui renvoie au wizard avance, portant un lien vers {PAGE_WIZARD}, la dette "
+                f"D-44 etant levee dans le meme commit que sa cible (D-63)"
+            )
+            continue
+        for ligne in trouvees:
+            if f"]({PAGE_WIZARD})" not in ligne:
+                constats.append(
+                    f"{MOTIF_LIEN_D63} : la ligne « {ligne} » renvoie au wizard avance sans lien vers "
+                    f"« {PAGE_WIZARD} » ; attendu un vrai lien markdown vers la page cible, l'ajout du "
+                    f"lien appartenant a la phase qui cree cette page (D-44, D-63)"
+                )
+
+    # 2. La reserve ne peut pas declarer inexistante une page qui existe.
+    for page_cible in PAGES_INEXISTANTES:
+        chemin_cible = docs_dir / page_cible
+        if chemin_cible.is_file():
+            constats.append(
+                f"{MOTIF_PAGES_INEXISTANTES} : la reserve declare « {page_cible} » inexistante alors "
+                f"que la page existe ({chemin_cible.as_posix()}) ; attendu une reserve reduite a ce qui "
+                f"n'existe pas, l'entree devenue une vraie cible etant retiree dans le meme commit que "
+                f"le lien (D-63)"
+            )
+
+    # 3. et 4. Toute cible de l'aiguillage vers `docs/` est declaree, et toute cible declaree existe.
+    cibles = [trouve.group("cible") for trouve in MOTIF_LIEN_MARKDOWN.finditer(texte_aiguillage)]
+    cibles_docs = [cible for cible in cibles if cible.startswith(PREFIXE_DOCS)]
+    for cible in cibles_docs:
+        if not (RACINE_DEPOT / cible).is_file():
+            constats.append(
+                f"{MOTIF_LIEN_MORT} : le lien de {GUIDE_WIZARD} vers « {cible} » ne resout pas depuis "
+                f"la racine du depot ({RACINE_DEPOT.as_posix()}) ; attendu une cible presente sur "
+                f"disque, aucun autre module ne lisant ce fichier racine"
+            )
+        elif cible not in LIENS_LEGITIMES_VERS_L_AIGUILLAGE:
+            constats.append(
+                f"{MOTIF_LIEN_NON_DECLARE} : {GUIDE_WIZARD} lie « {cible} », absent de "
+                f"LIENS_LEGITIMES_VERS_L_AIGUILLAGE ; attendu chaque cible de l'aiguillage declaree, "
+                f"cette liste etant le seul endroit ou un renvoi vers `docs/` y est admis (D-60)"
+            )
+    for cible in LIENS_LEGITIMES_VERS_L_AIGUILLAGE:
+        if not (RACINE_DEPOT / cible).is_file():
+            constats.append(
+                f"{MOTIF_LIEN_MORT} : la cible declaree « {cible} » n'existe pas depuis la racine du "
+                f"depot ({RACINE_DEPOT.as_posix()}) ; attendu une liste de cibles reelles, sans quoi "
+                f"l'aiguillage mene a une page morte"
+            )
+
+    # 5. La dette restante reste visible et la cible est indexee par le sommaire.
+    normalise_page = normalize(texte_page)
+    for renvoi in RENVOIS_SANS_LIEN:
+        if normalize(renvoi) not in normalise_page:
+            constats.append(
+                f"{PAGE} : le renvoi « {renvoi} » a disparu ; attendu cette phrase, la dette restante "
+                f"(`base-locale.md` n'existe pas encore) devant rester visible dans la page (D-63)"
+            )
+    texte_sommaire = (docs_dir / SOMMAIRE).read_text(encoding="utf-8")
+    if f"]({PAGE_WIZARD})" not in texte_sommaire:
+        constats.append(
+            f"{SOMMAIRE} : la page cible « {PAGE_WIZARD} » n'y est pas citee ; attendu la cible "
+            f"indexee, sans quoi l'aiguillage ne mene pas a un point d'entree reel (D-63)"
+        )
+
+    assert not constats, (
+        f"{PAGE} et {GUIDE_WIZARD} : constats sur le renvoi legitime et la reserve : "
+        + " ; ".join(constats)
+        + f" ; attendu les deux renvois de {PAGE} portant un lien vers {PAGE_WIZARD}, une reserve "
+        f"PAGES_INEXISTANTES reduite a ce qui n'existe pas, et chaque cible de lien de {GUIDE_WIZARD} "
+        f"vers `docs/` declaree **et** existante (D-60, D-63)"
     )
