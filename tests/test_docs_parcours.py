@@ -1321,3 +1321,192 @@ def test_garde_ni_base_ni_processus_ni_reseau() -> None:
         + f" ; attendu un module d'ancrage qui rend les ecrans de {SOURCE_ROUTES} en processus, "
         f"sans ouvrir la base locale ni joindre le reseau"
     )
+
+
+# --- Sauvegarde navigateur et export Dofusbook : les deux ecrans qui les exposent (plan 03-03) ---
+
+# Ligne d'en-tete de la coquille (`dofus_stuff/web/templates/screen.html:24`) : le programme de
+# l'ecran y est rendu par `header_line` (`dofus_stuff/web/screens.py:77-96`).
+MARQUEUR_ENTETE = '<div class="row header" id="header-row">'
+
+# Champ de saisie de la coquille, lu **dans la balise du champ** : une recherche libre de
+# `name="..."` trouverait d'abord le `<meta name="viewport">` de l'en-tete HTML.
+MOTIF_CHAMP_SAISIE = re.compile(r'<input class="field"(?P<attributs>[^>]*)>', re.S)
+MOTIF_ATTRIBUT_CHAMP = re.compile(r'(?P<nom>[a-z-]+)="(?P<valeur>[^"]*)"')
+
+# Cle de session lue par le `GET /optimize/result` (`dofus_stuff/web/routes.py:893` et `:1318`).
+SESSION_RESULTAT = "optimize_result_lines"
+
+# Libelles des deux ecrans qui exposent la sauvegarde et l'export, mesures sur le rendu : l'ecran
+# `SAV-01` est rendu par `dofus_stuff/web/routes.py:1280-1295` (route `/saves`) et la ligne de statut
+# du resultat par `dofus_stuff/web/routes.py:1380`.
+ECRAN_SAUVEGARDES = "SAV-01"
+ATTENTE_SAUVEGARDES = "CHARGEMENT DES SAUVEGARDES LOCALES…"
+STATUT_SAUVEGARDES = "N OUVRIR | DEL N | PURGE OUI"
+STATUT_RESULTAT = "ID DETAIL | SAVE [NOM] | SAVES | EDIT | DB"
+TOUCHES_SAUVEGARDES = (("ESC", "Retour"),)
+MODE_SAUVEGARDES = "saves"
+MODE_RESULTAT = "result"
+CHAMP_SAUVEGARDES = ("cmd", "40")
+
+# Fragments que la section « Sauvegarder et exporter » doit citer : chacun est rendu par l'un des
+# deux ecrans, et aucun n'est recopie d'une surface de commandes (D-37).
+FRAGMENTS_PAGE_SAUVEGARDE = (
+    "SAVE [NOM]",
+    "SAVES",
+    ATTENTE_SAUVEGARDES,
+    STATUT_SAUVEGARDES,
+)
+
+# Balise des blocs d'exemples de commandes (D-24) : la surface de commandes appartient a
+# `docs/cli.md`, la section ne doit donc porter aucun bloc de ce genre (D-37).
+BALISE_COMMANDE = "```console"
+
+# Etat de session du resultat injecte sans lancer de solveur : le `GET /optimize/result` ne lit que
+# `optimize_result_lines`. La saisie `DB`, seule a exiger le build, est couverte, patchee, par
+# `tests/test_web.py:668` et interdite ici par `test_aucun_post_db_sans_patch`.
+LIGNES_RESULTAT_INJECTE = ("Niveau 50", "Score : 1")
+
+
+def _entete(reponse) -> str:
+    """Texte de la ligne d'en-tete de la coquille, ou "" si le marqueur est absent du rendu."""
+    texte = reponse.get_data(as_text=True)
+    if MARQUEUR_ENTETE not in texte:
+        return ""
+    return texte.split(MARQUEUR_ENTETE, 1)[1].split("</div>", 1)[0]
+
+
+def _champ_saisie(reponse) -> dict[str, str]:
+    """Attributs de la balise du champ de saisie, lus dans cette balise et nulle part ailleurs."""
+    trouve = MOTIF_CHAMP_SAISIE.search(reponse.get_data(as_text=True))
+    if trouve is None:
+        return {}
+    return {
+        attribut.group("nom"): attribut.group("valeur")
+        for attribut in MOTIF_ATTRIBUT_CHAMP.finditer(trouve.group("attributs"))
+    }
+
+
+def test_ecrans_de_sauvegarde_et_export(app, docs_dir: Path, section, normalize) -> None:
+    """Les deux ecrans qui exposent la sauvegarde et l'export rendent leurs libelles (V8).
+
+    Aucune saisie n'est postee sur l'ecran de resultat : le rendu est obtenu en injectant l'etat de
+    session, exactement comme `tests/test_web.py:668-671`. La saisie `DB` appelle
+    `webbrowser.open_new_tab` **cote serveur** et est couverte, patchee, par `tests/test_web.py:668`.
+    """
+    texte = _texte_page(docs_dir)
+    constats: list[str] = []
+
+    # 1. L'ecran des sauvegardes : en-tete, corps d'attente, ligne de statut, coquille et champ.
+    sauvegardes = app.test_client().get("/saves")
+    if sauvegardes.status_code != 200:
+        constats.append(
+            f"{PAGE} : l'ecran des sauvegardes repond {sauvegardes.status_code} ; attendu 200, "
+            f"rendu par {SOURCE_ROUTES}:1280-1295"
+        )
+    else:
+        if ECRAN_SAUVEGARDES not in _entete(sauvegardes):
+            constats.append(
+                f"{PAGE} : l'en-tete de l'ecran des sauvegardes ne porte pas "
+                f"« {ECRAN_SAUVEGARDES} » (en-tete lue : « {_entete(sauvegardes)} ») ; attendu cet "
+                f"identifiant d'ecran, rendu par {SOURCE_ROUTES}:1280-1295"
+            )
+        lignes = [normalize(ligne) for ligne in _lignes_du_corps(sauvegardes)]
+        if normalize(ATTENTE_SAUVEGARDES) not in lignes:
+            constats.append(
+                f"{PAGE} : le corps de l'ecran des sauvegardes ne porte pas "
+                f"« {ATTENTE_SAUVEGARDES} » ; attendu ce texte d'attente, rendu par "
+                f"{SOURCE_ROUTES}:1287 puis remplace par la liste cote navigateur ({SOURCE_JS})"
+            )
+        statut = _statut(sauvegardes)
+        if not statut.startswith(STATUT_SAUVEGARDES):
+            constats.append(
+                f"{PAGE} : la ligne de statut de l'ecran des sauvegardes vaut « {statut} » ; attendu "
+                f"une ligne commencant par « {STATUT_SAUVEGARDES} », rendue par "
+                f"{SOURCE_ROUTES}:1293"
+            )
+        if _attribut(sauvegardes, "data-mode") != MODE_SAUVEGARDES:
+            constats.append(
+                f"{PAGE} : l'attribut « data-mode » de l'ecran des sauvegardes vaut "
+                f"« {_attribut(sauvegardes, 'data-mode')} » ; attendu « {MODE_SAUVEGARDES} », comme "
+                f"rendu par {SOURCE_ROUTES}:1294"
+            )
+        for attribut, attendu in (
+            ("name", CHAMP_SAUVEGARDES[0]),
+            ("maxlength", CHAMP_SAUVEGARDES[1]),
+        ):
+            valeur = _champ_saisie(sauvegardes).get(attribut)
+            if valeur != attendu:
+                constats.append(
+                    f"{PAGE} : l'attribut « {attribut} » du champ de saisie de l'ecran des "
+                    f"sauvegardes vaut « {valeur} » ; attendu « {attendu} », comme rendu par "
+                    f"{SOURCE_ROUTES}:1288-1290"
+                )
+        for touche in TOUCHES_SAUVEGARDES:
+            if touche not in _touches(sauvegardes):
+                constats.append(
+                    f"{PAGE} : le couple de touche (« {touche[0]} », « {touche[1]} ») est absent de "
+                    f"la barre de l'ecran des sauvegardes ; attendu ce couple, rendu par "
+                    f"{SOURCE_ROUTES}:1291"
+                )
+
+    # 2. L'ecran de resultat, obtenu par injection d'etat : sa ligne de statut annonce `SAVE [NOM]`,
+    #    `SAVES` et `DB`, sans qu'aucune saisie soit postee.
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session[SESSION_RESULTAT] = list(LIGNES_RESULTAT_INJECTE)
+    resultat = client.get("/optimize/result")
+    if resultat.status_code != 200:
+        constats.append(
+            f"{PAGE} : l'ecran du resultat repond {resultat.status_code} apres injection de l'etat "
+            f"de session ; attendu 200, rendu par {SOURCE_ROUTES}, qui lit « {SESSION_RESULTAT} » "
+            f"({SOURCE_ROUTES}:893 et :1318)"
+        )
+    else:
+        statut_resultat = _statut(resultat)
+        if not statut_resultat.startswith(STATUT_RESULTAT):
+            constats.append(
+                f"{PAGE} : la ligne de statut du resultat vaut « {statut_resultat} » ; attendu une "
+                f"ligne commencant par « {STATUT_RESULTAT} », rendue par {SOURCE_ROUTES}:1380"
+            )
+        for commande in ("SAVE [NOM]", "SAVES", "DB"):
+            if commande not in statut_resultat:
+                constats.append(
+                    f"{PAGE} : la ligne de statut du resultat ne porte pas « {commande} » ; attendu "
+                    f"cette saisie parmi celles annoncees par la ligne de statut, rendue par "
+                    f"{SOURCE_ROUTES}:1380"
+                )
+        if _attribut(resultat, "data-mode") != MODE_RESULTAT:
+            constats.append(
+                f"{PAGE} : l'attribut « data-mode » de l'ecran du resultat vaut "
+                f"« {_attribut(resultat, 'data-mode')} » ; attendu « {MODE_RESULTAT} », comme rendu "
+                f"par {SOURCE_ROUTES}:1382"
+            )
+
+    # 3. Cote page : la section cite ces libelles et ne recopie aucune commande (D-37).
+    corps_page = ""
+    try:
+        corps_page = section(texte, TITRE_SAUVEGARDE, PAGE)
+    except AssertionError as erreur:
+        constats.append(str(erreur))
+    for fragment in FRAGMENTS_PAGE_SAUVEGARDE:
+        if normalize(fragment) not in normalize(corps_page):
+            constats.append(
+                f"{PAGE} : la section « {TITRE_SAUVEGARDE} » ne cite pas « {fragment} » ; attendu ce "
+                f"fragment, rendu par {SOURCE_ROUTES}:1280-1295 ou :1380"
+            )
+    if BALISE_COMMANDE in corps_page:
+        constats.append(
+            f"{PAGE} : la section « {TITRE_SAUVEGARDE} » porte un bloc de commandes recopiables "
+            f"« {BALISE_COMMANDE} » ; attendu aucun bloc de ce genre, la surface de commandes "
+            f"appartenant a la page CLI (D-37), pas a cette page"
+        )
+
+    assert not constats, (
+        f"{PAGE} : constats sur les ecrans qui exposent la sauvegarde et l'export (attendus : "
+        f"« {ECRAN_SAUVEGARDES} », « {ATTENTE_SAUVEGARDES} » et « {STATUT_SAUVEGARDES} » pour "
+        f"l'ecran des sauvegardes, « {STATUT_RESULTAT} » pour le resultat) : "
+        + " ; ".join(constats)
+        + f" ; attendu ces libelles rendus par {SOURCE_ROUTES}:1280-1295 et :1380, et cites par la "
+        f"section « {TITRE_SAUVEGARDE} » de {PAGE}"
+    )

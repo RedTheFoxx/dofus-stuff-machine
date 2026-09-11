@@ -163,6 +163,26 @@ Le résultat affiche chaque emplacement sous un **libellé technique** court, é
 
 Les codes entre parenthèses sont ceux des groupes d'import Dofusbook (`ca`, `ch`, `ce`, `bo`, `am`, `a1`, `a2`, `br`, `ar`, `fa`) : ils servent à l'export, pas à l'affichage. Les six emplacements Dofus vont de `dofus_1` à `dofus_6`. Comme vu plus haut, les six Dofus, le familier, la prysmaradite et le bouclier sont omis du résultat quand ils sont vides ; les autres emplacements affichent alors `(vide)`.
 
+## Sauvegarder et exporter
+
+Un stuff calculé peut être gardé dans le navigateur, puis envoyé vers Dofusbook. Les deux actions se prennent depuis l'écran de résultat : sa ligne de statut annonce les saisies qu'il accepte, dont `SAVE [NOM]` pour garder le stuff courant, `SAVES` pour ouvrir la liste des sauvegardes et `DB` pour préparer un envoi vers Dofusbook. Ces libellés sont ceux que l'écran affiche réellement. La surface de commandes de l'outil n'est pas recopiée ici : elle appartient à [la page CLI](cli.md).
+
+### Garder un stuff dans le navigateur
+
+Sur l'écran de résultat, tapez `SAVE` pour garder le stuff sans lui donner de nom, ou `SAVE <libellé>` pour le nommer. La ligne de statut confirme l'enregistrement et rappelle combien de sauvegardes sont déjà prises. Rien n'est envoyé au serveur : la sauvegarde reste dans le navigateur, et elle y est encore après la fermeture de l'onglet.
+
+`SAVES` ouvre l'écran des sauvegardes, l'écran `SAV-01`, servi par l'adresse `/saves`. Son corps affiche d'abord le texte d'attente `CHARGEMENT DES SAUVEGARDES LOCALES…`, que le navigateur remplace par la liste dès qu'il l'a lue. Sa ligne de statut annonce `N OUVRIR | DEL N | PURGE OUI` : `N` ouvre la sauvegarde portant ce numéro, `DEL N` en supprime une, et `PURGE OUI` les retire toutes.
+
+### La limite du navigateur
+
+L'outil ne garde pas un nombre illimité de sauvegardes. Quand la liste est pleine, **les plus anciennes sont remplacées** par la nouvelle : la sauvegarde la plus ancienne s'efface sans message d'échec, et le stuff qui vient d'être calculé prend sa place. Rien n'est refusé et rien n'est signalé dans la ligne de statut. Si une sauvegarde compte pour vous, notez-la ou exportez-la avant d'en enregistrer d'autres.
+
+### Envoyer un stuff vers Dofusbook
+
+`DB` sur l'écran de résultat prépare l'envoi : l'outil ouvre une page Dofusbook pré-remplie avec votre stuff. Depuis une sauvegarde ouverte dans la liste, la même action s'appelle `DB DOFUSBOOK`. L'adresse préparée est celle de l'import Dofus-Stuffer — `https://www.dofusbook.net/fr/equipement/dofus-stuffer/objets` — complétée par un jeton `stuff=` qui porte le stuff.
+
+Un stuff ne part pas en entier vers Dofusbook. L'export reprend au plus seize emplacements, et **la prysmaradite n'est pas exportée** : elle reste sur place, alors qu'elle fait bien partie de votre stuff. Mieux vaut le savoir avant de compter dessus.
+
 ## Source de vérité
 
 - `dofus_stuff/web/routes.py` : écrans et libellés des trois questions.
