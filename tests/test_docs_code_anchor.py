@@ -30,8 +30,6 @@ OPTION_CITEE = re.compile(r"`(?P<option>--[a-z][a-z-]*)`")
 OPTION_LONGUE = re.compile(r"--[a-z][a-z-]*")
 JETON_AIDE = "--help"
 
-TITRE_H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
-DELIMITEUR_CODE = re.compile(r"^\s*```")
 ADRESSE_ECOUTE = re.compile(r"(?P<hote>(?:\d{1,3}\.){3}\d{1,3}):(?P<port>\d{1,5})")
 
 # Surface d'entrée de l'interface web : une sonde d'argv complet par option (D-14).
@@ -76,34 +74,6 @@ LIBELLES_SOURCE = [
 ]
 
 
-def _sections(texte: str) -> list[tuple[str | None, str]]:
-    """Couples (titre de niveau 2, corps) des sections, dans l'ordre du fichier.
-
-    L'entete qui precede le premier titre de niveau 2 est la premiere section, de titre None :
-    une regle portant sur « chaque section » couvre donc aussi l'entete de la page.
-    """
-    titres = list(TITRE_H2.finditer(texte))
-    sections: list[tuple[str | None, str]] = [
-        (None, texte[: titres[0].start()] if titres else texte)
-    ]
-    for index, trouve in enumerate(titres):
-        fin = titres[index + 1].start() if index + 1 < len(titres) else len(texte)
-        sections.append((trouve.group("titre"), texte[trouve.end() : fin]))
-    return sections
-
-
-def _section(texte: str, titre: str) -> str:
-    """Corps d'une section de niveau 2, du titre jusqu'au titre de niveau 2 suivant."""
-    attendu = titre.strip().lstrip("#").strip()
-    for titre_trouve, corps in _sections(texte):
-        if titre_trouve is not None and titre_trouve.strip() == attendu:
-            return corps
-    raise AssertionError(
-        f"{PAGE} : section « {titre} » introuvable ; attendu un titre de niveau 2 "
-        f"« ## {attendu} » dans la page ({PAGE})"
-    )
-
-
 def _option_acceptee(parser, option: str) -> bool:
     """Vrai si le parseur accepte `option`, seule ou portee par une valeur (D-14 : parse_args public).
 
@@ -125,23 +95,10 @@ def _options_aide_web() -> set[str]:
     return set(OPTION_LONGUE.findall(build_parser().format_help())) - {JETON_AIDE}
 
 
-def _lignes_de_code(texte: str) -> list[str]:
-    """Lignes situées entre les délimiteurs de blocs de code Markdown (trois accents graves)."""
-    lignes: list[str] = []
-    dans_bloc = False
-    for ligne in texte.splitlines():
-        if DELIMITEUR_CODE.match(ligne):
-            dans_bloc = not dans_bloc
-            continue
-        if dans_bloc:
-            lignes.append(ligne)
-    return lignes
-
-
-def test_sources_de_verite_exist(docs_dir: Path) -> None:
+def test_sources_de_verite_exist(docs_dir: Path, section) -> None:
     """Chaque chemin cité par la page existe sur disque, et le bloc « Source de vérité » en cite."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
-    bloc = _section(texte, TITRE_SOURCE)
+    bloc = section(texte, TITRE_SOURCE, PAGE)
     assert sorted(set(CHEMIN_CITE.findall(bloc))), (
         f"{PAGE} : aucun chemin de code trouvé dans la section « {TITRE_SOURCE} » ; "
         f"attendu au moins un chemin réel du code ({PAGE})"
@@ -155,10 +112,10 @@ def test_sources_de_verite_exist(docs_dir: Path) -> None:
     )
 
 
-def test_cli_examples_of_installation_page_parse(docs_dir: Path) -> None:
+def test_cli_examples_of_installation_page_parse(docs_dir: Path, lignes_de_code) -> None:
     """Chaque commande fetcher.py des blocs de code est analysable et porte --offline."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
-    commandes = [ligne.strip() for ligne in _lignes_de_code(texte) if "fetcher.py" in ligne]
+    commandes = [ligne.strip() for ligne in lignes_de_code(texte) if "fetcher.py" in ligne]
     assert commandes, (
         f"{PAGE} : aucune commande fetcher.py dans les blocs de code de la page ; "
         f"attendu au moins le premier contact CLI ({SOURCE_CLI})"
@@ -229,7 +186,7 @@ def test_documented_entry_options_appear_in_help() -> None:
     )
 
 
-def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> None:
+def test_documented_entry_options_are_documented(docs_dir: Path, normalize, sections) -> None:
     """Les sept options d'entrée web du parseur sont citées, et --debug reste hors chemin minimal."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
     normalise = normalize(texte)
@@ -241,7 +198,7 @@ def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> N
     )
     # Perimetre : la section de lancement web. Le reste de la page cite aussi des options de la
     # ligne de commande (par exemple --force-sync), qui ne relevent pas du parseur web.
-    for titre, corps in _sections(texte):
+    for titre, corps in sections(texte):
         emplacement = (
             f"la section « ## {titre} »"
             if titre is not None
@@ -256,10 +213,10 @@ def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> N
             )
 
 
-def test_options_citees_par_la_page_sont_acceptees_par_le_parseur(docs_dir: Path) -> None:
+def test_options_citees_par_la_page_sont_acceptees_par_le_parseur(docs_dir: Path, section) -> None:
     """La page est la source des options citees : chacune est acceptee par le parseur web (D-14)."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
-    citees = set(OPTION_CITEE.findall(_section(texte, TITRE_LANCEMENT_WEB)))
+    citees = set(OPTION_CITEE.findall(section(texte, TITRE_LANCEMENT_WEB, PAGE)))
     assert citees, (
         f"{PAGE} : aucune option « --… » citee par la section « {TITRE_LANCEMENT_WEB} » ; "
         f"attendu la surface d'entree du parseur {SOURCE_WEB}::build_parser()"
@@ -280,11 +237,11 @@ def test_options_citees_par_la_page_sont_acceptees_par_le_parseur(docs_dir: Path
     )
 
 
-def test_libelles_cites_sont_produits_par_le_code(docs_dir: Path) -> None:
+def test_libelles_cites_sont_produits_par_le_code(docs_dir: Path, section) -> None:
     """Chaque libellé cité par la page est encore produit par la ligne du code qui le porte."""
     texte = (docs_dir / PAGE).read_text(encoding="utf-8")
     for libelle, chemin_source, porteur, section_page in LIBELLES_SOURCE:
-        corps = _section(texte, section_page) if section_page else texte
+        corps = section(texte, section_page, PAGE) if section_page else texte
         perimetre = f"la section « {section_page} »" if section_page else "la page entière"
         assert libelle in corps, (
             f"{PAGE} : libellé « {libelle} » absent de {perimetre} ; attendu ce libellé dans "

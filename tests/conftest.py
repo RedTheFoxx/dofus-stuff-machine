@@ -133,3 +133,96 @@ def docs_dir() -> Path:
 def normalize():
     """Expose _normalize aux modules de test sans import inter-modules."""
     return _normalize
+
+
+# Scanner de blocs de code et helpers de section : un seul exemplaire, partage par fixtures (D-12).
+# Un helper duplique finit par diverger (lecon WR-04) : ces fonctions ne sont donc jamais
+# recopiees dans un module de test, elles y sont exposees comme l'est deja la normalisation.
+
+TITRE_H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
+# Trois accents graves, suivis d'une balise alphanumerique optionnelle (tirets et soulignes admis),
+# puis la fin de la ligne : plus strict que l'ancien motif de la phase 1, qui absorbait comme une
+# balise toute ligne commencant par trois accents graves meme suivie de texte.
+DELIMITEUR_BLOC = re.compile(r"^\s*```(?P<balise>[A-Za-z0-9_-]*)\s*$")
+
+
+def _blocs_de_code(texte: str) -> list[tuple[str, list[str]]]:
+    """Blocs de code Markdown : (balise d'ouverture, lignes), dans l'ordre du fichier.
+
+    La balise est conservee (elle vaut "" pour une cloture nue) : c'est ce qui permettra de
+    distinguer les blocs marques des autres sans ajouter un second scanner (plan 02-03).
+    """
+    blocs: list[tuple[str, list[str]]] = []
+    balise, lignes, dans_bloc = "", [], False
+    for ligne in texte.splitlines():
+        trouve = DELIMITEUR_BLOC.match(ligne)
+        if trouve:
+            if dans_bloc:
+                blocs.append((balise, lignes))
+            else:
+                balise, lignes = trouve.group("balise"), []
+            dans_bloc = not dans_bloc
+            continue
+        if dans_bloc:
+            lignes.append(ligne)
+    return blocs
+
+
+def _lignes_de_code(texte: str) -> list[str]:
+    """Lignes de tous les blocs de code, toutes balises confondues (comportement de la phase 1)."""
+    return [ligne for _, lignes in _blocs_de_code(texte) for ligne in lignes]
+
+
+def _sections(texte: str) -> list[tuple[str | None, str]]:
+    """Couples (titre de niveau 2, corps) des sections, dans l'ordre du fichier.
+
+    L'entete qui precede le premier titre de niveau 2 est la premiere section, de titre None :
+    une regle portant sur « chaque section » couvre donc aussi l'entete de la page.
+    """
+    titres = list(TITRE_H2.finditer(texte))
+    sections: list[tuple[str | None, str]] = [
+        (None, texte[: titres[0].start()] if titres else texte)
+    ]
+    for index, trouve in enumerate(titres):
+        fin = titres[index + 1].start() if index + 1 < len(titres) else len(texte)
+        sections.append((trouve.group("titre"), texte[trouve.end() : fin]))
+    return sections
+
+
+def _section(texte: str, titre: str, page: str) -> str:
+    """Corps d'une section de niveau 2, du titre jusqu'au titre de niveau 2 suivant.
+
+    `page` est obligatoire et sans valeur par defaut (D-13, D-31) : le helper partage ne peut
+    plus lire la constante de page du module appelant, et un appel sans page leve `TypeError`
+    des l'execution au lieu de perdre silencieusement le nom de la page dans le message.
+    """
+    attendu = titre.strip().lstrip("#").strip()
+    for titre_trouve, corps in _sections(texte):
+        if titre_trouve is not None and titre_trouve.strip() == attendu:
+            return corps
+    raise AssertionError(
+        f"{page} : section « {titre} » introuvable ; attendu un titre de niveau 2 "
+        f"« ## {attendu} » dans la page ({page})"
+    )
+
+
+@pytest.fixture(scope="session")
+def lignes_de_code():
+    """Expose _lignes_de_code aux modules de test sans import inter-modules."""
+    return _lignes_de_code
+
+
+@pytest.fixture(scope="session")
+def sections():
+    """Expose _sections aux modules de test sans import inter-modules."""
+    return _sections
+
+
+@pytest.fixture(scope="session")
+def section():
+    """Expose _section aux modules de test, sans pre-lier de page.
+
+    Chaque appel passe sa propre page (D-13) : un pre-lien imposerait la page d'un module aux
+    autres, et un oubli de page serait alors invisible au lieu de lever des l'execution.
+    """
+    return _section
