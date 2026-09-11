@@ -26,6 +26,47 @@ TITRE_H2 = re.compile(r"^##\s+(?P<titre>.+?)\s*$", re.MULTILINE)
 DELIMITEUR_CODE = re.compile(r"^\s*```")
 ADRESSE_ECOUTE = re.compile(r"(?P<hote>(?:\d{1,3}\.){3}\d{1,3}):(?P<port>\d{1,5})")
 
+# Surface d'entrée de l'interface web : une sonde d'argv complet par option (D-14).
+SONDES_WEB = [
+    ["--data-dir", "x"],
+    ["--offline"],
+    ["--no-offline"],
+    ["--online"],
+    ["--timeout", "5"],
+    ["--host", "127.0.0.1"],
+    ["--port", "5000"],
+    ["--debug"],
+]
+
+# Les sept options de la surface publique de ligne de commande de l'interface web (INST-02).
+OPTIONS_WEB = (
+    "--data-dir",
+    "--offline",
+    "--no-offline",
+    "--online",
+    "--timeout",
+    "--host",
+    "--port",
+)
+JETON_DEBUG = "--debug"
+MENTION_DEVELOPPEMENT = "developpement"
+
+# Libellés d'écran cités par la page : (libellé, fichier source, jeton porteur, section de la page).
+LIBELLES_SOURCE = [
+    ("Quitter", "dofus_stuff/web/routes.py", "F3", "## Pilotage clavier"),
+    ("Retour", "dofus_stuff/web/routes.py", "ESC", "## Pilotage clavier"),
+    ("Precedent", "dofus_stuff/web/routes.py", "f7_label", "## Pilotage clavier"),
+    ("Page prec", "dofus_stuff/web/routes.py", "f7_label", "## Pilotage clavier"),
+    ("Suivant", "dofus_stuff/web/routes.py", "f8_label", "## Pilotage clavier"),
+    ("Page suiv", "dofus_stuff/web/routes.py", "f8_label", "## Pilotage clavier"),
+    (
+        "Base locale vide et --offline : impossible de synchroniser",
+        "dofus_stuff/sync.py",
+        "RuntimeError",
+        None,
+    ),
+]
+
 
 def _sections(texte: str) -> list[tuple[str, str]]:
     """Couples (titre de niveau 2, corps) des sections de la page, dans l'ordre du fichier."""
@@ -127,3 +168,65 @@ def test_adresse_par_defaut_documentee(docs_dir: Path) -> None:
         f"{PAGE} : adresse(s) d'écoute citée(s) en contradiction avec le parseur : "
         f"{', '.join(fautives)} ; attendu « {attendue} » ({SOURCE_WEB})"
     )
+
+
+def test_documented_entry_options_parse() -> None:
+    """Chaque option d'entrée web de la page est acceptée par le parseur réel (D-14)."""
+    parser = build_parser()
+    for argv in SONDES_WEB:
+        try:
+            parser.parse_args(argv)
+        except SystemExit:
+            raise AssertionError(
+                f"{PAGE} : option « {argv[0]} » refusée par le parseur ; attendu une option "
+                f"acceptée par {SOURCE_WEB}::build_parser().parse_args()"
+            ) from None
+
+
+def test_documented_entry_options_appear_in_help() -> None:
+    """Chaque option d'entrée web acceptée figure dans l'aide publique du parseur (D-14)."""
+    aide = build_parser().format_help()
+    absentes = [argv[0] for argv in SONDES_WEB if argv[0] not in aide]
+    assert not absentes, (
+        f"{PAGE} : option(s) absente(s) de la surface publique du parseur : "
+        f"{', '.join(absentes)} ; attendu chaque option dans "
+        f"{SOURCE_WEB}::build_parser().format_help()"
+    )
+
+
+def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> None:
+    """Les sept options d'entrée web du parseur sont citées, et --debug reste hors chemin minimal."""
+    texte = (docs_dir / PAGE).read_text(encoding="utf-8")
+    normalise = normalize(texte)
+    absentes = [option for option in OPTIONS_WEB if option not in normalise]
+    assert not absentes, (
+        f"{PAGE} : option(s) de la surface publique absente(s) de la page : "
+        f"{', '.join(absentes)} ; attendu chaque option de {SOURCE_WEB}::build_parser() citée "
+        f"par la page d'installation"
+    )
+    for titre, corps in _sections(texte):
+        section = normalize(f"{titre}\n{corps}")
+        if JETON_DEBUG in section:
+            assert MENTION_DEVELOPPEMENT in section, (
+                f"{PAGE} : la section « ## {titre} » cite {JETON_DEBUG} sans préciser qu'il est "
+                f"réservé au développement ; attendu « {MENTION_DEVELOPPEMENT} » dans la même "
+                f"section (source : {SOURCE_WEB}::build_parser())"
+            )
+
+
+def test_libelles_cites_sont_produits_par_le_code(docs_dir: Path) -> None:
+    """Chaque libellé cité par la page est encore produit par la ligne du code qui le porte."""
+    texte = (docs_dir / PAGE).read_text(encoding="utf-8")
+    for libelle, chemin_source, porteur, section_page in LIBELLES_SOURCE:
+        corps = _section(texte, section_page) if section_page else texte
+        perimetre = f"la section « {section_page} »" if section_page else "la page entière"
+        assert libelle in corps, (
+            f"{PAGE} : libellé « {libelle} » absent de {perimetre} ; attendu ce libellé dans "
+            f"{perimetre}, parce que {chemin_source} le produit"
+        )
+        lignes = (RACINE_DEPOT / chemin_source).read_text(encoding="utf-8").splitlines()
+        attendu = f'« {porteur} » et le littéral "{libelle}" sur une même ligne'
+        assert any(porteur in ligne and f'"{libelle}"' in ligne for ligne in lignes), (
+            f"{PAGE} : libellé « {libelle} » cité par la page n'est plus produit par "
+            f"{chemin_source} ; attendu {attendu}"
+        )
