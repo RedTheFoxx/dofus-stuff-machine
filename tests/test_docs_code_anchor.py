@@ -76,10 +76,16 @@ LIBELLES_SOURCE = [
 ]
 
 
-def _sections(texte: str) -> list[tuple[str, str]]:
-    """Couples (titre de niveau 2, corps) des sections de la page, dans l'ordre du fichier."""
+def _sections(texte: str) -> list[tuple[str | None, str]]:
+    """Couples (titre de niveau 2, corps) des sections, dans l'ordre du fichier.
+
+    L'entete qui precede le premier titre de niveau 2 est la premiere section, de titre None :
+    une regle portant sur « chaque section » couvre donc aussi l'entete de la page.
+    """
     titres = list(TITRE_H2.finditer(texte))
-    sections: list[tuple[str, str]] = []
+    sections: list[tuple[str | None, str]] = [
+        (None, texte[: titres[0].start()] if titres else texte)
+    ]
     for index, trouve in enumerate(titres):
         fin = titres[index + 1].start() if index + 1 < len(titres) else len(texte)
         sections.append((trouve.group("titre"), texte[trouve.end() : fin]))
@@ -90,7 +96,7 @@ def _section(texte: str, titre: str) -> str:
     """Corps d'une section de niveau 2, du titre jusqu'au titre de niveau 2 suivant."""
     attendu = titre.strip().lstrip("#").strip()
     for titre_trouve, corps in _sections(texte):
-        if titre_trouve.strip() == attendu:
+        if titre_trouve is not None and titre_trouve.strip() == attendu:
             return corps
     raise AssertionError(
         f"{PAGE} : section « {titre} » introuvable ; attendu un titre de niveau 2 "
@@ -233,13 +239,20 @@ def test_documented_entry_options_are_documented(docs_dir: Path, normalize) -> N
         f"{', '.join(absentes)} ; attendu chaque option de {SOURCE_WEB}::build_parser() citée "
         f"par la page d'installation"
     )
+    # Perimetre : la section de lancement web. Le reste de la page cite aussi des options de la
+    # ligne de commande (par exemple --force-sync), qui ne relevent pas du parseur web.
     for titre, corps in _sections(texte):
-        section = normalize(f"{titre}\n{corps}")
+        emplacement = (
+            f"la section « ## {titre} »"
+            if titre is not None
+            else f"l'entête de {PAGE}, avant le premier titre de niveau 2"
+        )
+        section = normalize(f"{titre or ''}\n{corps}")
         if JETON_DEBUG in section:
             assert MENTION_DEVELOPPEMENT in section, (
-                f"{PAGE} : la section « ## {titre} » cite {JETON_DEBUG} sans préciser qu'il est "
-                f"réservé au développement ; attendu « {MENTION_DEVELOPPEMENT} » dans la même "
-                f"section (source : {SOURCE_WEB}::build_parser())"
+                f"{PAGE} : {emplacement} cite {JETON_DEBUG} sans préciser qu'il est réservé au "
+                f"développement ; attendu « {MENTION_DEVELOPPEMENT} » dans le même périmètre "
+                f"(source : {SOURCE_WEB}::build_parser())"
             )
 
 
