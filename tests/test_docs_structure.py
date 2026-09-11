@@ -95,8 +95,14 @@ def problemes_index(docs_dir: Path) -> list[str]:
     if not sommaire.is_file():
         return _sommaire_absent()
 
+    # Cibles du sommaire et pages presentes comparees comme chemins relatifs a docs/ (SOMM-02, D-06) :
+    # une page imbriquee non listee est ainsi une derive, au lieu de passer pour un nom deja liste.
     cibles = set(LINK.findall(sommaire.read_text(encoding="utf-8")))
-    pages = {page.name for page in _pages(docs_dir) if page.name != "sommaire.md"}
+    pages = {
+        page.relative_to(docs_dir).as_posix()
+        for page in _pages(docs_dir)
+        if page.name != "sommaire.md"
+    }
 
     problemes: list[str] = []
     for cible in sorted(cibles - pages):
@@ -341,7 +347,7 @@ def problemes_h1(docs_dir: Path, normalize) -> list[str]:
         if page.name == "sommaire.md":
             continue
         nom = page.relative_to(docs_dir.parent).as_posix()
-        libelle = libelles.get(page.name)
+        libelle = libelles.get(page.relative_to(docs_dir).as_posix())
 
         if libelle is None:
             problemes.append(
