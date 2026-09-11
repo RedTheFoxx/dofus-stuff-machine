@@ -127,10 +127,15 @@ Plans:
   4. Les hypothèses de l'outil (points par niveau, paliers PA/PM 40/100/150, heuristiques de classe, ni exo ni parchemins) et ses limites (« indice de recherche » ≠ qualité en combat, recherche sur une sélection du catalogue) sont explicites.
   5. Le contrôle détecte un numéro de menu associé au mauvais libellé (assertion négative dérivée du rendu réel) et la suite reste verte.
 
-**Plans**: 4 plans
+**Plans**: 1/4 plans executed
 **UI hint**: no
 
 Plans:
+
+- [x] 03-01-PLAN.md
+- [ ] 03-02-PLAN.md
+- [ ] 03-03-PLAN.md
+- [ ] 03-04-PLAN.md
 
 - [x] 03-01: Rédiger `docs/parcours-simplifie.md` — les trois questions et `AVANCE` cités depuis le rendu, les entrées acceptées et refusées **rejouées sur le rendu**, les trois messages d'erreur réels, la ligne d'index — et le contrôle des couples numéro ↔ libellé du menu des classes et des éléments (critère 5, morsures éprouvées)
 - [x] 03-02: Ajouter « Lire le résultat » — carte de pagination dans la ligne de statut, emplacement **positionnel** des diagnostics (jamais un indice de page), et « Correspondance des libellés » — libellé technique → nom complet des emplacements
@@ -219,7 +224,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Socle documentaire, installation et harnais vérifiable | 4/4 | Complete    | 2026-09-11 |
 | 2. Référence CLI alignée sur le parseur | 3/3 | Complete    | 2026-09-11 |
-| 3. Parcours simplifié documenté depuis le rendu réel | 0/4 | Not started | - |
+| 3. Parcours simplifié documenté depuis le rendu réel | 1/4 | In Progress|  |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 0/4 | Not started | - |
 | 5. Base locale, hors-ligne et resynchronisation | 0/3 | Not started | - |
 | 6. Dépannage, glossaire, complétude et preuve finale | 0/4 | Not started | - |
