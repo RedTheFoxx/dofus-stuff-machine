@@ -2,17 +2,17 @@
 gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Wizard avancé et résorption de la dette `GUIDE_WIZARD`
-status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-09-11T19:11:37.339Z"
+status: verifying
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-11T19:22:42.008Z"
 last_activity: 2026-09-11
 last_activity_desc: Plan 04-01 terminé — page du wizard avancé, entrée d'index et module d'ancrage (194 tests verts)
-state_head: d84150087218884867830465630fa3e3ba908102
+state_head: eeaa93f1076b1eadae58f341bfa1ad1ef855760f
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 50
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 
 Phase: 4 (Wizard avancé et résorption de la dette `GUIDE_WIZARD`) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-11 — Plan 04-01 terminé (page du wizard avancé, entrée d'index, module d'ancrage)
 
 Progress: [█████░░░░░] 50%
@@ -75,6 +75,7 @@ Progress: [█████░░░░░] 50%
 | Phase 4 P01 | 10min | 3 tasks | 3 files |
 | Phase 4 P2 | 2min | 2 tasks | 2 files |
 | Phase 4 P04 | 1min | 2 tasks | 2 files |
+| Phase 4 P3 | 6min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,8 @@ Recent decisions affecting current work:
 - [Phase 4]: [Phase 4]: [Phase 04-04]: Le detecteur de renvois obsoletes est une fonction PURE `renvois_obsoletes(texte, faits)` a trois formes nommees : ses attentes lui arrivent par `faits` et chaque constat nomme la forme, la valeur fautive, la valeur attendue lue au rendu ET le fichier de code producteur (D-13, D-58, D-65). Les faits sont MESURES (libelles de menu de GET /, numero branche sur /optimize decouvert en postant chaque numero et en suivant la redirection jusqu'aux trois questions, couple F6/F7 lu sur les deux pages de slots et corrobore par TYPE_FILTER_KEYS[5]/[6] + TYPE_FILTER_LABELS, dernier segment de la chaine d'arrivee) : aucune valeur de produit n'est recopiee. Les libelles sont stockes tels que le rendu les produit (OPTIMISATION DE STUFF, ARMES MELEE) et la comparaison normalise a l'interieur du detecteur, qui doit rester pur.
 - [Phase 4]: [Phase 04-04]: La comparaison d'un jeton de menu `N. LIBELLE` est une regle d'APPARTENANCE de mots significatifs (longueur >= 4, hors mots-outils LISTE/DES/DE/LA/LE/LES) contre le libelle rendu de ce numero, et non une egalite stricte : D-47 exige les formes abreges `4. OPTIMISATION` / `3. PANOPLIES` dans l'aiguillage corrige, que l'egalite stricte declarerait fautives et rendrait le vert du critere 5 inatteignable. Le jeton est cherche n'importe ou dans la ligne (les trois occurrences reelles du guide sont en tete de ligne, en gras et entre accents graves), la forme (b) n'est evaluee que sur la ligne qui porte la touche, et la forme (c) exige une marque d'immediatete SANS marque de negation (`pas`, `jamais`, `ne`, `n'`). Quatre temoins legitimes (texte corrige type aux formes de D-47, phrase portant F7 et ARMES MELEE, phrase negative, renvoi en prose) rendent zero constat : un detecteur qui crie au loup serait pire que pas de detecteur (D-60).
 - [Phase 4]: [Phase 04-04]: La vague 3 se termine VOLONTAIREMENT ROUGE sur un seul test : `test_aiguillage_sans_renvoi_obsolete` echoue sur GUIDE_WIZARD.md encore obsolete avec les trois formes nommees (mesure : `1 failed, 200 passed`), c'est la preuve du critere 5 (D-59a) et non une regression ; `git diff --quiet -- GUIDE_WIZARD.md` est vrai, README.md et docs/parcours-simplifie.md ne sont pas touches, et le vert appartient au plan 04-03 (vague 4), jamais a un affaiblissement du detecteur. La copie figee tests/fixtures/guide-wizard-obsolete.md (39 lignes, CRLF en arbre / LF en blob comme le reste du depot) est signalee par le MEME detecteur avec six constats, dont un nommant OPTIMISATION DE STUFF et un nommant ARMES MELEE ; retirer une forme de la copie fait rougir le test (3/3 morsures detectees sur copie verte avant mutation). Limite honnete ecrite dans le module et dans les messages : trois formes nommees, aucune exhaustivite revendiquee, jetons juges contre les libelles de premier niveau mesures au rendu de GET /.
+- [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: [Phase 04-03]: Le vert du critere 5 est obtenu par la SEULE correction du fichier juge : GUIDE_WIZARD.md ramene de 330 a 18 lignes (arborescence lue au code, 4 = OPTIMISATION, deux liens, aucun enonce de contenu), README.md sans pointeur produit, et le detecteur de 04-04 inchange — git show --numstat ba11149 -- tests/test_docs_wizard.py rend 171/0 (171 lignes ajoutees, zero retiree), aucune assertion ni predicat n'est affaibli ; la copie figee tests/fixtures/guide-wizard-obsolete.md reste signalee par le meme detecteur et byte-identique (git diff --quiet vrai). — Mesure : 1 failed, 200 passed avant (echec unique = test_aiguillage_sans_renvoi_obsolete, trois formes nommees) -> 203 passed apres ; 8/8 morsures detectees sur copie verte avant mutation (4 en tache 1, 4 en tache 2) ; .data/dofus.sqlite3 identique (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; dofus_stuff/** non modifie.
+- [Phase 04-wizard-avanc-et-r-sorption-de-la-dette-guide-wizard]: [Phase 04-03]: La dette D-44 est levee dans le MEME commit que sa cible et la reserve est rendue inversible : les deux renvois en prose de docs/parcours-simplifie.md (lignes 5 et 256, seules lignes modifiees — la ligne 140 reste intacte, D-64) portent [wizard avance](wizard-avance.md), PAGES_INEXISTANTES passe a (base-locale.md,) dans le commit eeaa93f qui porte aussi tests/test_docs_parcours.py, et test_lien_wizard_avance_legitime refuse qu'une entree de la reserve corresponde a une page existante, exige que chaque cible de lien de GUIDE_WIZARD.md vers docs/ soit declaree dans LIENS_LEGITIMES_VERS_L_AIGUILLAGE ET existe depuis la racine. — Aucune exhaustivite revendiquee (trois formes nommees, D-58) et la prose libre de la racine n'est pas verifiee ; les quatre invariants sont epingles par 4/4 morsures detectees (lien D-63 retire, page existante remise dans la reserve, cible cassee, lien non declare) ; le controle de commit du plan rend 'lien D-63 et reduction de la reserve dans le meme commit : eeaa93f'.
 
 ### Pending Todos
 
@@ -168,6 +171,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T19:11:37.298Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-09-11T19:22:41.966Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
