@@ -68,12 +68,80 @@ Chaque filtre affiché porte sa touche `F<n>`, avec `n` de `1` à `10` : taper `
 - Désactiver le dernier emplacement encore actif rend `AU MOINS UN SLOT REQUIS` : il en faut toujours un.
 - Une entrée vide n'est pas un refus : elle passe à l'étape suivante.
 
+## Les 11 options du solveur
+
+L'écran annonce `OPTIONS (N=EDIT) :` et rappelle `N=CHOISIR OPTION`. Chaque option porte son numéro et son libellé rendus :
+
+| Numéro | Option |
+| --- | --- |
+| 1 | `NIVEAU` |
+| 2 | `JET` |
+| 3 | `DUREE (S)` |
+| 4 | `SEED` |
+| 5 | `TOP-K` |
+| 6 | `CP-SAT` |
+| 7 | `STOP SI CIBLES` |
+| 8 | `AUTO POINTS` |
+| 9 | `ALLOW POWER` |
+| 10 | `ALLOW DOMMAGES` |
+| 11 | `ALLOW DOM CRIT` |
+
+Les numéros se comportent de deux façons, et l'écran ne prévient pas de la différence :
+
+- `1` à `5` ouvrent un sous-écran d'édition : son en-tête porte `OPT-WED`, son libellé de saisie est `VAL` et son champ est limité à `maxlength=20`. Enregistrer une valeur y rend `VALEUR ENREGISTREE`.
+- `6` à `11` basculent l'option immédiatement, sans sous-écran, et rendent `OPTION MISE A JOUR`.
+
+Les refus de cet écran sont ceux du rendu : un numéro hors liste rend `OPTION INVALIDE`, et une saisie qui n'est pas un numéro rend `SAISIR UN NUMERO D'OPTION`.
+
+Les valeurs acceptées par le sous-écran d'édition sont celles du code : `JET` n'accepte que `min`, `average` ou `max`, la casse étant ignorée, et rend `JET = MIN|AVERAGE|MAX` sinon ; `SEED` accepte une entrée vide, `-`, `none` ou `aucun`, qui rendent `(aucun)` ; `TOP-K` a un plancher de `1`. Le niveau, la durée et les autres options sont lus comme des nombres, sans borne ni signe imposés par l'écran : cette page ne les présente donc pas comme des entrées garanties et ne recommande aucune valeur négative.
+
+## Les quatre nombres d'une ligne
+
+Sur les écrans de statistiques, chaque ligne porte quatre nombres : `B` pour la base, `P` pour les points répartis — ou `E` pour la part d'exo —, `C` pour la cible et `W` pour le poids. Selon l'écran, la ligne prend donc l'une de ces deux formes, et l'écran d'édition les nomme telles quelles :
+
+| Écran | Forme affichée |
+| --- | --- |
+| `CARACTERISTIQUES` | `FORMAT : BASE POINTS CIBLE POIDS` |
+| `PA / PM / PO` | `FORMAT : BASE EXO CIBLE POIDS` |
+
+Les écrans `RESISTANCES`, `DOMMAGES` et `DIVERS` emploient la même forme que `CARACTERISTIQUES` : seuls les objectifs de `PA / PM / PO` portent une part d'exo. Les deux formes ne sont jamais fusionnées : la première demande base, points, cible et poids, la seconde base, exo, cible et poids.
+
+L'édition d'une ligne se fait en deux temps. Sur l'écran de liste, qui affiche `N=EDIT`, on tape le **numéro** de la ligne : une saisie qui n'est pas un numéro rend `SAISIR LE NUMERO DE LA LIGNE`, et un numéro hors liste rend `NUMERO INVALIDE`. Le sous-écran d'édition affiche alors `EDITION : <NOM DE LA LIGNE>`, la valeur actuelle et la forme attendue, puis demande la nouvelle valeur.
+
+La nouvelle valeur doit porter **exactement quatre nombres**, séparés par des espaces ou par des virgules. Toute autre quantité rend le message de la forme de l'écran : c'est le message de refus de cette édition, et il est identique à la forme affichée juste au-dessus. Une valeur qui n'est pas un nombre fait remonter le message du convertisseur tel quel. Une entrée vide n'est pas un refus : elle annule l'édition et revient à la liste. Une saisie valide rend `CARAC ENREGISTREE`.
+
+## Interdire, forcer, retirer un objet
+
+Cet écran tient deux listes : les objets **interdits**, que le calcul ne doit pas utiliser, et les objets **forcés**, qu'il doit utiliser. Il annonce sa syntaxe avant les deux listes :
+
+| Saisie | Ce que l'écran annonce |
+| --- | --- |
+| `+ID` | `AJOUTER INTERDIT` |
+| `-ID` | `AJOUTER FORCE` |
+| `!ID` | `RETIRER (BAN OU FORCE)` |
+| `CLEAR` | `VIDER LISTES` |
+
+Ce que la saisie fait réellement :
+
+- `+ID` ajoute l'objet à la liste des interdits. `+ID` n'est donc pas une saisie refusée : c'est le verbe « ajouter un interdit ».
+- `-ID` ajoute l'objet à la liste des forcés.
+- `!ID` retire l'objet des deux listes.
+- `CLEAR` vide les deux listes, et sa variante en minuscules `clear` fait la même chose.
+- Les espaces autour de la saisie sont acceptés.
+- Un objet ajouté à une liste est retiré de l'autre : il ne peut pas être interdit et forcé en même temps.
+- Au-delà de 8 entrées, l'affichage d'une liste est tronqué et se termine par une ligne d'ellipse.
+- Quand elle est vide, une liste rend l'état vide `(aucun)`. C'est le cas des deux listes sur un écran neuf, et après `CLEAR`.
+
+Le **seul** refus de cet écran est le message rendu quand la saisie n'est ni `CLEAR` ni `clear`, ni un préfixe `+`, `-` ou `!` suivi de chiffres : `SYNTAXE : +ID | -ID | !ID | CLEAR`.
+
+Un identifiant **sans préfixe**, par exemple `12345`, tombe dans ce cas et est donc refusé, alors que `+12345` ne l'est pas.
+
 ## Source de vérité
 
-- `dofus_stuff/web/optimize_wizard.py` : liste ordonnée des étapes (`WIZARD_STEPS`), titres rendus (`STEP_TITLES`), libellés d'emplacements (`SLOT_GROUP_LABELS`), libellés de filtres (`TYPE_FILTER_LABELS`) et corps de chaque écran.
-- `dofus_stuff/web/routes.py` : route `/optimize/wizard/<etape>`, ligne d'en-tête, lignes de statut et barre de touches.
+- `dofus_stuff/web/optimize_wizard.py` : liste ordonnée des étapes (`WIZARD_STEPS`), titres rendus (`STEP_TITLES`), libellés d'emplacements (`SLOT_GROUP_LABELS`), libellés de filtres (`TYPE_FILTER_LABELS`), lignes des onze options, des listes de statistiques et des items, et formats d'édition.
+- `dofus_stuff/web/routes.py` : route `/optimize/wizard/<etape>`, ligne d'en-tête, lignes de statut, sous-écrans d'édition et barre de touches.
 - `dofus_stuff/model/solver_spec.py` : ordre des emplacements (`SLOT_GROUPS`) et touches des filtres de type (`TYPE_FILTER_KEYS`).
 - `dofus_stuff/web/screens.py` : mise en page de l'écran et pagination du corps.
-- `dofus_stuff/web/templates/screen.html` : gabarit HTML réellement rendu.
+- `dofus_stuff/web/templates/screen.html` : gabarit HTML réellement rendu, dont la ligne de statut.
 
 [Retour au sommaire](sommaire.md)
