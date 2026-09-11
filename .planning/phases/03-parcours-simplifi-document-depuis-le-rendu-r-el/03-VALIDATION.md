@@ -3,9 +3,9 @@ phase: "3"
 slug: "parcours-simplifi-document-depuis-le-rendu-r-el"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-09-11"
 ---
 
@@ -23,7 +23,7 @@ created: "2026-09-11"
 | **Config file** | `pyproject.toml` § `[tool.pytest.ini_options]` — `testpaths = ["tests"]`, `pythonpath = ["."]` |
 | **Quick run command** | `.venv/Scripts/python.exe -m pytest -q` |
 | **Full suite command** | `.venv/Scripts/python.exe -m pytest -q` (identique : aucun marqueur de sélection dans le dépôt) |
-| **Estimated runtime** | ~2,6 s pour 169 tests ; budget du module ajouté : **< 1 s** |
+| **Measured runtime** | base hors phase : **169 tests** en 2,57 s (planification) puis 4,73 s (re-vérification, autre horloge machine) ; phase close : **186 tests** en 4,32–5,23 s ; module seul (`tests/test_docs_parcours.py`) : **17 tests en 0,88–1,10 s** |
 
 **Interdit mesuré :** rendre le résultat sur la base réelle coûte ~9,5 s **et n'est pas déterministe** (deux exécutions → 6 puis 7 pages, deux méthodes). Tout ancrage sur `Méthode` ou sur le nombre de pages passe par la **fixture minimale** (déterministe, 0,29 s puis 0,02 s).
 
@@ -33,8 +33,8 @@ created: "2026-09-11"
 
 - **After every task commit:** `.venv/Scripts/python.exe -m pytest -q`
 - **After every plan wave:** `.venv/Scripts/python.exe -m pytest -q`
-- **Before `/gsd:verify-work`:** suite entière verte (169 + les nouveaux tests) **et** mesure de non-régression `.data/` rejouée (V15)
-- **Max feedback latency:** ~3 s
+- **Before `/gsd:verify-work`:** suite entière verte (**186 tests**) **et** mesure de non-régression `.data/` rejouée (V15)
+- **Max feedback latency:** ~5 s mesuré pour la suite entière sur cette machine (chiffre **mesuré**, pas budgété : voir RF-4 dans `03-REVIEW-FIX.md`)
 
 ---
 
@@ -69,14 +69,33 @@ created: "2026-09-11"
 
 Les identifiants de tâche sont posés par les plans ; chaque plan doit fournir un `<automated>` par tâche et un `<fails_when>` nommant le signal d'échec.
 
-| Réf | Plan (esquisse ROADMAP) | Vague | Requirement | Test Type | Automated Command | File Exists | Status |
-|-----|------------------------|-------|-------------|-----------|-------------------|-------------|--------|
-| V1–V4 | 03-01 les trois questions et le menu réel | 1 | SIMP-01 | rendu (Flask `test_client`) | `.venv/Scripts/python.exe -m pytest tests/test_docs_parcours.py -q` | ❌ Wave 0 | ⬜ pending |
-| V5–V7 | 03-02 lire le résultat | 2 | SIMP-02 | rendu + injection de session | idem | ❌ Wave 0 | ⬜ pending |
-| V8–V10 | 03-03 sauvegarder et exporter | 3 | SIMP-03 | rendu + lecture source | idem | ❌ Wave 0 | ⬜ pending |
-| V11–V13 | 03-04 hypothèses, limites, contrôles de rendu | 4 | SIMP-04 | lecture source ancrée | idem | ❌ Wave 0 | ⬜ pending |
-| V14 | transverse | — | SOMM-02 / SOMM-03 (phase 1) | structure | `.venv/Scripts/python.exe -m pytest tests/test_docs_structure.py -q` | ✅ existant — doit rester vert | ⬜ pending |
-| V15 | transverse | — | GARD-02 (phase 1) | structure + mesure | `.venv/Scripts/python.exe -m pytest tests/test_docs_code_anchor.py -q` | ✅ existant | ⬜ pending |
+| Réf | Plan | Vague | Requirement | Test Type | Automated Command | File Exists | Status |
+|-----|------|-------|-------------|-----------|-------------------|-------------|--------|
+| V1–V4 | 03-01 — les trois questions et le menu réel | 1 | SIMP-01 | rendu (Flask `test_client`) + morsures | `.venv/Scripts/python.exe -m pytest tests/test_docs_parcours.py -q` | ✅ créé — 7 tests au terme du plan | ✅ green |
+| V5–V7 | 03-02 — lire le résultat et la correspondance des libellés | 2 | SIMP-02 | rendu + injection de session | idem | ✅ étendu — 9 tests | ✅ green |
+| V8–V10 | 03-03 — sauvegarder et exporter | 3 | SIMP-03 | rendu + lecture de source (`ast`) | idem | ✅ étendu — 12 tests | ✅ green |
+| V11–V13 | 03-04 — hypothèses, limites, clôture de page | 4 | SIMP-04 | lecture de source ancrée | idem | ✅ étendu — **17 tests** | ✅ green |
+| V14 | transverse | — | SOMM-02 / SOMM-03 (phase 1) | structure | `.venv/Scripts/python.exe -m pytest tests/test_docs_structure.py -q` | ✅ existant — resté vert | ✅ green |
+| V15 | transverse | — | GARD-02 (phase 1) + critère 5 | structure, mesure et garde `ast` | `.venv/Scripts/python.exe -m pytest tests/test_docs_code_anchor.py -q` puis suite entière | ✅ existant | ✅ green |
+
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+### Contrôles livrés, par vérité
+
+| Vérité | Test(s) qui la porte(nt) |
+|--------|--------------------------|
+| V1 | `test_trois_questions_et_avance_rendus`, `test_lignes_du_corps_ne_sont_pas_la_reponse_entiere` |
+| V2, V3 | `test_entrees_citees_acceptees_et_refusees` |
+| V4 | `test_couples_numeros_libelles_par_section`, `test_parcours_cli_ne_pose_pas_les_trois_questions` |
+| V5, V6 | `test_pagination_et_emplacement_du_calcul` |
+| V7 | `test_correspondance_libelles_slots`, `test_source_de_verite_et_chemins_cites` |
+| V8 | `test_ecrans_de_sauvegarde_et_export` |
+| V9, V10 | `test_sauvegarde_navigateur_et_export_dofusbook`, `test_aucun_post_db_sans_patch` |
+| V11, V12, V13 | `test_hypotheses_prouvees_par_balayage`, `test_limites_ancrees_sur_le_code` |
+| V14 | `test_page_complete_et_sans_derive` (module) + les quatre tests de structure de la phase 1 |
+| V15 | `test_data_locale_non_modifiee_autour_des_rendus` (re-mesure locale) **+** la mesure au périmètre de la suite (avant/après `pytest -q`) |
+| garde `ast` | `test_garde_ni_base_ni_processus_ni_reseau` |
+| En-tête d'écran | `test_entete_des_trois_ecrans_de_questions_cite` |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -84,11 +103,11 @@ Les identifiants de tâche sont posés par les plans ; chaque plan doit fournir 
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_docs_parcours.py` — couvre SIMP-01…SIMP-04 et le critère 5
-- [ ] `docs/parcours-simplifie.md` — la page elle-même (sans elle, la moitié des contrôles est rouge par construction)
-- [ ] `docs/sommaire.md` — une ligne d'index + le H1 correspondant (V14)
-- [ ] **Aucune** installation : `flask`, `pytest`, `ortools`, `msgpack` sont déjà présents
-- [ ] **Aucune** promotion de helper vers `tests/conftest.py` : les helpers utiles y sont déjà (`normalize`, scanner de blocs, `sections`, `ligne_de_code`, `_section(texte, titre, page)`) ; en promouvoir un nouveau dupliquerait `_texte_page`
+- [x] `tests/test_docs_parcours.py` — 17 tests, couvre SIMP-01…SIMP-04 et le critère 5
+- [x] `docs/parcours-simplifie.md` — la page elle-même (269 lignes, 9 sections de niveau 2, CRLF sans BOM)
+- [x] `docs/sommaire.md` — une ligne d'index + le H1 correspondant (V14)
+- [x] **Aucune** installation : `flask`, `pytest`, `ortools`, `msgpack` étaient déjà présents
+- [x] **Aucune** promotion de helper vers `tests/conftest.py` : les helpers utiles y étaient déjà (`normalize`, scanner de blocs, `sections`, `ligne_de_code`, `_section(texte, titre, page)`) — les nouveaux (`_touches`, `_lignes_du_corps`, `_couples_de_section`, `_attribut`, `_entete`…) sont restés **locaux au module** (D-12)
 
 ---
 
@@ -100,15 +119,41 @@ Les identifiants de tâche sont posés par les plans ; chaque plan doit fournir 
 
 *Toutes les vérités de la phase ont un contrôle automatisé, ou sont explicitement listées comme non falsifiables ci-dessus. Aucune validation manuelle n'est requise — et aucune n'est revendiquée.*
 
+### Non falsifiables — déclarées, jamais maquillées
+
+| Élément | Pourquoi aucun contrôle ne peut le falsifier | Ce que le contrôle prouve à la place |
+|---------|----------------------------------------------|--------------------------------------|
+| Comportement JS de la sauvegarde (éviction silencieuse au 21ᵉ enregistrement, compteur, statuts) | Aucun moteur JS n'est disponible dans cet environnement (pas de `localStorage`, pas de `shift`) | V9 : la page et le codebase ne divergent pas sur la **constante** (`MAX_SAVES`, clé de stockage) et sur les **libellés** ; la limite est écrite dans le module et dans la page |
+| Comparaison octet à octet des blocs cités de la page avec le rendu | Les blocs cités sont des extraits choisis, pas des transcriptions intégrales | Les valeurs citées sont rejouées **individuellement** sur le rendu (V1–V3, V5, V8) |
+| Équivalence « libellé technique ↔ mot affiché dans le jeu » | Non prouvable depuis le dépôt | Le nom complet est recopié de sa source **et** re-vérifié sur la ligne qui le porte |
+
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies — **32 blocs `<automated>`**, chacun apparié à un `<fails_when>` (probe `verify-failure-directions` : 32/32 `ok`)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify — 3/2/2/3 tâches, chacune avec au moins un `<automated>`
+- [x] Wave 0 covers all MISSING references — aucun `MISSING` restant
+- [x] No watch-mode flags — aucune invocation `pytest` en mode watch
+- [x] Feedback latency < 5s — mesuré : 4,32–5,23 s pour la suite entière, 0,88–1,10 s pour le module
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+---
+
+## Validation Audit 2026-09-11
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+**Ce qui a été vérifié plutôt que cru.** La phase est déclarée `nyquist_compliant: true` sur la base de mesures exécutées, pas sur la lecture des `SUMMARY` :
+
+- suite entière **186 passed** (base 169 + 17), module `tests/test_docs_parcours.py` **17 passed**, aucun `skip` — les contrôles de la phase ont un effet observable, aucun n'est vert à vide ;
+- la **vérification de phase** a rejoué sa propre batterie de **22 mutations sur copies jetables → 22/22 détectées**, chaque copie vérifiée verte avant sa mutation — c'est la preuve que les contrôles mordent, pas seulement qu'ils passent ;
+- `.data/dofus.sqlite3` : empreinte (taille / `mtime_ns` / SHA-256) **identique avant et après la suite entière**, mesurée indépendamment du module ;
+- douze des quinze vérités (V1–V13 hors V9) sont falsifiables par mutation, et leur mutation a été exécutée ; V9, V14 et V15 sont portées par des contrôles dont la **portée** est écrite (littéral, structure, mesure d'empreinte) ;
+- deux contrôles à **portée plus étroite que leur formulation** ont été identifiés et ne sont pas comptés à la force annoncée : la garde `ast` (clôture **statique des imports produit**, pas la clôture d'exécution — importer `dofus_stuff.web.dofusbook_export` exécute `dofus_stuff/web/__init__.py` et charge `sqlite3`) et l'assertion de fin de ligne (elle mesure l'arbre de travail, pas le blob). Les deux sont portés au registre de sécurité (`03-SECURITY.md` § Limites connues L-1 et L-3) et à la revue de code (`03-REVIEW.md` WR-01) — vérifiés, chiffrés, **non** maquillés, et non bloquants pour les critères du ROADMAP, que la mesure d'empreinte et les 22 morsures couvrent directement.
+
+**Approval:** verified 2026-09-11
