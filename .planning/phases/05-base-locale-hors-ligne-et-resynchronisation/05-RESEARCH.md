@@ -1363,7 +1363,21 @@ Le tableau porte donc sur les **approches de vérification** dans ce dépôt.
 | A3 | Le critère 4 (« aucune commande destructrice dans un parcours ») est appliqué **au périmètre de la phase** (la nouvelle page et son module), `README.md:80` restant hors de la réécriture autorisée par D-87 | § *Destructive-command audit*, Pitfall 8 | Si la vérification de phase applique le critère **globalement**, elle trouvera une occurrence dans `README.md` et pourra déclarer la phase incomplète pour un fichier que la phase n'a pas mandat de réécrire. Le plan doit **écrire ce périmètre** pour que le critère soit vérifiable tel qu'il est livré |
 | A4 | La phrase d'aide doit être comparée **après normalisation des espaces**, la largeur d'aide dépendant du terminal (mesuré 80 colonnes) | Pitfall 5 | Une comparaison non normalisée rougit sur une page correcte (mesuré) ; à l'inverse, la normalisation tolère une faute d'espacement — tolérance à **déclarer** dans la docstring du module |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+**Statut : les quatre questions sont RESOLVED par le jeu de plans de la phase 5 (`05-01` a `05-03`).**
+Aucune n'est restee ouverte et aucune n'a ete renvoyee au porteur du projet : le lieu d'arbitrage de
+chacune est nomme ci-dessous, et sa resolution est reportee **inline** sous chaque question. Cette
+section ne tranche rien de neuf — elle **consigne** ce que les trois `PLAN.md` ont deja decide, et
+chacune de ces resolutions s'adosse a une decision verrouillee de `05-CONTEXT.md` (D-63, D-68 a D-91),
+qui restent telles quelles.
+
+| # | Question | Resolution retenue et lieu d'arbitrage |
+|---|----------|----------------------------------------|
+| 1 | Ou placer la ligne d'index dans `docs/sommaire.md` ? | **Ajout en fin de table `## Index`**, aucune ligne existante remaniee (D-70). Arbitre par `05-01-PLAN.md` tache 1, controle `test_page_et_index_de_la_base_locale`. |
+| 2 | Faut-il convertir les renvois en prose en liens ? | La reserve `PAGES_INEXISTANTES` est **videe** (obligatoire, D-44) **et** les deux renvois de `docs/parcours-simplifie.md` (lignes 5 et 256) deviennent des liens vers `base-locale.md` (D-63, D-86) ; le renvoi de `docs/cli.md:26` reste en prose (D-86 l'autorise sans l'imposer, aucun controle de la phase ne le porte). Arbitre par `05-01-PLAN.md` tache 1. |
+| 3 | Citer le message de refus de `db sync` alors que `docs/cli.md` le cite deja deux fois ? | **Cite verbatim** depuis le code : D-78 est une decision verrouillee et prime sur D-17 ; le detail de la sous-commande reste chez `docs/cli.md`, atteint par un lien. Arbitre par `05-02-PLAN.md` tache 2, `test_le_refus_de_la_synchronisation`. |
+| 4 | Ou vit le controle D-87 (renvois du `README.md`) ? | Dans le **module neuf** (`renvois_morts`, fonction pure), perimetre de la phase ; les gardes de la phase 1 restent inchangees. Arbitre par `05-03-PLAN.md` tache 1, `test_renvois_du_readme_resolus`. |
 
 1. **Où placer la ligne d'index dans `docs/sommaire.md` ?**
    - What we know: D-70 impose **une seule** ligne et interdit de remanier l'ordre existant ; l'index
@@ -1374,6 +1388,11 @@ Le tableau porte donc sur les **approches de vérification** dans ce dépôt.
    - What's unclear: l'insertion en fin de tableau (après « Wizard avancé ») ou alignée sur le parcours.
    - Recommendation: **ajouter en fin de tableau** — c'est la lecture littérale de D-70 (« l'index
      croît au rythme des pages créées ») et cela ne touche aucune ligne existante.
+   - **Résolution (décidée par le jeu de plans) :** recommandation **adoptée telle quelle** — la ligne
+     d'index est ajoutée en fin de table `## Index`, aucune ligne existante n'est déplacée ni reformulée,
+     et la liste « Parcours conseillé » garde son texte sans lien. Consommée par `05-01-PLAN.md` tâche 1 ;
+     vérifiée par `test_page_et_index_de_la_base_locale` (et par `problemes_index`, qui compare des
+     ensembles, `tests/test_docs_structure.py:92-119`).
 2. **Faut-il convertir les renvois en prose de `docs/parcours-simplifie.md:256` (« le fonctionnement de
    la **base locale** ») et `docs/cli.md:26` en liens ?**
    - What we know: D-86 autorise le lien « là où la cible existe » ; la phase 4 a fait exactement cela
@@ -1383,12 +1402,23 @@ Le tableau porte donc sur les **approches de vérification** dans ce dépôt.
    - Recommendation: réduire `PAGES_INEXISTANTES` (**obligatoire**) et convertir les deux renvois en
      liens (**recommandé**, cohérent avec D-63/D-86) ; vérifier dans le même commit que
      `test_lien_wizard_avance_legitime` reste vert.
+   - **Résolution (décidée par le jeu de plans) :** les deux branches sont **retenues** — la réserve
+     `PAGES_INEXISTANTES` est **vidée** dans le même commit que la page (obligatoire, D-44) **et** les deux
+     renvois en prose de `docs/parcours-simplifie.md` (~lignes 5 et 256) deviennent des liens vers
+     `base-locale.md` (D-63, D-86) sans perdre les mots « base locale ». Le renvoi en prose de
+     `docs/cli.md:26` reste en prose : D-86 autorise le lien *là où la cible existe* sans l'imposer, et
+     aucun contrôle de la phase ne le porte. Consommée par `05-01-PLAN.md` tâche 1, contrôlée par
+     `05-03-PLAN.md` tâche 1 (`test_renvoi_base_locale_legitime`).
 3. **La nouvelle page doit-elle citer le message de refus de `db sync` alors que `docs/cli.md` le cite
    déjà deux fois ?**
    - What we know: D-78 l'exige (« son message réel est cité depuis le code, jamais paraphrasé ») ;
      D-17 pose une source unique par énoncé.
    - Recommendation: citer le message (décision verrouillée prioritaire), et **renvoyer par lien** à
      `docs/cli.md` pour le détail de la sous-commande.
+   - **Résolution (décidée par le jeu de plans) :** la recommandation est **adoptée** — le message de refus
+     est cité verbatim depuis le code (D-78, décision verrouillée prioritaire sur D-17) et le détail de la
+     sous-commande reste chez `docs/cli.md`, atteint par un lien. Consommée par `05-02-PLAN.md` tâche 2,
+     `test_le_refus_de_la_synchronisation` (littéral lu par `ast`, `main()` jamais exécuté).
 4. **Le contrôle D-87 (renvois du `README.md`) doit-il vivre dans le nouveau module ou dans
    `tests/test_docs_structure.py` ?**
    - What we know: `tests/test_docs_structure.py:190-210` vérifie déjà **un** renvoi du README (le lien
@@ -1397,6 +1427,11 @@ Le tableau porte donc sur les **approches de vérification** dans ce dépôt.
    - Recommendation: un contrôle **dans le nouveau module** (périmètre de la phase, D-82) qui énumère
      **tous** les liens de `README.md` et exige que chacun résolve depuis la racine ; ne pas élargir
      les gardes de la phase 1 (elles restent inchangées).
+   - **Résolution (décidée par le jeu de plans) :** la recommandation est **adoptée** — le contrôle vit dans
+     le module neuf, sous la forme de la fonction pure `renvois_morts(texte, racine)` et du test
+     `test_renvois_du_readme_resolus` ; les gardes de la phase 1 (`tests/test_docs_structure.py`) restent
+     inchangées. Consommée par `05-03-PLAN.md` tâche 1 (morsure jouée sur une copie **en mémoire** du
+     README, aucun fichier du dépôt n'est écrit).
 
 ## Environment Availability
 
