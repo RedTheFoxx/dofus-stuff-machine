@@ -22,3 +22,4 @@ Cette page est le point d'entrée unique de la documentation utilisateur de dofu
 | [Wizard avancé](wizard-avance.md) | Les 9 étapes du wizard, ses filtres, ses formats et ses touches |
 | [Base locale](base-locale.md) | La base SQLite locale, ses catégories et la fenêtre de resynchronisation |
 | [Dépannage](depannage.md) | Retrouver la marche à suivre par le message affiché |
+| [Glossaire](glossaire.md) | Le vocabulaire du produit et de la documentation, adossé à son employeur |
