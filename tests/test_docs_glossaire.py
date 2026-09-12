@@ -56,11 +56,33 @@ LIEN_RETOUR = "[Retour au sommaire](sommaire.md)"
 # `None` dit que le glossaire est le **premier** a definir le terme — aucune page livree ne le definit.
 # L'ordre de cette constante est celui de la forme normalisee des libelles (D-11), comme la page.
 TERMES_GLOSSAIRE: tuple[tuple[str, str, str | None], ...] = (
+    ("base locale", "dofus_stuff/cli.py", "base-locale.md"),
+    ("bouclier", "dofus_stuff/model/slots.py", "parcours-simplifie.md"),
+    ("catégorie", "dofus_stuff/cli.py", "base-locale.md"),
+    ("cible", "dofus_stuff/cli.py", "wizard-avance.md"),
+    ("exo", "dofus_stuff/model/solver_spec.py", "parcours-simplifie.md"),
+    ("familier", "dofus_stuff/model/slots.py", "parcours-simplifie.md"),
+    ("heuristique", "dofus_stuff/optimize/score.py", "parcours-simplifie.md"),
+    ("ID Ankama", "dofus_stuff/cli.py", "cli.md"),
     ("index", "docs/sommaire.md", None),
+    ("jet", "dofus_stuff/cli.py", "wizard-avance.md"),
+    ("ligne de statut", "docs/parcours-simplifie.md", "parcours-simplifie.md"),
+    ("mode hors-ligne", "docs/base-locale.md", "base-locale.md"),
+    ("palier", "dofus_stuff/model/solver_spec.py", "parcours-simplifie.md"),
+    ("panoplie", "dofus_stuff/catalog.py", "base-locale.md"),
     ("parcours conseillé", "docs/sommaire.md", None),
+    ("poids", "dofus_stuff/cli.py", "wizard-avance.md"),
+    ("prysmaradite", "dofus_stuff/cli.py", "parcours-simplifie.md"),
+    ("sauvegarde locale", "dofus_stuff/web/static/js/terminal.js", "parcours-simplifie.md"),
+    ("score", "dofus_stuff/optimize/score.py", "parcours-simplifie.md"),
+    ("slot", "dofus_stuff/web/optimize_wizard.py", "wizard-avance.md"),
+    ("solveur", "dofus_stuff/optimize/cpsat.py", "wizard-avance.md"),
     ("sommaire", "docs/sommaire.md", None),
     ("source de vérité", "docs/base-locale.md", None),
     ("stuff", "dofus_stuff/cli.py", None),
+    ("synchronisation", "dofus_stuff/cli.py", "base-locale.md"),
+    ("trophée", "dofus_stuff/model/slots.py", "wizard-avance.md"),
+    ("wizard", "dofus_stuff/web/optimize_wizard.py", "wizard-avance.md"),
 )
 
 # Vocabulaire de harnais et de planification : mesure (`06-RESEARCH.md` § B), zero occurrence dans les
@@ -485,6 +507,83 @@ def test_entrees_du_glossaire(docs_dir: Path, normalize) -> None:
         + f" ; attendu une page dont chaque ligne de tableau porte un terme declare par TERMES_GLOSSAIRE, "
         f"trie apres normalisation, employe par le fichier qu'elle cite et renvoye vers la page qui le "
         f"definit deja quand elle existe (D-17, D-19, D-94)"
+    )
+
+
+def test_renvois_de_definition(docs_dir: Path, normalize) -> None:
+    """Chaque terme que le glossaire renvoie au lieu de le definir porte un renvoi qui resout (D-17).
+
+    Le test exerce d'abord le contrat lui-meme : si aucun terme ne declare de page de definition, le
+    controle du renvoi serait un faux temoin — une fonction qui ne verifie rien passe toujours — et une
+    page declaree qui ne serait pas un nom de page de `docs/` serait un renvoi impossible. Puis
+    `problemes_glossaire` accumule le reste : cible absente de la ligne, cible qui ne resout pas.
+    """
+    constats: list[str] = []
+    renvois = [
+        (libelle, page) for libelle, _employeur, page in TERMES_GLOSSAIRE if page is not None
+    ]
+
+    if not renvois:
+        constats.append(
+            f"{PAGE} : {MOTIF_RENVOI_MANQUANT} — TERMES_GLOSSAIRE ne declare aucune page de definition ; "
+            f"attendu au moins un terme qu'une page livree definit deja, sans quoi ce controle serait un "
+            f"faux temoin (D-17)"
+        )
+
+    for libelle, page in renvois:
+        if not (docs_dir / page).is_file():
+            constats.append(
+                f"{PAGE} : {MOTIF_RENVOI_MANQUANT} — la page de definition « {page} » declaree pour "
+                f"« {libelle} » n'existe pas sous {docs_dir.name}/ ; attendu une page livree qui definit "
+                f"deja le terme (D-17)"
+            )
+
+    constats.extend(problemes_glossaire(docs_dir, normalize))
+    assert not constats, (
+        f"{PAGE} : {MOTIF_RENVOI_MANQUANT} — constats : "
+        + " ; ".join(constats)
+        + f" ; attendu un renvoi vers la page qui definit deja chaque terme deja defini, et un renvoi "
+        f"court — jamais la definition complete de la page cible — pour les autres (D-17)"
+    )
+
+
+def test_le_vocabulaire_du_harnais_est_absent(docs_dir: Path, normalize) -> None:
+    """Aucun libelle d'entree n'appartient au vocabulaire de harnais, et la liste n'est pas vide.
+
+    Un refus sans liste est un vert trompeur : la constante est donc exigee **non vide** avant d'etre
+    appliquee. Le controle porte sur les libelles (la premiere cellule du tableau), jamais sur le texte
+    entier de la page : les phrases de renvoi du glossaire emploient legitimement les mots de la
+    documentation, ce sont les **entrees** qui ne doivent pas etre des mots de planification (D-19).
+    """
+    constats: list[str] = []
+
+    if not TERMES_INTERDITS:
+        constats.append(
+            f"{PAGE} : {MOTIF_TERME_INTERDIT} — TERMES_INTERDITS est vide ; attendu le vocabulaire de "
+            f"planification, mesure comme absent des pages livrees et de dofus_stuff/ (D-19)"
+        )
+
+    texte = _texte_page(docs_dir, PAGE)
+    if texte is None:
+        constats.append(
+            f"{PAGE} : {MOTIF_TERMES} — page absente : {(docs_dir / PAGE).as_posix()} ; attendu la page "
+            f"unique du vocabulaire du produit et de la documentation (D-94)"
+        )
+    else:
+        interdits = {normalize(terme) for terme in TERMES_INTERDITS}
+        for libelle, _reste in _lignes_de_termes(texte):
+            if normalize(libelle) in interdits:
+                constats.append(
+                    f"{PAGE} : {MOTIF_TERME_INTERDIT} — « {libelle} » appartient au vocabulaire de "
+                    f"planification, absent des pages livrees et de dofus_stuff/ ; attendu un terme du "
+                    f"produit ou de la documentation (D-19)"
+                )
+
+    assert not constats, (
+        f"{PAGE} : {MOTIF_TERME_INTERDIT} — constats : "
+        + " ; ".join(constats)
+        + f" ; attendu des libelles d'entree qui n'appartiennent pas au vocabulaire de planification, et "
+        f"une liste de refus non vide (D-19)"
     )
 
 
