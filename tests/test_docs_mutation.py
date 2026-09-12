@@ -58,6 +58,7 @@ Limites declarees (`D-85`), pour qu'aucune morsure ne soit lue au-dela de ce qu'
 """
 
 import ast
+import hashlib
 import importlib.util
 import re
 import shutil
@@ -110,6 +111,18 @@ FAMILLES_DECLAREES = (
     FAMILLE_README,
 )
 
+# Les livrables de la phase qui doivent etre la cible d'au moins une mutation declaree : les quatre pages
+# (les deux pages livrees, le sommaire qui les indexe, le README dont la commande de nettoyage est
+# encadree) et le module d'ancrage des messages, dont la mutation `ecran_muet_declare` deplace une
+# declaration de provenance.
+LIVRABLES_DE_LA_PHASE = (
+    "docs/depannage.md",
+    "docs/glossaire.md",
+    "docs/sommaire.md",
+    "README.md",
+    "tests/test_docs_depannage.py",
+)
+
 # Les contrats de la phase qui se prouvent **sur la copie** : `(module d'ancrage, fonction de constats)`.
 # La precondition (`test_la_copie_est_verte_avant_toute_mutation`) exige que **chacun** ne produise rien sur
 # la copie intacte — c'est le meme patron que les plans 06-01 a 06-03, ou la copie est mesuree verte avant
@@ -134,6 +147,17 @@ CONTROLES_DE_LA_COPIE = (
 # qui rend sans lever est verte.
 SONDES_DE_LA_COPIE = ("_produire",)
 
+# --- Empreinte en lecture seule de la base du depot (`GARD-03`, `D-104`) ---
+# La triple est **mesuree sur le disque** par l'executeur avant d'etre ecrite ici : rien n'est estime. La
+# lecture passe par les octets (`read_bytes`) et `hashlib` : la base n'est **jamais** ouverte par SQLite,
+# ce que la garde de cloture de ce module refuse par l'import et que la regle `D-104` interdit.
+CHEMIN_BASE = ".data/dofus.sqlite3"
+EMPREINTE_BASE = (
+    24989696,
+    1788730056843137500,
+    "e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b",
+)
+
 # --- Motifs portes par ce module ---
 # Regle posee au plan 03-03 et tenue ici : un motif est porte par une constante ASCII du module, jamais
 # ecrit en clair dans une ligne d'assertion — pytest reproduit la ligne source de l'`assert`, une valeur en
@@ -142,6 +166,7 @@ MOTIF_GARDE = "garde de cloture du harnais"
 MOTIF_MUTATION_SANS_OBJET = "mutation sans objet"
 MOTIF_COPIE_ROUGE = "copie rouge avant mutation"
 MOTIF_COUVERTURE_MUTATION = "livrable non couvert par une mutation"
+MOTIF_EMPREINTE_BASE = "empreinte de la base du depot"
 MOTIF_MOTIF_INTROUVABLE = "motif attendu introuvable dans le module d'ancrage"
 MOTIF_FAMILLE_ABSENTE = "famille de derive absente de la table"
 MOTIF_CONTROLE_INTROUVABLE = "controle introuvable dans la table des invocations"
@@ -961,5 +986,50 @@ def test_chaque_derive_declenche_son_motif(tmp_path: Path, client, sections, nor
         + " ; attendu que chaque derive declaree fasse rougir le controle de son module d'ancrage avec son "
         "motif, la morsure etant cherchee par appartenance de sous-chaine dans les constats (GARD-04, D-97, "
         "D-98)"
+    )
+
+
+def test_la_base_du_depot_est_intacte() -> None:
+    """La base du depot est lue en **octets** et garde sa taille, son `mtime_ns` et son SHA-256.
+
+    Aucune ouverture par SQLite : l'import de `sqlite3` est refuse par la garde de cloture, donc la regle
+    `D-104` et le controle sont coherents. Le constat nomme les **trois** valeurs attendues et les trois
+    valeurs lues, jamais une seule : un SHA-256 seul laisserait passer une base reecrite a l'identique, et
+    une taille seule ne verrait rien du contenu. L'empreinte de reference vient du disque (mesuree par
+    l'executeur avant d'etre ecrite ici), jamais d'une estimation.
+    """
+    chemin = RACINE_DEPOT / CHEMIN_BASE
+    if not chemin.is_file():
+        raise AssertionError(
+            f"{CHEMIN_BASE} : {MOTIF_EMPREINTE_BASE} — base absente ({chemin.as_posix()}) ; attendu la "
+            f"base locale du depot, presente au debut de la phase et jamais approchee par la batterie "
+            f"(GARD-03, D-104)"
+        )
+
+    octets = chemin.read_bytes()
+    lues = (len(octets), chemin.stat().st_mtime_ns, hashlib.sha256(octets).hexdigest())
+    attendues = EMPREINTE_BASE
+    assert lues == attendues, (
+        f"{CHEMIN_BASE} : {MOTIF_EMPREINTE_BASE} — valeurs lues (taille, mtime_ns, sha256) : "
+        f"{lues[0]}, {lues[1]}, {lues[2]} ; valeurs attendues : {attendues[0]}, {attendues[1]}, "
+        f"{attendues[2]} ; attendu une base du depot intacte, lue en octets et jamais ouverte par SQLite "
+        f"(GARD-03, D-104)"
+    )
+
+
+def test_chaque_livrable_est_couvert_par_une_mutation() -> None:
+    """Chaque livrable de la phase est la cible d'au moins une mutation declaree (critere 4).
+
+    C'est la mecanisation de la formule du critere : « chaque page livree est prouvee durable par une
+    mutation reelle ». La liste des cibles est **derivee** de `FAMILLES`, jamais ecrite une seconde fois —
+    la table est la seule source du contrat — et un livrable sans mutation est un constat nomme
+    (`MOTIF_COUVERTURE_MUTATION`), jamais un silence.
+    """
+    cibles = {derive[F_CIBLE] for derive in FAMILLES}
+    manquants = sorted(set(LIVRABLES_DE_LA_PHASE) - cibles)
+    assert not manquants, (
+        f"{MOTIF_COUVERTURE_MUTATION} : {', '.join(manquants)} ; attendu une mutation declaree dans FAMILLES "
+        f"pour chaque livrable de la phase, la preuve du critere 4 portant sur les derives reelles de ces "
+        f"fichiers (GARD-04, D-97)"
     )
 
