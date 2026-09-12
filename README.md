@@ -77,6 +77,8 @@ Les seuils PA/PM et poids de recommandation sont des choix du projet, pas des ex
 ```bash
 python fetcher.py db status
 python fetcher.py db sync            # forcer une sync complète
+# ATTENTION : la commande ci-dessous détruit la base locale (l'opération est irréversible).
+# Le mode hors-ligne et les gestes non destructifs sont documentés dans docs/base-locale.md
 python fetcher.py db clear           # vider la base
 ```
 

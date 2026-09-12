@@ -121,7 +121,18 @@ MOTIF_PAGE_ILLISIBLE = "page non decodable en UTF-8"
 MOTIF_H1 = "titre de niveau 1 absent"
 MOTIF_GARDE = "garde de cloture du harnais"
 
+# Familles de constat du controle du `README.md` (plan 06-03, tache 2) : trois constats distincts derives
+# d'un meme motif de base (`MOTIF_README`), pour que la morsure chercher le motif et que le diagnostic
+# nomme la famille — avertissement absent, renvoi absent, jeton de commande disparu.
+FAMILLE_AVERTISSEMENT = "avertissement manquant"
+FAMILLE_RENVOI = "renvoi non destructif manquant"
+FAMILLE_DISPARITION = "commande de base disparue de la page"
+
 # --- `README.md` : l'occurrence destructive, ce qui l'encadre et ce qui doit rester (D-100) ---
+# Motif de morsure du controle du `README.md`, porte par une constante comme les precedents et inclus
+# dans **chacun** des trois constats (avertissement, renvoi, jeton disparu).
+MOTIF_README = "invitation a detruire les donnees"
+
 # Formes de l'avertissement, lues dans le `README.md` au moment de l'ecriture (`D-19`) : un contrat de
 # presence, jamais une exigence de style.
 MOTS_AVERTISSEMENT = ("détruit", "irréversible")
@@ -297,6 +308,85 @@ def problemes_pages_epinglees(racine: Path) -> list[str]:
     return constats
 
 
+# --- `README.md` : constats du controle D-100 (fonction pure, D-13) ---
+
+
+def _blocs_contigus(texte: str) -> list[tuple[int, list[str]]]:
+    """Blocs de lignes contigus d'un texte : `(numero de la premiere ligne, lignes)`, lignes vides exclues.
+
+    Un bloc est une suite de lignes non vides : une commande et son avertissement restent donc dans le
+    **meme** bloc tant qu'aucune ligne vide ne les separe, et une phrase posee trois paragraphes plus bas
+    ne compte pas comme l'encadrement du bloc (D-100).
+    """
+    blocs: list[tuple[int, list[str]]] = []
+    courant: list[str] = []
+    debut = 1
+    for numero, ligne in enumerate(texte.splitlines(), start=1):
+        if ligne.strip():
+            if not courant:
+                debut = numero
+            courant.append(ligne)
+            continue
+        if courant:
+            blocs.append((debut, courant))
+            courant = []
+    if courant:
+        blocs.append((debut, courant))
+    return blocs
+
+
+def problemes_readme(texte: str, invocation: str, renvoi: str = RENVOI_BASE_LOCALE) -> list[str]:
+    """Constats du `README.md` : l'occurrence destructive est encadree, et rien n'a disparu (`D-100`).
+
+    Fonction **pure** : elle recoit le texte (jamais le disque), ne lit aucun fichier, n'ecrit rien et
+    n'execute aucune commande. Trois lectures, un constat par famille (`D-13`) :
+
+    - pour **chaque** bloc de lignes contigues portant `invocation` — jamais seulement le premier — au
+      moins un mot de `MOTS_AVERTISSEMENT` doit s'y trouver, sans quoi la famille est celle de
+      l'avertissement manquant ;
+    - le renvoi `renvoi` doit se trouver dans ce **meme** bloc : la commande perd sa forme d'invitation
+      parce qu'elle voisine ce qui manquait, un renvoi pose ailleurs ne l'encadre pas ;
+    - **chaque** jeton de `INVOCATIONS_CONSERVEES`, le jeton destructif compris, doit apparaitre au moins
+      une fois dans le texte : la conservation des commandes de base est un controle, jamais une
+      supposition, et le constat nomme le jeton disparu.
+
+    Retirer l'occurrence destructive est donc un constat au meme titre que retirer son avertissement ou
+    son renvoi : la ligne reste documentee, elle perd sa forme d'invitation (decision `D-100` ecrite dans
+    la docstring du module). Ce controle ne teste jamais la commande, ne l'execute pas, et n'ouvre rien
+    sous `.data/` : il porte sur le **texte** du `README.md` et rien d'autre (`D-104`).
+    """
+    constats: list[str] = []
+
+    for debut, lignes in _blocs_contigus(texte):
+        bloc = "\n".join(lignes)
+        if invocation not in bloc:
+            continue
+        fin = debut + len(lignes) - 1
+        if not any(mot in bloc for mot in MOTS_AVERTISSEMENT):
+            constats.append(
+                f"README.md : {MOTIF_README} — {FAMILLE_AVERTISSEMENT} : le bloc des lignes "
+                f"{debut}..{fin} porte « {invocation} » sans aucun mot d'avertissement ; attendu l'un de "
+                f"{', '.join(MOTS_AVERTISSEMENT)}, la commande detruisant la base locale (D-100)"
+            )
+        if renvoi not in bloc:
+            constats.append(
+                f"README.md : {MOTIF_README} — {FAMILLE_RENVOI} : le bloc des lignes {debut}..{fin} ne "
+                f"renvoie pas vers « {renvoi} » ; attendu ce renvoi dans le meme bloc que "
+                f"« {invocation} », la page documentant la base locale et ses gestes non destructifs "
+                f"(D-100)"
+            )
+
+    for jeton in (invocation, *INVOCATIONS_CONSERVEES):
+        if jeton not in texte:
+            constats.append(
+                f"README.md : {MOTIF_README} — {FAMILLE_DISPARITION} : le jeton « {jeton} » n'apparait "
+                f"plus dans la page ; attendu que chaque commande de base reste documentee, la ligne "
+                f"etant encadree et jamais supprimee (D-100)"
+            )
+
+    return constats
+
+
 # --- Tests de la tranche verticale ---
 
 
@@ -395,4 +485,88 @@ def test_aucune_page_ne_peut_etre_videe(tmp_path: Path) -> None:
         f"{', '.join(absents) or 'aucun'} ; constats produits : " + " ; ".join(constats) + " ; attendu "
         f"les deux constats attendus sur une copie minimale construite sous {racine.as_posix()} "
         f"(GARD-03, D-95)"
+    )
+
+
+# --- Controle du `README.md` (plan 06-03, tache 2 : D-100) ---
+
+
+def test_readme_n_invite_pas_a_detruire(docs_dir: Path) -> None:
+    """Le bloc qui porte la commande de nettoyage avertit sur elle et renvoie vers la page de la base.
+
+    Une seule assertion, tous constats accumules (`D-13`) : le controle lit le `README.md` **livre** et
+    ne le corrige pas (`T-06-03-05`). Trois lectures sont exercees ensemble — un mot d'avertissement et
+    le renvoi `docs/base-locale.md` dans le bloc de **chaque** occurrence de `INVOCATION_DESTRUCTIVE`, et
+    la presence de **chaque** jeton de `INVOCATIONS_CONSERVEES`, le jeton destructif compris : la
+    conservation des commandes de base est un constat, jamais une supposition.
+
+    Un fichier illisible est un constat nomme, jamais un vert silencieux : `read_text` est enferme, et
+    l'echec de decodage produit un constat au lieu d'une exception. Le controle n'ouvre rien sous
+    `.data/`, ne teste pas la commande et ne l'execute pas (`D-104`).
+    """
+    chemin = docs_dir.parent / "README.md"
+    if not chemin.is_file():
+        raise AssertionError(
+            f"README.md : fichier introuvable ({chemin.as_posix()}) ; attendu le fichier de la racine du "
+            f"depot dont le bloc des commandes de base est encadre (D-100)"
+        )
+
+    try:
+        texte = chemin.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        constats = [
+            f"README.md : {MOTIF_README} — fichier non decodable en UTF-8 strict : "
+            f"{chemin.as_posix()} ; attendu un fichier de documentation lisible, le controle portant sur "
+            f"son texte (D-100, D-11)"
+        ]
+    else:
+        constats = problemes_readme(texte, INVOCATION_DESTRUCTIVE)
+
+    assert not constats, (
+        f"README.md : constats sur l'encadrement de la commande de nettoyage : " + " ; ".join(constats)
+        + " ; attendu la commande de nettoyage de la base locale encadree, dans son bloc, par un mot "
+        f"d'avertissement ({', '.join(MOTS_AVERTISSEMENT)}) et le renvoi vers {RENVOI_BASE_LOCALE}, "
+        f"chaque jeton des commandes de base restant documente (D-100)"
+    )
+
+
+def test_le_controle_du_readme_mord_sur_un_texte_synthetique() -> None:
+    """Les trois familles de constats sont exercees sur des textes synthetiques, hors du depot.
+
+    La preuve de morsure est **hors du depot** et immediate : trois textes construits ici portent un meme
+    inventaire de commandes, prive successivement de l'avertissement, du renvoi, puis de **tous** les
+    jetons conserves. Le troisieme cas est celui qui interdit un faux temoin : un `README.md` qui ne
+    porterait plus aucune occurrence de la commande destructive serait declare vert par un controle qui
+    ne chercherait que des blocs — ici, le jeton manquant est un constat (`D-100`).
+
+    La mesure a un objet : `INVOCATION_DESTRUCTIVE` non vide est exige avant l'application, sans quoi les
+    textes construits ne mesureraient rien (`D-84`, lecon de la phase 5).
+    """
+    assert INVOCATION_DESTRUCTIVE, (
+        f"README.md : {MOTIF_README} — la mesure n'a aucun objet : `INVOCATION_DESTRUCTIVE` est vide ; "
+        f"attendu le jeton de la commande de nettoyage, lu dans le `README.md` a l'ecriture (D-19)"
+    )
+
+    avertissement = "ATTENTION : cette commande détruit la base locale, l'opération est irréversible."
+    renvoi = f"Le mode hors-ligne et les gestes non destructifs sont dans {RENVOI_BASE_LOCALE}."
+    inventaire = "\n".join((INVOCATION_DESTRUCTIVE, *INVOCATIONS_CONSERVEES))
+
+    familles = (
+        (FAMILLE_AVERTISSEMENT, f"{inventaire}\n{renvoi}\n"),
+        (FAMILLE_RENVOI, f"{inventaire}\n{avertissement}\n"),
+        (FAMILLE_DISPARITION, f"{avertissement}\n{renvoi}\n"),
+    )
+    absentes = [
+        famille
+        for famille, texte in familles
+        if not any(
+            famille in constat
+            for constat in problemes_readme(texte, INVOCATION_DESTRUCTIVE)
+        )
+    ]
+    assert not absentes, (
+        f"README.md : {MOTIF_README} — famille(s) de constat absente(s) sur les textes synthetiques : "
+        f"{', '.join(absentes) or 'aucune'} ; attendu les trois familles (avertissement manquant, renvoi "
+        f"manquant, jeton disparu) sur trois textes prives successivement de l'avertissement, du renvoi "
+        f"et de tous les jetons conserves (D-100, D-84)"
     )
