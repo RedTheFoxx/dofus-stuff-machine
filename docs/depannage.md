@@ -25,7 +25,7 @@ Une base absente n'est pas une erreur : le premier contact **crée** le fichier,
 
 ## Saisie invalide
 
-Ces refus tombent tous **avant** tout travail : aucune recherche, aucun calcul, aucune écriture. Ils sont rendus par la ligne de statut de l'écran — c'est là que le produit écrit ses refus — et la ligne de commande les écrit différemment, quand elle les écrit. Les identifiants et les noms que vous saisissez sont des valeurs d'exécution : cette page ne les recopie jamais.
+Les refus de cette rubrique tombent tous **avant** tout travail : aucune recherche, aucun calcul, aucune écriture. Une ligne de cette rubrique fait exception et le dit elle-même : `AUCUN RESULTAT.` est écrit **après** la recherche, quand elle n'a rien trouvé, et il signale seulement que rien ne correspond — ce n'est donc ni un refus, ni une panne. Ces refus sont rendus par la ligne de statut de l'écran — c'est là que le produit écrit ses refus — et la ligne de commande les écrit différemment, quand elle les écrit. Les identifiants et les noms que vous saisissez sont des valeurs d'exécution : cette page ne les recopie jamais.
 
 | Message affiché | Où il apparaît | Ce qu'il faut faire |
 |-----------------|----------------|---------------------|
@@ -71,11 +71,14 @@ Si une frappe ne fait rien, le premier geste est donc de vérifier que l'écran 
 
 ## Résultat paginé
 
-La pagination a **deux formes**, et le produit ne les écrit pas au même endroit. La ligne de **statut** ne porte le motif de page que lorsque l'écran est réellement paginé — un écran qui n'a qu'une seule page n'ajoute aucun motif à son statut ; le **corps** de l'écran, lui, porte toujours sa ligne de pagination. Un diagnostic qui exigerait le motif dans le statut d'un écran à page unique serait donc faux sur un produit correct.
+La pagination a **deux formes**, et le produit ne les écrit pas au même endroit. La règle dépend de la surface qui écrit la ligne de statut, et cette page la donne pour chacune : elle nomme à chaque fois le fichier qui la produit.
+Sur les écrans que l'application sert elle-même (`dofus_stuff/web/routes.py`), la ligne de **statut** ne porte le motif de page que lorsque l'écran compte plus d'une page, et le **corps** de l'écran porte toujours sa ligne de pagination.
+Sur les deux écrans de sauvegardes, la ligne de **statut** est écrite par le script (`dofus_stuff/web/static/js/terminal.js`) : elle porte le motif **même sur une seule page**, et la liste comme le détail affichent donc `PAGE 1/1`. Leur **corps**, lui, ne porte aucune ligne de pagination.
+Un diagnostic qui exigerait le motif sur un écran d'une seule page, ou qui exigerait son absence, serait donc faux d'un côté comme de l'autre.
 
 | Message affiché | Où il apparaît | Ce qu'il faut faire |
 |-----------------|----------------|---------------------|
-| `PAGE {page}/{total}` | interface web, ligne de statut d'un écran paginé, sous la forme du numéro de page sur le nombre de pages | le motif n'apparaît que si l'écran compte plus d'une page ; utilisez les deux touches de navigation pour changer de page |
+| `PAGE {page}/{total}` | interface web, ligne de statut d'un écran paginé ou d'un écran de sauvegardes, sous la forme du numéro de page sur le nombre de pages | sur un écran que l'application sert, le motif n'apparaît que si l'écran compte plus d'une page ; sur les écrans de sauvegardes, écrits par le script, il est là même sur une seule page ; utilisez les deux touches de navigation pour changer de page |
 | `ENTREE=VALIDER` | interface web, ligne de statut de l'écran de liste | l'écran attend une saisie : identifiant pour ouvrir une fiche, ou les touches de page |
 | `Page prec` | interface web, barre des touches, sur un écran paginé | touche de navigation vers la page précédente |
 | `Page suiv` | interface web, barre des touches, sur un écran paginé | touche de navigation vers la page suivante |
