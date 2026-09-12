@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 current_phase: 6
 current_phase_name: Dépannage, glossaire, complétude et preuve finale
 status: executing
-stopped_at: "Phase 6 plan 06-02 complete : docs/glossaire.md (27 termes tries, chacun adosse a un employeur reellement employeur et renvoye vers la page qui le definit deja : 22 renvois, 5 definitions propres), sa ligne d'index dans docs/sommaire.md et tests/test_docs_glossaire.py (7 tests, 7/7 morsures detectees sur copie verte avant mutation) ; le parcours conseille du sommaire est desormais garde par une permutation des libelles d'index (D-95) ; 2 plans de la phase 6 restent a jouer (06-03, 06-04)"
-last_updated: "2026-09-12T00:11:57.000Z"
+stopped_at: "Phase 6 plan 06-03 complete : tests/test_docs_completude.py (8 tests, 5/5 morsures detectees) — la liste epinglee des huit pages de docs/ confrontee au disque dans les deux sens avec refus du vidage, la couverture d'index (7 lignes pour 7 pages) et le README.md dont la commande de nettoyage est encadree par son avertissement et le renvoi vers docs/base-locale.md (D-100) ; 243 passed, base du depot intacte ; reste 06-04"
+last_updated: "2026-09-12T00:22:40.792Z"
 last_activity: 2026-09-12
-last_activity_desc: Phase 6 plan 06-02 complete (le glossaire du vocabulaire est livre et garde : 27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres, une ligne d'index ajoutee, le parcours conseille du sommaire rendu verifiable par permutation des libelles d'index et refus des liens Markdown ; 7 tests dont la garde de cloture auto-analysee, 7/7 morsures detectees ; 235 passed, base du depot intacte)
-state_head: 67f7bb440652dbe34e6569c2deb9cf9a12b8597b
+last_activity_desc: "Phase 6 plan 06-02 complete (le glossaire du vocabulaire est livre et garde : 27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres, une ligne d'index ajoutee, le parcours conseille du sommaire rendu verifiable par permutation des libelles d'index et refus des liens Markdown ; 7 tests dont la garde de cloture auto-analysee, 7/7 morsures detectees ; 235 passed, base du depot intacte)"
+state_head: 215c3842bfcdf289f3e6b2d8c155e99808c7d613
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 23
-  completed_plans: 21
-  percent: 91
+  completed_plans: 22
+  percent: 83
 ---
 
 # Project State
@@ -28,17 +28,17 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 6 — Dépannage, glossaire, complétude et preuve finale
-Plan: 2 of 4 — plan 06-02 livré (le glossaire `docs/glossaire.md` : 27 termes triés, chacun adossé à un employeur réellement employeur et renvoyé vers la page qui le définit déjà — 22 renvois, 5 définitions propres ; sa ligne d'index dans `docs/sommaire.md` et `tests/test_docs_glossaire.py` : 7 tests, dont la garde de clôture auto-analysée, et 7/7 morsures détectées ; le parcours conseillé du sommaire est désormais gardé). Restent 06-03 (complétude et `README.md`) et 06-04 (preuve finale).
-Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01 et 06-02 livrés
-Last activity: 2026-09-12 — 06-02 complete (3 commits, 7/7 morsures détectées sur copie verte avant mutation, 235 passed, `.data/dofus.sqlite3` intacte)
+Plan: 3 of 4 — plan 06-03 livré (`tests/test_docs_completude.py` : la liste épinglée des huit pages de `docs/` avec un seuil de lignes non vides par page, confrontée au disque dans les deux sens, la couverture d'index — 7 lignes de tableau pour 7 pages de contenu — et la garde de clôture auto-analysée ; `README.md` dont la commande de nettoyage reste documentée mais gagne, dans son bloc, l'avertissement qui dit qu'elle détruit la base locale et le renvoi vers `docs/base-locale.md`, `D-100` — 8 tests, 5/5 morsures détectées). Reste 06-04 (preuve finale).
+Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01, 06-02 et 06-03 livrés
+Last activity: 2026-09-12 — 06-03 complete (3 commits, 5/5 morsures détectées sur copie verte avant mutation, 243 passed, `.data/dofus.sqlite3` intacte)
 
-Progress: [█████████░] 91% (21/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01 et 06-02 livrés, 06-03 et 06-04 restants)
+Progress: [████████░░] 83% (22/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01, 06-02 et 06-03 livrés, 06-04 restant)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: -
 - Total execution time: -
 
@@ -51,7 +51,7 @@ Progress: [█████████░] 91% (21/23 plans exécutés ; 5 phase
 | 3 | 4 | - | - |
 | 4 | 5 | - | - |
 | 5 | 4 | - | - |
-| 6 | 2 | - | - |
+| 6 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -84,6 +84,8 @@ Progress: [█████████░] 91% (21/23 plans exécutés ; 5 phase
 | Phase 5 P04 | 6min | 2 tasks | 2 files |
 | Phase 6 P01 | 4min | 3 tasks | 3 files |
 | Phase 6 P02 | 5min | 3 tasks | 3 files |
+| Phase 6 P03 | 5min | 3 tasks | 2 files |
+| Phase 6 P03 | 5min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -188,6 +190,9 @@ Recent decisions affecting current work:
 - [Phase 6]: 06-02 : `problemes_parcours` est une fonction **pure** (le texte du sommaire, jamais le disque, D-13/D-14) qui exige une **permutation** des libelles d'index et non un ordre donne (D-85) : l'ordre de lecture livre (le wizard avant la reference CLI) reste libre. Le controle est nouveau — mesure `grep "Parcours" tests/*.py` -> 0 occurrence avant ce plan — et il est discrimine : applique au `docs/sommaire.md` d'avant la phase (`git show 110951f`, 23 lignes) il rend deux constats en nommant « Dépannage » et « Glossaire », applique au sommaire livre (25 lignes) aucun.
 - [Phase 6]: 06-02 : la prohibition « parcours conseille en liens Markdown » est **mesuree**, pas declarative — `problemes_index`, `problemes_h1` et `test_sommaire_index_labels_are_unique` lisent tout lien de `sommaire.md` comme une entree d'index : convertir le parcours en liens re-emettrait les libelles de l'index et ferait rougir trois gardes vertes. Le controle de forme (aucun lien dans la liste numerotee) garde donc la condition qui permet a ces trois gardes de rester vertes.
 - [Phase 6]: 06-02 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `231 passed in 4.38s` (tache 1), `233 passed in 4.35s` (tache 2), `235 passed in 4.59s` (tache 3 ; 228 avant ce plan, 7 tests dans le module) ; 7/7 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant, apres chaque tache et apres la suite complete (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**` non modifie ; 3 fichiers, 826 insertions, aucun fichier supprime. Bookkeeping : `progress.completed_plans` portee de 20 a 21 (91 %), la ligne 06-02 des plans de la phase 6 cochee et son compteur porte a 2/4, `AIDE-02` marquee Complete dans `REQUIREMENTS.md`.
+- [Phase 6]: 06-03 : D-100 est tranchee par l'ENCADREMENT, jamais par la suppression — la ligne de nettoyage de la base locale reste dans le README.md, et ce qui manquait (l'avertissement qui dit qu'elle detruit la base et le renvoi vers docs/base-locale.md) est ajoute dans le MEME bloc que l'occurrence (2 insertions, 0 suppression, CRLF preserve). La justification complete est ecrite dans la docstring du module avant tout code : la ligne est un contenu livre, une suppression ne prouverait rien du besoin (aucune assertion ne distingue « information absente » de « information jamais livree »), les regles de la phase interdisent de supprimer de la documentation livree, et l'encadrement est verifiable par deux constats automatiques.
+- [Phase 6]: 06-03 : la completude est prouvee par une LISTE EPINGLEE (PAGES_EPINGLEES : les huit pages de docs/ avec un seuil de lignes non vides lu sur le disque a l'ecriture) confrontee au disque dans les deux sens, et par la couverture de l'index limitee aux deux axes qu'aucune garde livree ne porte (au plus une ligne par cible, et le compte des lignes) — la non-duplication avec tests/test_docs_structure.py (index <-> disque, H1, unicite des libelles) et la transitivite de la couverture epinglee sont ecrites dans la docstring du module. Mesure : le tableau ## Index porte 7 lignes pour 7 pages de contenu epinglees.
+- [Phase 6]: 06-03 : mesures de la passe de plan — .venv/Scripts/python.exe -m pytest -q -> 238 passed (tache 1, 235 avant ce plan), 240 passed (tache 2), 243 passed in 4.50s (tache 3, 8 tests dans le module) ; 5/5 morsures du plan detectees sur copie verte avant mutation (page supprimee, page videe, renvoi retire, avertissement retire, ligne d'index retiree), aucune corrigee pour mordre ; une correction a porte sur le TEST de la morsure « les deux pages de la phase » (MOTIF_LIGNE_INDEX est ancre sans re.MULTILINE : la lecture du tableau se fait desormais ligne a ligne, comme dans problemes_couverture_index) ; .data/dofus.sqlite3 identique avant, apres chaque tache et apres chaque batterie (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; dofus_stuff/** et docs/** non modifies, 2 fichiers, 792 insertions, aucun fichier supprime. Bookkeeping : progress.completed_plans portee de 21 a 22, la ligne 06-03 des plans de la phase 6 cochee et son compteur porte a 3/4, GARD-03 marquee Complete dans REQUIREMENTS.md.
 
 ### Pending Todos
 
@@ -208,6 +213,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-12T00:11:57.000Z
-Stopped at: Phase 6 plan 06-02 complete : docs/glossaire.md (27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres), sa ligne d'index dans docs/sommaire.md et tests/test_docs_glossaire.py (7 tests, 7/7 morsures detectees) ; le parcours conseille du sommaire est desormais garde ; restent 06-03 et 06-04
+Last session: 2026-09-12T00:22:40.736Z
+Stopped at: Phase 6 plan 06-03 complete : tests/test_docs_completude.py (8 tests, 5/5 morsures detectees) — la liste epinglee des huit pages de docs/ confrontee au disque dans les deux sens avec refus du vidage, la couverture d'index (7 lignes pour 7 pages) et le README.md dont la commande de nettoyage est encadree par son avertissement et le renvoi vers docs/base-locale.md (D-100) ; 243 passed, base du depot intacte ; reste 06-04
 Resume file: None

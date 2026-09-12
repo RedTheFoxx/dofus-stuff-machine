@@ -57,7 +57,7 @@ Exigences de la livraison initiale. Chacune est mappée à exactement une phase 
 
 - [x] **GARD-01** : La suite pytest échoue si un lien interne de `docs/` ne se résout pas, si le sommaire diverge de l'ensemble des pages, ou si un renvoi obsolète réapparaît — dérivé de DOCS-11
 - [x] **GARD-02** : La suite pytest échoue si un libellé de flux ou d'étape du wizard cité dans la documentation n'est plus produit par le code — dérivé de DOCS-12
-- [ ] **GARD-03** : La complétude est un critère de sortie vérifié après livraison des pages, et un test de mutation prouve que le harnais détecte réellement une dérive — dérivé de DOCS-11, DOCS-12
+- [x] **GARD-03** : La complétude est un critère de sortie vérifié après livraison des pages, et un test de mutation prouve que le harnais détecte réellement une dérive — dérivé de DOCS-11, DOCS-12
 - [ ] **GARD-04** : La vérification s'exécute avec `.venv/Scripts/python.exe -m pytest -q`, sans écrire sous `.data/`, sans exécuter `main()` et sans ouvrir de connexion réseau — dérivé de DOCS-11, DOCS-12
 
 ## v2 Requirements
@@ -129,7 +129,7 @@ Rempli lors de la création du roadmap (6 phases). Chaque exigence v1 est mappé
 | AIDE-02 | Phase 6 | Complete |
 | GARD-01 | Phase 1 | Complete |
 | GARD-02 | Phase 1 | Complete |
-| GARD-03 | Phase 6 | Pending |
+| GARD-03 | Phase 6 | Complete |
 | GARD-04 | Phase 6 | Pending |
 
 **Coverage:**
