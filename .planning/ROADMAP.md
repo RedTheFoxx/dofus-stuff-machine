@@ -233,7 +233,7 @@ Plans:
 Plans:
 
 - [x] 06-01: Rédiger `docs/depannage.md` indexé par message d'erreur réel, avec son entrée d'index et son contrôle message → rubrique
-- [ ] 06-02: Rédiger `docs/glossaire.md`, son entrée d'index, son contrôle d'entrées, et le parcours conseillé final du sommaire
+- [x] 06-02: Rédiger `docs/glossaire.md`, son entrée d'index, son contrôle d'entrées, et le parcours conseillé final du sommaire
 - [ ] 06-03: Ajouter le contrôle de complétude (liste épinglée des 8 pages et ensemble exact des fichiers de `docs/`)
 - [ ] 06-04: Ajouter la preuve du harnais (test de mutation), le contrôle d'intégrité de `.data/`, l'audit de périmètre `git status` et l'exécution finale verte avec compteur et durée réels
 
@@ -249,4 +249,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Parcours simplifié documenté depuis le rendu réel | 4/4 | Complete    | 2026-09-11 |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 5/4 | Complete    | 2026-09-11 |
 | 5. Base locale, hors-ligne et resynchronisation | 4/4 | Complete    | 2026-09-11 |
-| 6. Dépannage, glossaire, complétude et preuve finale | 1/4 | In Progress |  |
+| 6. Dépannage, glossaire, complétude et preuve finale | 2/4 | In Progress |  |

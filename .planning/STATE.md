@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 current_phase: 6
 current_phase_name: Dépannage, glossaire, complétude et preuve finale
 status: executing
-stopped_at: "Phase 6 plan 06-01 complete : docs/depannage.md (cinq rubriques du critere 1 indexees par le message reellement produit), sa ligne d'index et tests/test_docs_depannage.py (9 tests, 9/9 morsures detectees) ; la phase 5 est close et verifiee (05-VERIFICATION.md, status: passed) ; 3 plans de la phase 6 restent a jouer (06-02, 06-03, 06-04)"
-last_updated: "2026-09-11T23:54:46.837Z"
-last_activity: 2026-09-11
-last_activity_desc: Phase 6 plan 06-01 complete (la page de depannage est indexee par le message reellement produit : 32 messages de provenance mesuree repartis sur les cinq familles du critere 1, la famille sans message declaree mecanisme, une ligne d'index ajoutee, 9 tests dont la garde de harnais auto-analysee et 9/9 morsures detectees ; 228 passed, base du depot intacte)
-state_head: 0c672f74a4fbb1cd05d4a8b113adb3397693ea46
+stopped_at: "Phase 6 plan 06-02 complete : docs/glossaire.md (27 termes tries, chacun adosse a un employeur reellement employeur et renvoye vers la page qui le definit deja : 22 renvois, 5 definitions propres), sa ligne d'index dans docs/sommaire.md et tests/test_docs_glossaire.py (7 tests, 7/7 morsures detectees sur copie verte avant mutation) ; le parcours conseille du sommaire est desormais garde par une permutation des libelles d'index (D-95) ; 2 plans de la phase 6 restent a jouer (06-03, 06-04)"
+last_updated: "2026-09-12T00:11:57.000Z"
+last_activity: 2026-09-12
+last_activity_desc: Phase 6 plan 06-02 complete (le glossaire du vocabulaire est livre et garde : 27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres, une ligne d'index ajoutee, le parcours conseille du sommaire rendu verifiable par permutation des libelles d'index et refus des liens Markdown ; 7 tests dont la garde de cloture auto-analysee, 7/7 morsures detectees ; 235 passed, base du depot intacte)
+state_head: 67f7bb440652dbe34e6569c2deb9cf9a12b8597b
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 23
-  completed_plans: 20
-  percent: 83
+  completed_plans: 21
+  percent: 91
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 6 — Dépannage, glossaire, complétude et preuve finale
-Plan: 1 of 4 — plan 06-01 livré (la page `docs/depannage.md`, sa ligne d'index dans `docs/sommaire.md` et `tests/test_docs_depannage.py` : cinq rubriques indexées par le message réellement produit, 32 messages de provenance mesurée, la famille sans message déclarée mécanisme, 9 tests et 9/9 morsures détectées). Restent 06-02 (glossaire et parcours conseillé), 06-03 (complétude et `README.md`) et 06-04 (preuve finale).
-Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a son plan 06-01 livré
-Last activity: 2026-09-11 — 06-01 complete (3 commits, 9/9 morsures détectées sur copie verte avant mutation, 228 passed, `.data/dofus.sqlite3` intact)
+Plan: 2 of 4 — plan 06-02 livré (le glossaire `docs/glossaire.md` : 27 termes triés, chacun adossé à un employeur réellement employeur et renvoyé vers la page qui le définit déjà — 22 renvois, 5 définitions propres ; sa ligne d'index dans `docs/sommaire.md` et `tests/test_docs_glossaire.py` : 7 tests, dont la garde de clôture auto-analysée, et 7/7 morsures détectées ; le parcours conseillé du sommaire est désormais gardé). Restent 06-03 (complétude et `README.md`) et 06-04 (preuve finale).
+Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01 et 06-02 livrés
+Last activity: 2026-09-12 — 06-02 complete (3 commits, 7/7 morsures détectées sur copie verte avant mutation, 235 passed, `.data/dofus.sqlite3` intacte)
 
-Progress: [████████░░] 83% (20/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01 livré, 06-02 à 06-04 restants)
+Progress: [█████████░] 91% (21/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01 et 06-02 livrés, 06-03 et 06-04 restants)
 
 ## Performance Metrics
 
@@ -51,7 +51,7 @@ Progress: [████████░░] 83% (20/23 plans exécutés ; 5 phase
 | 3 | 4 | - | - |
 | 4 | 5 | - | - |
 | 5 | 4 | - | - |
-| 6 | 1 | - | - |
+| 6 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -83,6 +83,7 @@ Progress: [████████░░] 83% (20/23 plans exécutés ; 5 phase
 | Phase 5 P03 | 9 | 3 tasks | 1 files |
 | Phase 5 P04 | 6min | 2 tasks | 2 files |
 | Phase 6 P01 | 4min | 3 tasks | 3 files |
+| Phase 6 P02 | 5min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -181,6 +182,13 @@ Recent decisions affecting current work:
 - [Phase 6]: 06-01 : une mutation qui ne preserve pas les `\r\n` est un no-op sur ce poste (`routes.py` et `depannage.md` sont en CRLF, et le `sed -i` local les retire) — la batterie crie alors `MUTATION NON DETECTEE` pour une raison qui n'est pas la derive visee. Toutes les mutations de ce plan passent par `python -c` avec `newline=""` et un motif portant les CR, avec garde d'unicite du motif avant remplacement (lecon payee une fois sur `pagination_inconditionnelle`).
 - [Phase 6]: 06-01 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `228 passed in 4.36s` (219 avant ce plan, 9 tests dans le module) ; 9/9 morsures detectees sur copie verte avant mutation (4 + 2 + 2 + 1 supplementaire pour les renvois D-17), aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant, apres chaque tache et apres la suite complete (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**` non modifie. Bookkeeping : `progress.completed_plans` portee de 19 a 20 et `total_plans` de 19 a 23 (les 4 plans de la phase 6), la ligne de la phase 5 du ROADMAP rendue coherente (case cochee + statut `Complete` : `05-VERIFICATION.md` est `status: passed`), et la ligne 06-01 des plans de la phase 6 cochee.
 
+- [Phase 6]: 06-02 : le glossaire **renvoie** au lieu de redefinir (D-17) — 22 des 27 termes sont deja definis par une page livree et portent un lien vers elle avec une phrase de renvoi courte, jamais la definition complete de la cible ; les 5 termes qu'aucune page ne definit (`index`, `parcours conseillé`, `sommaire`, `source de vérité`, `stuff`) portent un `-` et sont definis par le glossaire lui-meme. Repartition mesuree des renvois : `docs/parcours-simplifie.md` 9, `docs/wizard-avance.md` 7, `docs/base-locale.md` 5, `docs/cli.md` 1.
+- [Phase 6]: 06-02 : chaque terme est adosse a l'employeur **mesure** par lecture `fichier:ligne` avant d'ecrire la ligne (D-19), puis confronte au fichier par le controle (chemin existant depuis la racine, terme present apres normalisation `D-11`, et la ligne de la page doit citer ce meme chemin). Repartition mesuree des 27 entrees : `dofus_stuff/cli.py` 9, `dofus_stuff/model/slots.py` 3, `docs/sommaire.md` 3, `model/solver_spec.py` 2, `optimize/score.py` 2, `docs/base-locale.md` 2, `web/optimize_wizard.py` 2, `docs/parcours-simplifie.md` 1, `catalog.py` 1, `web/static/js/terminal.js` 1, `optimize/cpsat.py` 1.
+- [Phase 6]: 06-02 : deux mesures ont corrige les listes du plan — `trophée` renvoie a `docs/wizard-avance.md` (mesure : `docs/parcours-simplifie.md` ne contient pas le mot, alors que `wizard-avance.md:65` porte `DOFUS/TROPHES` et `cli.md:112` le cite) et l'employeur de `sauvegarde locale` est `dofus_stuff/web/static/js/terminal.js:324` (la page `parcours-simplifie.md:174` n'ecrit que `SAUVEGARDES LOCALES`). Un terme declare sans employeur reel est ce que le controle refuse ; une liste de recherche ne remplace pas une mesure.
+- [Phase 6]: 06-02 : `problemes_parcours` est une fonction **pure** (le texte du sommaire, jamais le disque, D-13/D-14) qui exige une **permutation** des libelles d'index et non un ordre donne (D-85) : l'ordre de lecture livre (le wizard avant la reference CLI) reste libre. Le controle est nouveau — mesure `grep "Parcours" tests/*.py` -> 0 occurrence avant ce plan — et il est discrimine : applique au `docs/sommaire.md` d'avant la phase (`git show 110951f`, 23 lignes) il rend deux constats en nommant « Dépannage » et « Glossaire », applique au sommaire livre (25 lignes) aucun.
+- [Phase 6]: 06-02 : la prohibition « parcours conseille en liens Markdown » est **mesuree**, pas declarative — `problemes_index`, `problemes_h1` et `test_sommaire_index_labels_are_unique` lisent tout lien de `sommaire.md` comme une entree d'index : convertir le parcours en liens re-emettrait les libelles de l'index et ferait rougir trois gardes vertes. Le controle de forme (aucun lien dans la liste numerotee) garde donc la condition qui permet a ces trois gardes de rester vertes.
+- [Phase 6]: 06-02 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `231 passed in 4.38s` (tache 1), `233 passed in 4.35s` (tache 2), `235 passed in 4.59s` (tache 3 ; 228 avant ce plan, 7 tests dans le module) ; 7/7 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant, apres chaque tache et apres la suite complete (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**` non modifie ; 3 fichiers, 826 insertions, aucun fichier supprime. Bookkeeping : `progress.completed_plans` portee de 20 a 21 (91 %), la ligne 06-02 des plans de la phase 6 cochee et son compteur porte a 2/4, `AIDE-02` marquee Complete dans `REQUIREMENTS.md`.
+
 ### Pending Todos
 
 None yet.
@@ -200,6 +208,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-11T23:54:46.837Z
-Stopped at: Phase 6 plan 06-01 complete : docs/depannage.md (cinq rubriques du critere 1 indexees par le message reellement produit), sa ligne d'index et tests/test_docs_depannage.py (9 tests, 9/9 morsures detectees) ; la phase 5 est complete et verifiee
+Last session: 2026-09-12T00:11:57.000Z
+Stopped at: Phase 6 plan 06-02 complete : docs/glossaire.md (27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres), sa ligne d'index dans docs/sommaire.md et tests/test_docs_glossaire.py (7 tests, 7/7 morsures detectees) ; le parcours conseille du sommaire est desormais garde ; restent 06-03 et 06-04
 Resume file: None
