@@ -33,7 +33,13 @@ Limites nommees (D-85) :
   `06-RESEARCH.md` § B) : le definir exposerait au lecteur des mots qu'il ne rencontrera jamais a l'ecran,
   et cette absence est controlee par une liste, jamais par une relecture (D-19) ;
 - ce module n'ouvre aucune base et ne rend aucun ecran : les modes de provenance du plan 06-01 n'ont pas
-  d'equivalent ici, et cette absence est ecrite, jamais silencieuse.
+  d'equivalent ici, et cette absence est ecrite, jamais silencieuse ;
+- la liste du parcours conseille de `docs/sommaire.md` est du **texte simple**, et c'est une mesure :
+  `problemes_index` (`tests/test_docs_structure.py:92`), `problemes_h1` (`:337`) et
+  `test_sommaire_index_labels_are_unique` (`:492`) lisent **tout** lien de `sommaire.md` comme une entree
+  d'index, donc convertir le parcours en liens re-emettrait les libelles de l'index et ferait rougir
+  trois gardes vertes. C'est cette mesure qui rend la prohibition « parcours conseille en liens »
+  executable plutot que declarative (D-05, D-95).
 """
 
 import ast
@@ -89,6 +95,11 @@ TERMES_GLOSSAIRE: tuple[tuple[str, str, str | None], ...] = (
 # pages livrees comme dans `dofus_stuff/**`. Le definir exposerait au lecteur des mots qu'il ne
 # rencontrera jamais a l'ecran (D-19) : ces libelles ne peuvent donc pas etre des entrees du glossaire.
 TERMES_INTERDITS = ("page épinglée", "renvoi", "ancrage")
+
+# Les deux pages livrees par cette phase : leurs **libelles** sont derives de l'index du sommaire au
+# moment du controle, jamais recopies ici — une seconde source de verite finirait par diverger de
+# l'index, qui reste le seul endroit ou un libelle de page est ecrit (D-14, D-95).
+PAGES_DE_LA_PHASE = ("depannage.md", "glossaire.md")
 
 # Motifs de constat, portes par le module et **jamais** ecrits en clair dans une ligne d'assertion :
 # pytest reproduit la ligne source de l'`assert`, une valeur en clair y serait trouvee meme sans constat
@@ -190,6 +201,24 @@ def _chemin_cite(cellule: str) -> str | None:
     """Premier chemin entre accents graves d'une cellule, ou None s'il n'y en a pas."""
     trouve = MOTIF_CHEMIN_CITE.search(cellule)
     return trouve.group("chemin") if trouve else None
+
+
+def _lignes_index(sommaire_texte: str) -> list[tuple[str, str]]:
+    """Couples (libelle, cible) des lignes d'index du sommaire, dans l'ordre du fichier.
+
+    Lecture locale du module (motif de lecture, jamais un helper partage : D-12 ne porte que sur les
+    helpers de `tests/conftest.py`) : la **premiere cellule** d'une ligne de tableau d'index est le lien
+    d'entree, et c'est son libelle qui sert de reference au parcours conseille.
+    """
+    return [
+        (trouve.group("libelle"), trouve.group("cible"))
+        for trouve in MOTIF_LIGNE_INDEX.finditer(sommaire_texte)
+    ]
+
+
+def _entrees_numerotees(texte: str) -> list[str]:
+    """Libelles des lignes de la liste numerotee, dans l'ordre du fichier (`N. Libelle`)."""
+    return [trouve.group("libelle") for trouve in MOTIF_ENTREE_NUMEROTEE.finditer(texte)]
 
 
 def problemes_glossaire(docs_dir: Path, normalize) -> list[str]:
@@ -416,6 +445,61 @@ def problemes_page_glossaire(docs_dir: Path) -> list[str]:
     return constats
 
 
+def problemes_parcours(sommaire_texte: str, normalize) -> list[str]:
+    """Constats sur le parcours conseille : permutation des libelles d'index, et surtout pas des liens.
+
+    Fonction **pure** : elle prend le texte du sommaire, jamais le disque, et reste donc testable sans
+    fixture de page (D-13, D-14). Elle exige trois choses. D'abord que la liste numerotee soit une
+    **permutation** des libelles d'index — egalite d'ensembles dans les deux sens apres normalisation
+    `D-11` : un libelle numerote absent de l'index comme un libelle d'index non repris est un constat,
+    et le constat nomme le libelle. Ensuite que chaque libelle numerote apparie un libelle d'index
+    **exact** : la forme `N. Libelle` reprend le libelle d'index tel quel, sans reformulation — un
+    libelle qui ne ferait que contenir un libelle d'index n'est pas un appariement. Enfin qu'aucun
+    libelle numerote ne porte de lien Markdown (voir la docstring du module pour la mesure qui rend
+    cette prohibition executable).
+
+    L'ordre de lecture, lui, est **libre par decision de plan** : le controle exige une permutation,
+    jamais un ordre donne (D-85), et il ne compare donc pas les deux listes position par position.
+    """
+    entrees = _entrees_numerotees(sommaire_texte)
+    index = _lignes_index(sommaire_texte)
+    libelles_index = {normalize(libelle) for libelle, _cible in index}
+    libelles_parcours = {normalize(libelle) for libelle in entrees}
+    constats: list[str] = []
+
+    for brut in entrees:
+        if MOTIF_LIEN_MARKDOWN.search(brut):
+            constats.append(
+                f"{SOMMAIRE} : {MOTIF_PARCOURS_LIEN} — la ligne numerotee « {brut} » porte un lien "
+                f"Markdown ; attendu du texte simple, tout lien de {SOMMAIRE} etant lu comme une entree "
+                f"d'index par les gardes de structure (D-05, D-95)"
+            )
+        elif normalize(brut) not in libelles_index:
+            constats.append(
+                f"{SOMMAIRE} : {MOTIF_PARCOURS} — le libelle « {brut} » du parcours conseille ne reprend "
+                f"aucun libelle d'index ; attendu la permutation des libelles d'index, un libelle en trop "
+                f"etant un constat (D-95)"
+            )
+
+    for brut, _cible in index:
+        if normalize(brut) not in libelles_parcours:
+            constats.append(
+                f"{SOMMAIRE} : {MOTIF_PARCOURS} — le libelle « {brut} » de l'index n'est pas repris par "
+                f"le parcours conseille ; attendu la permutation des libelles d'index, un libelle oublie "
+                f"etant un constat (D-95)"
+            )
+
+    if not entrees:
+        constats.append(
+            f"{SOMMAIRE} : {MOTIF_PARCOURS} — aucune ligne numerotee dans la section "
+            f"« {TITRE_PARCOURS} » ; attendu le parcours conseille final, permutation des libelles "
+            f"d'index (D-95)"
+        )
+
+    return constats
+
+
+
 def _imports_du_module(arbre: ast.AST) -> set[str]:
     """Modules importes par le module d'ancrage, imports imbriques compris dans les fonctions."""
     importes: set[str] = set()
@@ -602,3 +686,84 @@ def test_page_glossaire_close_et_sans_valeur_volatile(docs_dir: Path) -> None:
         f"derniere section dont chaque chemin existe, et « {LIEN_RETOUR} » en derniere ligne non vide "
         f"(D-03, D-73, D-102)"
     )
+
+
+def test_parcours_conseille_final(docs_dir: Path, normalize, section) -> None:
+    """Le parcours conseille du sommaire est une permutation des libelles d'index, en texte simple.
+
+    Les deux sections sont lues par le helper partage (`section`, D-12) : une section absente est une
+    erreur, jamais un vert silencieux. Le test exige **en plus** que la liste numerotee ne soit pas plus
+    courte que le tableau d'index — une liste tronquee n'est pas une permutation — puis laisse
+    `problemes_parcours` accumuler les constats de libelle, de reformulation et de lien Markdown (D-95).
+
+    Limite honnete : l'ordre de lecture n'est pas verifie, il est libre par decision de plan (D-85).
+    """
+    texte = _texte_page(docs_dir, SOMMAIRE)
+    constats: list[str] = []
+
+    if texte is None:
+        constats.append(
+            f"{SOMMAIRE} : {MOTIF_PARCOURS} — page absente : {(docs_dir / SOMMAIRE).as_posix()} ; "
+            f"attendu le point d'entree unique de la documentation (D-04)"
+        )
+    else:
+        entrees = _entrees_numerotees(section(texte, TITRE_PARCOURS, SOMMAIRE))
+        lignes = _lignes_index(section(texte, TITRE_INDEX, SOMMAIRE))
+        if len(entrees) < len(lignes):
+            constats.append(
+                f"{SOMMAIRE} : {MOTIF_PARCOURS} — le parcours conseille porte {len(entrees)} entree(s) "
+                f"pour {len(lignes)} ligne(s) d'index ; attendu au moins autant d'entrees que l'index, une "
+                f"liste tronquee n'etant pas une permutation (D-95)"
+            )
+        constats.extend(problemes_parcours(texte, normalize))
+
+    assert not constats, (
+        f"{SOMMAIRE} : {MOTIF_PARCOURS} — constats : "
+        + " ; ".join(constats)
+        + f" ; attendu une liste numerotee qui reprend exactement les libelles d'index, sans lien "
+        f"Markdown et sans entree perdue (D-05, D-95)"
+    )
+
+
+def test_les_deux_pages_de_la_phase_sont_dans_le_parcours(docs_dir: Path, normalize) -> None:
+    """Les deux pages livrees par cette phase sont nommees par le parcours, sans enumeration recopiee.
+
+    Les libelles sont **derives de l'index** : le controle retrouve la ligne d'index dont la cible est
+    la page de la phase, lit le libelle qui s'y trouve, puis exige que la liste numerotee du parcours
+    conseille le reprenne. Aucun libelle n'est ecrit dans ce module : une seconde source de verite
+    finirait par diverger de l'index (D-14, D-95).
+    """
+    texte = _texte_page(docs_dir, SOMMAIRE)
+    constats: list[str] = []
+
+    if texte is None:
+        constats.append(
+            f"{SOMMAIRE} : {MOTIF_PARCOURS} — page absente : {(docs_dir / SOMMAIRE).as_posix()} ; "
+            f"attendu le point d'entree unique de la documentation (D-04)"
+        )
+    else:
+        index = _lignes_index(texte)
+        parcours = {normalize(libelle) for libelle in _entrees_numerotees(texte)}
+        for page in PAGES_DE_LA_PHASE:
+            libelles = [libelle for libelle, cible in index if cible == page]
+            if not libelles:
+                constats.append(
+                    f"{SOMMAIRE} : {MOTIF_PARCOURS} — aucune ligne d'index ne pointe vers {page} ; attendu "
+                    f"une ligne d'index pour chaque page livree par cette phase (D-95)"
+                )
+                continue
+            if normalize(libelles[0]) not in parcours:
+                constats.append(
+                    f"{SOMMAIRE} : {MOTIF_PARCOURS} — la page {page} est indexee sous le libelle "
+                    f"« {libelles[0]} » et ce libelle n'est pas repris par la liste numerotee du parcours "
+                    f"conseille ; attendu les deux pages de cette phase nommees par le parcours final "
+                    f"(D-95)"
+                )
+
+    assert not constats, (
+        f"{SOMMAIRE} : {MOTIF_PARCOURS} — constats : "
+        + " ; ".join(constats)
+        + f" ; attendu un parcours conseille qui nomme {', '.join(PAGES_DE_LA_PHASE)}, libelles derives "
+        f"de l'index (D-95)"
+    )
+
