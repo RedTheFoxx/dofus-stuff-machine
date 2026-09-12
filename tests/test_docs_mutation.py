@@ -18,11 +18,6 @@ Le contrat, dans l'ordre ou la preuve se deroule pour chaque derive declaree :
   Les motifs ne sont pas recopies d'un module a l'autre : ils sont **lus** dans le module d'ancrage
   (`D-14`, `D-17`), par le nom de leur constante. Un motif introuvable est un constat, jamais un silence.
 
-La tache 1 declare la famille `page_livree` ; les quatre autres familles du plan sont ajoutees par la
-tache 2, chacune avec ses mutations. Une derive hors de ces familles n'est pas demontree impossible : elle
-est couverte « autant que » par les gardes livrees, et c'est ecrit ici plutot que de laisser croire a une
-exhaustivite.
-
 Aucune reimplementation : les fonctions appelees sont celles des modules d'ancrage livres par les plans
 06-01, 06-02 et 06-03 (`problemes_pages_epinglees`, `problemes_couverture_index`, `problemes_readme`,
 `problemes_messages`, `problemes_glossaire`, `problemes_parcours`, et la sonde `_produire`). Une
@@ -40,11 +35,22 @@ rendue **absente** par `Path.rename` (elle sort de la decouverte `docs/*.md`), j
 suppression : une suppression litterale ferait rougir la garde de ce module sur une livraison conforme, ce
 qui serait un defaut du module et non de la livraison.
 
+Le **trou museliere** est traite au lieu d'etre note : l'ecran de sortie du produit (`GET /quit`) ne rend
+aucun message et n'accepte pas `POST` (mesure de `06-RESEARCH.md` : 405, aucune ligne de statut). Une
+derive qui pretendrait lui attribuer un message doit donc etre **refusee par la sonde** du module
+d'ancrage (`message non produit par le code`) : c'est la mutation `ecran_muet_declare`, et c'est ce qui
+ferme le trou par un controle plutot que par une phrase.
+
 Limites declarees (`D-85`), pour qu'aucune morsure ne soit lue au-dela de ce qu'elle mesure :
 
 - la morsure est cherchee par **appartenance de sous-chaine** : le motif attendu doit apparaitre dans les
   constats produits. Elle prouve donc que le controle rougit **avec ce motif**, jamais que ce motif est la
   seule cause du rouge, ni que le constat appartient bien a la famille visee ;
+- les familles couvertes sont les **cinq familles declarees** dans `FAMILLES` : une derive hors de ces
+  familles n'est pas demontree impossible, elle est couverte « autant que » par les gardes livrees ;
+- la mutation d'un module d'ancrage (`ecran_muet_declare`) est prouvee en **rechargeant** le module depuis
+  la copie ; la mutation d'un litteral du produit (`litteral_produit_renomme`) porte sur la copie de
+  `dofus_stuff/`, jamais sur `dofus_stuff/**` du depot (`D-103`) ;
 - la suite entiere n'est pas rejouee ici (aucun sous-processus) : ce module prouve la morsure **au niveau
   des fonctions de controle** ; le rejeu complet, ses compteurs et ses durees vivent dans le rapport ;
 - le rendu Markdown hors GitHub, la prose des pages et l'exhaustivite des derives non declarees restent
@@ -53,6 +59,7 @@ Limites declarees (`D-85`), pour qu'aucune morsure ne soit lue au-dela de ce qu'
 
 import ast
 import importlib.util
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -87,7 +94,22 @@ FICHIERS_COPIES = FICHIERS_HORS_DOCS + ("pyproject.toml",)
 # la decouverte `docs/*.md` et hors de la garde de suppression du module.
 DOSSIER_RETIRES = "retires"
 
+# --- Familles de derive declarees ---
+# Les cinq familles du plan. Chacune doit declarer au moins une mutation, sinon la batterie le dit
+# (`MOTIF_COUVERTURE_MUTATION`) au lieu de laisser une famille muette.
 FAMILLE_PAGE_LIVREE = "page_livree"
+FAMILLE_INDEX_ET_PARCOURS = "index_et_parcours"
+FAMILLE_MESSAGES = "messages_du_depannage"
+FAMILLE_GLOSSAIRE = "glossaire"
+FAMILLE_README = "readme"
+FAMILLES_DECLAREES = (
+    FAMILLE_PAGE_LIVREE,
+    FAMILLE_INDEX_ET_PARCOURS,
+    FAMILLE_MESSAGES,
+    FAMILLE_GLOSSAIRE,
+    FAMILLE_README,
+)
+
 # Les contrats de la phase qui se prouvent **sur la copie** : `(module d'ancrage, fonction de constats)`.
 # La precondition (`test_la_copie_est_verte_avant_toute_mutation`) exige que **chacun** ne produise rien sur
 # la copie intacte — c'est le meme patron que les plans 06-01 a 06-03, ou la copie est mesuree verte avant
@@ -119,7 +141,9 @@ SONDES_DE_LA_COPIE = ("_produire",)
 MOTIF_GARDE = "garde de cloture du harnais"
 MOTIF_MUTATION_SANS_OBJET = "mutation sans objet"
 MOTIF_COPIE_ROUGE = "copie rouge avant mutation"
+MOTIF_COUVERTURE_MUTATION = "livrable non couvert par une mutation"
 MOTIF_MOTIF_INTROUVABLE = "motif attendu introuvable dans le module d'ancrage"
+MOTIF_FAMILLE_ABSENTE = "famille de derive absente de la table"
 MOTIF_CONTROLE_INTROUVABLE = "controle introuvable dans la table des invocations"
 
 # --- Garde de cloture du harnais (patron des phases 3 a 5, auto-analyse) ---
@@ -150,6 +174,10 @@ APPELS_CALCUL_PRODUIT = ("optimize_stuff", "_run_optimize_and_redirect")
 # Les deux seuls points d'entree de l'interface qui visent la base locale ou le reseau : ce module ne les
 # poste jamais, et aucun litteral de ces chemins neufs n'est ecrit ailleurs que dans cette constante.
 CHEMINS_DESTRUCTIFS = ("/db/clear", "/db/sync")
+
+# Le motif de la ligne du tableau d'index dont la cible est le glossaire : la mutation retire **cette**
+# ligne, jamais une ligne qui citerait la page par ailleurs.
+MOTIF_LIGNE_INDEX_GLOSSAIRE = re.compile(r"^\|\s*\[[^\]]*\]\(glossaire\.md\)\s*\|")
 
 
 # --- Lecture et ecriture de la copie ---
@@ -311,12 +339,153 @@ def _mutation_page_videe(copie: Path) -> None:
     _ecrire(chemin, "# Glossaire\r\n")
 
 
+def _mutation_index_retire(copie: Path) -> None:
+    """La ligne du tableau d'index dont la cible est `glossaire.md` est retiree du sommaire."""
+    _retirer_lignes(
+        copie / DOSSIER_DOCS / SOMMAIRE,
+        lambda ligne: bool(MOTIF_LIGNE_INDEX_GLOSSAIRE.match(ligne)),
+    )
+
+
+def _mutation_parcours_renomme(copie: Path) -> None:
+    """L'entree numerotee du parcours qui reprend le libelle `Glossaire` est renommee.
+
+    L'ancre est lue sur la page livree (mesure de l'ecriture) ; une page qui ne la porterait plus rendrait
+    la mutation **sans objet**, et le refus serait nomme au lieu de laisser la copie verte.
+    """
+    _remplacer(
+        copie / DOSSIER_DOCS / SOMMAIRE,
+        "7. Glossaire\r\n",
+        "7. Glossaire detaille\r\n",
+    )
+
+
+def _mutation_parcours_en_lien(copie: Path) -> None:
+    """Une entree numerotee du parcours est convertie en lien Markdown.
+
+    Cette forme est refusee par decision de plan (`D-05`, `D-95`) : tout lien du sommaire est lu comme une
+    entree d'index par les gardes de structure, donc le parcours conseille est du texte simple.
+    """
+    _remplacer(
+        copie / DOSSIER_DOCS / SOMMAIRE,
+        "1. Installation\r\n",
+        "1. [Installation](installation.md)\r\n",
+    )
+
+
+def _mutation_message_retire(copie: Path) -> None:
+    """La ligne du message de saisie requise est retiree de la rubrique qui le cite."""
+    _retirer_lignes(
+        copie / DOSSIER_DOCS / "depannage.md",
+        lambda ligne: ligne.startswith("| `SAISIE REQUISE`"),
+    )
+
+
+def _mutation_message_non_declare(copie: Path) -> None:
+    """Une ligne de message non declare est inseree dans la rubrique de la base, donc **citee** par elle."""
+    chemin = copie / DOSSIER_DOCS / "depannage.md"
+    ancre = "## Saisie invalide\r\n"
+    ligne = (
+        "| `MESSAGE INEXISTANT DU PRODUIT` | interface web, ligne de statut | "
+        "aucun geste : ce message n'est produit par aucune surface |\r\n"
+    )
+    texte = _lire(chemin)
+    _exiger_mutation(
+        texte.count(ancre) == 1,
+        f"l'ancre {ancre!r} figure {texte.count(ancre)} fois dans {chemin.as_posix()}",
+    )
+    _ecrire(chemin, texte.replace(ancre, f"{ligne}\r\n{ancre}", 1))
+
+
+def _mutation_litteral_produit(copie: Path) -> None:
+    """Le litteral du message de base vide est renomme dans la **copie** de `dofus_stuff/sync.py`.
+
+    La page ne bouge pas : c'est le **produit** qui derive, et le controle de provenance doit rougir
+    (`source_literal`). `dofus_stuff/**` du depot reste intact (`D-103`) : seul le fichier de la copie est
+    mute.
+    """
+    _remplacer(
+        copie / "dofus_stuff" / "sync.py",
+        "Base locale vide et --offline : impossible de synchroniser",
+        "Base locale vide, synchronisation impossible",
+    )
+
+
+def _mutation_ecran_muet_declare(copie: Path) -> None:
+    """Le message d'attente de la ligne de commande est declare **rendu** par l'interface web.
+
+    L'ecran de sortie du produit (`GET /quit`) ne rend aucun message et n'accepte pas `POST` (mesure de
+    `06-RESEARCH.md` : 405, aucune ligne de statut) : la declaration affirme donc un rendu qu'aucune sonde
+    n'observe, et la sonde du module d'ancrage doit **refuser** (`message non produit par le code`). C'est
+    la mecanisation du trou museliere : une declaration que le produit ne produit pas est un constat,
+    jamais un vert muet.
+    """
+    _remplacer(
+        copie / "tests" / "test_docs_depannage.py",
+        '("Calcul en cours (CP-SAT)…", "calcul", "source_literal", SOURCE_CLI),',
+        '("Calcul en cours (CP-SAT)…", "calcul", "web_render", None),',
+    )
+
+
+def _mutation_terme_retire(copie: Path) -> None:
+    """La ligne du terme `bouclier` est retiree du tableau des termes : le contrat n'est plus tenu."""
+    chemin = copie / DOSSIER_DOCS / "glossaire.md"
+    _exiger_mutation(
+        "| `bouclier` |" in _lire(chemin),
+        f"la ligne du terme « bouclier » est absente de {chemin.as_posix()}",
+    )
+    _retirer_lignes(chemin, lambda ligne: ligne.startswith("| `bouclier` |"))
+
+
+def _mutation_employeur_non_employeur(copie: Path) -> None:
+    """L'employeur de `panoplie` pointe, page **et** declaration, vers un fichier qui ne l'emploie pas.
+
+    La page est mutee d'abord (la cellule « Employe par » de la ligne du terme), puis la declaration du
+    module d'ancrage dans la copie de `tests/` : le controle confronte la page a sa declaration **avant** de
+    confronter la declaration au fichier, donc sans les deux mutations le constat serait celui d'une
+    citation qui ne correspond plus, et non celui du chemin qui n'emploie pas le terme. Le fichier choisi
+    (`dofus_stuff/sync.py`) existe reellement et n'emploie pas le terme (mesure).
+    """
+    _remplacer(
+        copie / DOSSIER_DOCS / "glossaire.md",
+        "`dofus_stuff/catalog.py`",
+        "`dofus_stuff/sync.py`",
+    )
+    _remplacer(
+        copie / "tests" / "test_docs_glossaire.py",
+        '("panoplie", "dofus_stuff/catalog.py", "base-locale.md"),',
+        '("panoplie", "dofus_stuff/sync.py", "base-locale.md"),',
+    )
+
+
+def _mutation_readme_renvoi_retire(copie: Path) -> None:
+    """Les lignes du README qui portent le renvoi vers la page de la base locale sont retirees."""
+    _retirer_lignes(copie / "README.md", lambda ligne: "docs/base-locale.md" in ligne)
+
+
+def _mutation_readme_avertissement_retire(copie: Path) -> None:
+    """Le mot d'avertissement du bloc de la commande de nettoyage est remplace par un mot neutre."""
+    chemin = copie / "README.md"
+    texte = _lire(chemin)
+    _exiger_mutation(
+        "détruit" in texte and "irréversible" in texte,
+        f"le mot d'avertissement est absent de {chemin.as_posix()}",
+    )
+    _ecrire(chemin, texte.replace("détruit", "vidée").replace("irréversible", "réversible"))
+
+
+def _mutation_readme_commande_disparue(copie: Path) -> None:
+    """La ligne de la commande de nettoyage est retiree : l'information cesse d'etre documentee."""
+    _retirer_lignes(copie / "README.md", lambda ligne: "python fetcher.py db clear" in ligne)
+
+
 # --- La table unique des derives declarees ---
 # Six champs, lus par les constantes d'indice ci-dessous : famille, fichier cible, module d'ancrage, fonction
 # de constats a appeler, mutation, motifs attendus (les **noms** des constantes du module d'ancrage).
 F_FAMILLE, F_CIBLE, F_MODULE, F_FONCTION, F_MUTATION, F_MOTIFS = range(6)
 
 FAMILLES = (
+    # (1) Page livree : la page disparait de la decouverte, puis la page est videe.
     (
         FAMILLE_PAGE_LIVREE,
         "docs/cli.md",
@@ -332,6 +501,108 @@ FAMILLES = (
         "problemes_pages_epinglees",
         _mutation_page_videe,
         ("MOTIF_PAGE_VIDE",),
+    ),
+    # (2) Index et parcours : la ligne d'index disparait, le libelle du parcours derive, la forme en lien.
+    (
+        FAMILLE_INDEX_ET_PARCOURS,
+        "docs/sommaire.md",
+        "test_docs_completude.py",
+        "problemes_couverture_index",
+        _mutation_index_retire,
+        ("MOTIF_COUVERTURE_INDEX",),
+    ),
+    (
+        FAMILLE_INDEX_ET_PARCOURS,
+        "docs/sommaire.md",
+        "test_docs_glossaire.py",
+        "problemes_parcours",
+        _mutation_parcours_renomme,
+        ("MOTIF_PARCOURS",),
+    ),
+    (
+        FAMILLE_INDEX_ET_PARCOURS,
+        "docs/sommaire.md",
+        "test_docs_glossaire.py",
+        "problemes_parcours",
+        _mutation_parcours_en_lien,
+        ("MOTIF_PARCOURS_LIEN",),
+    ),
+    # (3) Messages du depannage : ligne retiree, message non declare ajoute, litteral du produit renomme,
+    #     et le trou museliere (une declaration de rendu que le produit ne produit pas).
+    (
+        FAMILLE_MESSAGES,
+        "docs/depannage.md",
+        "test_docs_depannage.py",
+        "problemes_messages",
+        _mutation_message_retire,
+        ("MOTIF_MESSAGE_ABSENT",),
+    ),
+    (
+        FAMILLE_MESSAGES,
+        "docs/depannage.md",
+        "test_docs_depannage.py",
+        "problemes_messages",
+        _mutation_message_non_declare,
+        ("MOTIF_MESSAGE_INVENTE",),
+    ),
+    (
+        FAMILLE_MESSAGES,
+        "dofus_stuff/sync.py",
+        "test_docs_depannage.py",
+        "problemes_messages",
+        _mutation_litteral_produit,
+        ("MOTIF_MESSAGE_NON_PRODUIT",),
+    ),
+    (
+        FAMILLE_MESSAGES,
+        "tests/test_docs_depannage.py",
+        "test_docs_depannage.py",
+        "_produire",
+        _mutation_ecran_muet_declare,
+        ("MOTIF_MESSAGE_NON_PRODUIT",),
+    ),
+    # (4) Glossaire : terme retire, employeur qui n'emploie pas le terme.
+    (
+        FAMILLE_GLOSSAIRE,
+        "docs/glossaire.md",
+        "test_docs_glossaire.py",
+        "problemes_glossaire",
+        _mutation_terme_retire,
+        ("MOTIF_TERME_ABSENT",),
+    ),
+    (
+        FAMILLE_GLOSSAIRE,
+        "docs/glossaire.md",
+        "test_docs_glossaire.py",
+        "problemes_glossaire",
+        _mutation_employeur_non_employeur,
+        ("MOTIF_EMPLOYEUR",),
+    ),
+    # (5) README : renvoi retire, avertissement retire, occurrence de la commande disparue. Les trois
+    #     mutations portent le motif du controle **et** la famille de constat qu'elles prouvent.
+    (
+        FAMILLE_README,
+        "README.md",
+        "test_docs_completude.py",
+        "problemes_readme",
+        _mutation_readme_renvoi_retire,
+        ("MOTIF_README", "FAMILLE_RENVOI"),
+    ),
+    (
+        FAMILLE_README,
+        "README.md",
+        "test_docs_completude.py",
+        "problemes_readme",
+        _mutation_readme_avertissement_retire,
+        ("MOTIF_README", "FAMILLE_AVERTISSEMENT"),
+    ),
+    (
+        FAMILLE_README,
+        "README.md",
+        "test_docs_completude.py",
+        "problemes_readme",
+        _mutation_readme_commande_disparue,
+        ("MOTIF_README", "FAMILLE_DISPARITION"),
     ),
 )
 
@@ -583,6 +854,60 @@ def test_la_copie_est_verte_avant_toute_mutation(tmp_path: Path, client, section
         + "\n".join(constats)
         + " ; attendu une copie verte avant toute mutation, sans quoi aucune morsure ne serait "
         "discriminante (D-97, lecon des phases 3 a 5)"
+    )
+
+
+def test_les_familles_declarent_leurs_mutations() -> None:
+    """Les cinq familles sont declarees, chacune avec au moins une mutation complete (`D-97`).
+
+    Une famille declaree sans mutation, ou une entree a qui manquerait son module d'ancrage, son fichier
+    cible, sa mutation ou son motif attendu, est un constat portant `livrable non couvert par une mutation`
+    — jamais un silence : c'est exactement ainsi qu'une famille muette passerait pour une famille prouvee.
+    """
+    constats: list[str] = []
+    familles = {derive[F_FAMILLE] for derive in FAMILLES}
+
+    for nom in FAMILLES_DECLAREES:
+        if nom not in familles:
+            constats.append(
+                f"{MOTIF_FAMILLE_ABSENTE} : « {nom} » n'est declaree par aucune entree de FAMILLES ; "
+                f"attendu que les cinq familles du plan y figurent (D-97)"
+            )
+    for nom in sorted(familles - set(FAMILLES_DECLAREES)):
+        constats.append(
+            f"{MOTIF_FAMILLE_ABSENTE} : « {nom} » figure dans FAMILLES sans etre une famille declaree du "
+            f"plan ; attendu une famille de derive connue, jamais une famille inventee (D-85)"
+        )
+    for nom in FAMILLES_DECLAREES:
+        if not [derive for derive in FAMILLES if derive[F_FAMILLE] == nom]:
+            constats.append(
+                f"{MOTIF_COUVERTURE_MUTATION} : la famille « {nom} » ne porte aucune mutation ; attendu au "
+                f"moins une derive ecrite sur la copie et un motif attendu (D-97)"
+            )
+    for derive in FAMILLES:
+        champs = (
+            (F_CIBLE, "fichier cible"),
+            (F_MODULE, "module d'ancrage"),
+            (F_FONCTION, "fonction de constats"),
+            (F_MOTIFS, "motifs attendus"),
+        )
+        manquants = [libelle for index, libelle in champs if not derive[index]]
+        if not callable(derive[F_MUTATION]):
+            manquants.append("mutation")
+        if derive[F_MODULE] and derive[F_MODULE] not in MODULES_ANCRAGE:
+            manquants.append("module d'ancrage hors des trois modules de la phase")
+        if manquants:
+            constats.append(
+                f"{MOTIF_COUVERTURE_MUTATION} : l'entree de la famille « {derive[F_FAMILLE]} » sur "
+                f"{derive[F_CIBLE]} ne porte pas {', '.join(manquants)} ; attendu chaque entree complete, "
+                f"sans quoi la mutation ne mesurerait rien (D-97)"
+            )
+
+    assert not constats, (
+        f"FAMILLES : {MOTIF_COUVERTURE_MUTATION} — constats : "
+        + " ; ".join(constats)
+        + " ; attendu les cinq familles de derive du plan, chacune portant au moins une mutation complete "
+        "(fichier cible, module d'ancrage, fonction de constats, mutation, motifs attendus) (GARD-04, D-97)"
     )
 
 
