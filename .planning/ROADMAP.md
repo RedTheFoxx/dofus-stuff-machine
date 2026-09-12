@@ -227,7 +227,7 @@ Plans:
   4. Un test de mutation (copie de `docs/` sous `tmp_path` avec dérive injectée) prouve que le harnais échoue réellement : complétude, ancrage de libellé et renvois obsolètes sont détectés.
   5. La vérification finale s'exécute par `.venv/Scripts/python.exe -m pytest -q` (compteur et durée réels cités), `.data/` est inchangée (empreinte ou mtime), aucune connexion réseau n'est ouverte, `main()` n'est jamais exécuté, et `git status` ne montre que `docs/`, `README.md`, `GUIDE_WIZARD.md` et `tests/`.
 
-**Plans**: 4/4 plans executed
+**Plans**: 5/5 plans executed (06-05 : fermeture du critère 1, plan de fermeture de gap)
 **UI hint**: no
 
 Plans:
@@ -236,11 +236,13 @@ Plans:
 - [x] 06-02-PLAN.md
 - [x] 06-03-PLAN.md
 - [x] 06-04-PLAN.md
+- [x] 06-05-PLAN.md
 
 - [x] 06-01: Rédiger `docs/depannage.md` indexé par message d'erreur réel, avec son entrée d'index et son contrôle message → rubrique
 - [x] 06-02: Rédiger `docs/glossaire.md`, son entrée d'index, son contrôle d'entrées, et le parcours conseillé final du sommaire
 - [x] 06-03: Ajouter le contrôle de complétude (liste épinglée des 8 pages et ensemble exact des fichiers de `docs/`)
 - [x] 06-04: Ajouter la preuve du harnais (test de mutation), le contrôle d'intégrité de `.data/`, l'audit de périmètre `git status` et l'exécution finale verte avec compteur et durée réels
+- [x] 06-05: Borner la portée de la pagination de la rubrique « Résultat paginé » à ses deux producteurs mesurés (surface servie par l'application, écrans de sauvegardes) et désambiguïser la rubrique « Saisie invalide », avec le contrôle `problemes_pagination` et sa preuve de morsure (fermeture du critère 1)
 
 ## Progress
 
@@ -254,4 +256,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Parcours simplifié documenté depuis le rendu réel | 4/4 | Complete    | 2026-09-11 |
 | 4. Wizard avancé et résorption de la dette GUIDE_WIZARD | 5/4 | Complete    | 2026-09-11 |
 | 5. Base locale, hors-ligne et resynchronisation | 4/4 | Complete    | 2026-09-11 |
-| 6. Dépannage, glossaire, complétude et preuve finale | 4/4 | In Progress|  |
+| 6. Dépannage, glossaire, complétude et preuve finale | 5/5 | In Progress|  |

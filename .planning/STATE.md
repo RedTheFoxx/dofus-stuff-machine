@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 6
 current_phase_name: Dépannage, glossaire, complétude et preuve finale
 status: executing
-stopped_at: "Phase 6 plan 06-04 complete : tests/test_docs_mutation.py (6 tests, 1035 lignes, 14/14 morsures detectees sur copie verte avant mutation) — la preuve de morsure en processus sur une copie sous tmp_path, la racine des trois modules d'ancrage redirigee vers elle, la fermeture du trou museliere par la sonde, l'empreinte en lecture seule de .data/dofus.sqlite3, la couverture des livrables par les mutations declarees, la suite entiere 249 passed in 6.01s et la suite sous le greffon de refus reseau et de piege main() 249 passed in 6.12s ; les quatre plans de la phase 6 sont livres, la verification de phase reste a jouer"
-last_updated: "2026-09-12T00:52:23.000Z"
+stopped_at: "Phase 6 plan 06-05 complete : docs/depannage.md borne a ses deux producteurs mesures de la pagination (dofus_stuff/web/routes.py garde par plus d'une page, dofus_stuff/web/static/js/terminal.js sans garde) et tests/test_docs_depannage.py enrichi de problemes_pagination (5 constats sur la page livree par 06-01, 0 sur la corrigee, 3/3 morsures) — 250 passed in 5.78s, .data/dofus.sqlite3 intacte ; les cinq plans de la phase 6 sont livres, la verification de phase reste a jouer"
+last_updated: "2026-09-12T01:50:55.030Z"
 last_activity: 2026-09-12
 last_activity_desc: "Phase 6 plan 06-04 complete (la preuve que les gardes mordent : quatorze derives en cinq familles injectees sur une copie du depot sous tmp_path, la racine des modules d'ancrage redirigee vers elle, la copie mesuree verte avant chaque mutation ; 14/14 morsures avec leur motif, dont la fermeture du trou museliere par la sonde ; empreinte de .data/dofus.sqlite3 identique avant et apres les deux executions finales ; audit de perimetre rendu contre les huit chemins declares et le jeu tolere nomme ; 249 passed in 6.01s, puis 249 passed in 6.12s sous le greffon de refus reseau et de piege main())"
-state_head: 9cd7de27bdca63b830b0aaee7ed6fe17b8c90af8
+state_head: d2a5dab2f695666f285b5cb8f981ac2bb6071763
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 24
+  completed_plans: 24
   percent: 83
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 6 — Dépannage, glossaire, complétude et preuve finale
-Plan: 4 of 4 — plan 06-04 livré (`tests/test_docs_mutation.py` : la preuve que les gardes **mordent** — une copie du dépôt sous `tmp_path`, la racine des trois modules d'ancrage redirigée vers elle, la copie mesurée verte avant chaque mutation, **quatorze dérives en cinq familles** injectées sur la copie dont la fermeture du trou muselière par la sonde, 14/14 morsures avec leur motif lu dans le module d'ancrage, l'empreinte en lecture seule de `.data/dofus.sqlite3` intacte avant et après les deux exécutions finales, et l'audit de périmètre rendu contre les huit chemins déclarés et le jeu toléré nommé — `249 passed in 6.01s`, puis `249 passed in 6.12s` sous le greffon de refus réseau et de piège `main()`). **Les quatre plans de la phase 6 sont livrés** ; la vérification de phase reste à jouer.
-Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01, 06-02, 06-03 et 06-04 livrés (vérification de phase à venir)
-Last activity: 2026-09-12 — 06-04 complete (3 commits de tâche + le commit de métadonnées, 14/14 morsures détectées sur copie verte avant mutation, `249 passed in 6.01s` et `249 passed in 6.12s` sous greffon, `.data/dofus.sqlite3` intacte)
+Plan: 5 of 5 — plan 06-05 livré (`docs/depannage.md` et `tests/test_docs_depannage.py` : la rubrique « Résultat paginé » ne dit plus que la ligne de **statut** d'une page unique n'ajoute aucun motif — elle borne la règle à ses **deux producteurs mesurés**, celle que l'application sert (`dofus_stuff/web/routes.py:144-145`, gardée par `if total > 1:`, son corps toujours paginé en `:477` et `:543`) et celle des deux écrans de sauvegardes (`dofus_stuff/web/static/js/terminal.js:370` et `:400`, composition sans aucune garde, `PAGE 1/1` dès la première page, corps sans ligne de pagination) ; et `problemes_pagination` rend cette portée obligatoire — **5 constats sur la page livrée par 06-01** (3 de surface, 2 d'absolu), **0 sur la page corrigée**, **3/3 morsures** détectées sur copie verte avant mutation, `250 passed in 5.78s` et `250 passed in 5.73s` sous le greffon de refus réseau, `.data/dofus.sqlite3` intacte (`24989696:1788730056843137500:e3793d64...`)). **Les cinq plans de la phase 6 sont livrés** ; la vérification de phase reste à jouer.
+Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01, 06-02, 06-03, 06-04 et 06-05 livrés (vérification de phase à venir ; 06-05 est le plan de fermeture du critère 1)
+Last activity: 2026-09-12 — 06-05 complete (2 commits de tâche + le commit de métadonnées ; portée de la pagination bornée à ses deux producteurs mesurés, `problemes_pagination` rouge de 5 constats sur la page livrée et vert sur la corrigée, 3/3 morsures sur copie verte avant mutation, `250 passed in 5.78s` et `250 passed in 5.73s` sous greffon, `.data/dofus.sqlite3` intacte)
 
-Progress: [█████████░] plans : 23/23 ; phases closes et vérifiées : 5/6 (83 %) — 06-01, 06-02, 06-03 et 06-04 livrés, la vérification de la phase 6 reste à jouer
+Progress: [█████████░] plans : 24/24 ; phases closes et vérifiées : 5/6 (83 %) — 06-01, 06-02, 06-03, 06-04 et 06-05 livrés, la vérification de la phase 6 reste à jouer
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [█████████░] plans : 23/23 ; phases closes et vér
 | Phase 6 P02 | 5min | 3 tasks | 3 files |
 | Phase 6 P03 | 5min | 3 tasks | 2 files |
 | Phase 6 P04 | 22min | 3 tasks | 1 files |
+| Phase 6 P05 | 7min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -198,6 +199,9 @@ Recent decisions affecting current work:
 - [Phase 6]: 06-04 : la batterie est INTOLEANTE, et sa tolerance a ete MESUREE — un temoin negatif hors livrable (une copie du module dont la mutation de la page videe a ete videe de son effet) rend `1 failed` avec « morsure(s) non observee(s) sur une copie pourtant mesuree verte avant mutation : page_livree (docs/glossaire.md) : ... constats reellement produits : aucun ». Le fichier temoin a ete supprime dans la meme passe. Aucun `skip`, aucun `xfail` (controle par ast), et chaque mutation refuse d'etre un no-op silencieux (`MOTIF_MUTATION_SANS_OBJET` si son ancre a disparu).
 - [Phase 6]: 06-04 : le trou museliere est ferme par un CONTROLE — la mutation `ecran_muet_declare` deplace une declaration de `source_literal` vers `web_render` dans la copie de tests/test_docs_depannage.py, et la sonde du module d'ancrage refuse (`message non produit par le code`, constat nommant les dix-neuf routes sondees et le message). Le refus d'une sonde est converti en constat cherchable (try/except AssertionError dans `_mesure`), jamais en erreur de collecte : sans cela, la mutation qui ferme le trou aurait ete comptee comme non mordante sur un controle qui mord.
 - [Phase 6]: 06-04 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `246 passed` (tache 1), `247 passed` (tache 2), `249 passed in 6.01s` (suite entiere finale), et `249 passed in 6.12s` sous le greffon de refus reseau et de piege main() (six pieges armes AVANT la collecte, verifie_arme() verifiant par identite, jamais par un appel) ; 14/14 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant et apres les deux executions (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**`, `docs/**`, `README.md` et `pyproject.toml` non modifies, 1 fichier cree, 1035 insertions, aucun fichier supprime. Bookkeeping : `progress.completed_plans` portee de 22 a 23 (23/23 plans livres ; `percent` reste 83 % car la phase 6 n'est pas encore verifiee), la ligne 06-04 des plans de la phase 6 cochee, `**Plans**: 4/4`, `GARD-04` marquee Complete dans REQUIREMENTS.md, et la ligne `Phase 6 P03` dupliquee du tableau Per-Plan Metrics remplacee par la ligne `Phase 6 P04` (22min, 3 tasks, 1 fichier).
+- [Phase 6]: 06-05 : l'absolu de portee du defaut T3 est corrige par les DEUX comportements mesures, surface par surface — la surface servie par l'application garde sa composition (dofus_stuff/web/routes.py:144-145, sous `if total > 1:`) et compose toujours sa ligne de corps (:477 et :543), les deux ecrans de sauvegardes composent leur statut sans aucune garde (dofus_stuff/web/static/js/terminal.js:370 et :400, adossees a `setStatus(`, 0 occurrence de `total > 1` dans le fichier) et n'ecrivent aucune ligne de pagination dans leur corps. La rubrique nomme desormais chaque fichier producteur et la condition de chacun (D-19).
+- [Phase 6]: 06-05 : le nouveau controle problemes_pagination PRESUPPOSE test_pagination_a_deux_formes et ne le reecrit pas — le premier est statique (il lit les deux fichiers producteurs en octets, exige le nombre d'occurrences mesure du procede de chaque surface, l'absence de garde dans le script, l'adossement a `setStatus(` dans les 80 caracteres qui precedent, puis les jetons de condition et l'absence de marque d'absolu), le second rend les deux ecrans servis par l'application et mesure statut et corps. Limites nommees : l'execution JavaScript et le rendu des ecrans de sauvegardes ne sont pas observes, et la liste des 8 marques d'absolu est finie.
+- [Phase 6]: 06-05 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `250 passed in 5.78s` (249 avant ce plan) et `250 passed in 5.73s` sous le greffon de refus reseau et de piege main() (6 pieges armes avant la collecte) ; le nouveau controle rend 5 constats sur une copie de la page livree par 06-01 (3 de surface, 2 d'absolu) et 0 sur la page corrigee ; 3/3 morsures detectees sur copie verte avant mutation (2, 1 et 1 constats portant leur motif nomme) ; `.data/dofus.sqlite3` identique avant et apres la suite (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**` non modifie ; 2 fichiers, 183 insertions, 3 suppressions, aucun fichier supprime. Bookkeeping : `progress.completed_plans` portee de 23 a 24 (24/24 plans livres), la ligne 06-05 des plans de la phase 6 cochee, `**Plans**: 5/5`, AIDE-01 deja marquee Complete dans REQUIREMENTS.md.
 
 ### Pending Todos
 
@@ -218,6 +222,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-12T00:22:40.736Z
-Stopped at: Phase 6 plan 06-03 complete : tests/test_docs_completude.py (8 tests, 5/5 morsures detectees) — la liste epinglee des huit pages de docs/ confrontee au disque dans les deux sens avec refus du vidage, la couverture d'index (7 lignes pour 7 pages) et le README.md dont la commande de nettoyage est encadree par son avertissement et le renvoi vers docs/base-locale.md (D-100) ; 243 passed, base du depot intacte ; reste 06-04
+Last session: 2026-09-12T01:50:54.976Z
+Stopped at: Phase 6 plan 06-05 complete : docs/depannage.md borne a ses deux producteurs mesures de la pagination (dofus_stuff/web/routes.py garde par plus d'une page, dofus_stuff/web/static/js/terminal.js sans garde) et tests/test_docs_depannage.py enrichi de problemes_pagination (5 constats sur la page livree par 06-01, 0 sur la corrigee, 3/3 morsures) — 250 passed in 5.78s, .data/dofus.sqlite3 intacte ; les cinq plans de la phase 6 sont livres, la verification de phase reste a jouer
 Resume file: None
