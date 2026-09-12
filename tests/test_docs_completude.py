@@ -12,8 +12,17 @@ Non-duplication ecrite (`D-12`) : l'egalite index <-> disque (dans les deux sens
 chaque page et l'unicite des libelles d'index sont **deja** tenus par `tests/test_docs_structure.py`
 (`problemes_index`, `problemes_h1`, `test_sommaire_index_labels_are_unique` ; mesures de la recherche,
 `06-RESEARCH.md` § C.3). Ce module ne les rejoue pas : il ajoute les axes reellement neufs — la constante
-epinglee du module confrontee au disque puis a l'index, le refus du vidage, et le compte des lignes du
-tableau d'index.
+epinglee du module confrontee au disque puis a l'index, le refus du vidage, l'**au plus une ligne par
+cible** du tableau (que `problemes_index` ne peut pas voir, puisqu'il raisonne en ensembles) et le
+**compte** des lignes d'index.
+
+Les cinq constats de ce module forment le contrat `GARD-03` de la phase : deux pour la liste epinglee
+confrontee au disque (page absente, page videe ou non indexee selon le cas) et pour le refus du vidage,
+deux pour la couverture de l'index (page non indexee, cible hors de la liste) et un pour le compte. La
+**couverture epinglee** de l'index est une **consequence** de l'egalite index <-> disque et de l'egalite
+pages epinglees <-> disque : elle est gardee comme lecture de la **constante epinglee** (une seule source
+de verite, `D-14`) plutot que comme seconde derivation du disque. Le module ne verifie ni le contenu
+redactionnel des pages, ni leur rendu, ni le libelle des entrees d'index (`D-85`).
 
 Decision `D-100` : **encadrer la ligne de nettoyage de la base locale dans le `README.md`, jamais la
 supprimer.** Cette decision est ecrite ici avant tout controle, avec sa justification :
@@ -108,6 +117,11 @@ PAGES_EPINGLEES = (
 # de lignes n'est declare pour eux : ce plan ne pretend pas les mesurer (limite 3).
 PAGES_RACINE = ("README.md", "GUIDE_WIZARD.md")
 
+# Les deux pages livrees par cette phase, sujet du controle de la tache 3 : le controle verifie leur
+# **appartenance** a `PAGES_EPINGLEES` et leur presence dans le tableau d'index, sans jamais recopier
+# l'inventaire complet des pages — la liste epinglee reste la seule source de verite (`D-14`).
+PAGES_DE_LA_PHASE = ("docs/depannage.md", "docs/glossaire.md")
+
 # --- Motifs de morsure ---
 # Portes par des constantes du module, jamais ecrits en clair dans une ligne d'assertion (regle du plan
 # 03-03, tenue par les phases 3 a 5) : pytest reproduit la ligne source de l'`assert`, une valeur en clair
@@ -120,6 +134,12 @@ MOTIF_PAGE_VIDE = "page videe ou tronquee"
 MOTIF_PAGE_ILLISIBLE = "page non decodable en UTF-8"
 MOTIF_H1 = "titre de niveau 1 absent"
 MOTIF_GARDE = "garde de cloture du harnais"
+
+# Motifs du controle de couverture de l'index (plan 06-03, tache 3) : les deux axes reellement neufs —
+# la constante epinglee confrontee au tableau d'index, et le compte des lignes du tableau.
+MOTIF_COUVERTURE_INDEX = "page livree non indexee"
+MOTIF_INDEX_EN_TROP = "entree d index sans page epinglee"
+MOTIF_NOMBRE_INDEX = "nombre de lignes d index"
 
 # Familles de constat du controle du `README.md` (plan 06-03, tache 2) : trois constats distincts derives
 # d'un meme motif de base (`MOTIF_README`), pour que la morsure chercher le motif et que le diagnostic
@@ -387,6 +407,119 @@ def problemes_readme(texte: str, invocation: str, renvoi: str = RENVOI_BASE_LOCA
     return constats
 
 
+# --- Couverture de l'index : la constante epinglee et le compte (fonction pure de constats, D-13) ---
+
+
+def _pages_contenu_epinglees() -> set[str]:
+    """Cibles attendues du tableau d'index : les pages epinglees de `docs/`, sans le sommaire lui-meme.
+
+    Le sommaire ne s'auto-liste pas et ne peut donc pas etre sa propre cible : la cible attendue de
+    chaque page epinglee est son chemin **relatif a `docs/`**, tel qu'ecrit dans le tableau.
+    """
+    return {
+        Path(chemin).relative_to(DOSSIER_DOCS).as_posix()
+        for chemin, _ in PAGES_EPINGLEES
+        if Path(chemin).name != SOMMAIRE
+    }
+
+
+def _corps_index(texte: str) -> str:
+    """Corps du tableau du titre `## Index`, jusqu'au titre de niveau 2 suivant (ou la fin du fichier).
+
+    Lecteur **local** du module (motif de lecture, jamais un helper partage) : `D-12` ne porte que sur
+    les helpers de `tests/conftest.py`, dont la fixture `section` reste la seule source au niveau des
+    tests.
+    """
+    debut = texte.find(TITRE_INDEX)
+    if debut == -1:
+        return ""
+    suite = texte[debut + len(TITRE_INDEX) :]
+    suivant = re.search(r"^##\s", suite, re.MULTILINE)
+    return suite if suivant is None else suite[: suivant.start()]
+
+
+def problemes_couverture_index(docs_dir: Path) -> list[str]:
+    """Constats de couverture du tableau d'index, sur les **deux axes neufs** (`GARD-03`, `D-95`, `D-96`).
+
+    Non-duplication ecrite (`D-12`, `D-14`) : ce controle lit l'index pour la **couverture de la
+    constante epinglee** et pour le **compte**, et laisse `tests/test_docs_structure.py` tenir l'egalite
+    index <-> **disque** (dans les deux sens), le titre de niveau 1 et l'unicite des libelles. La
+    couverture epinglee est une **consequence** de l'egalite index <-> disque et de l'egalite pages
+    epinglees <-> disque (tache 1) : elle est gardee comme lecture de la **constante epinglee** (une seule
+    source de verite) plutot que comme seconde derivation du disque, et ce controle ajoute donc les deux
+    choses qu'aucune garde livree ne porte — **au plus une** ligne par cible (`problemes_index` raisonne
+    en ensembles, donc une ligne dupliquee lui echappe) et le **compte** des lignes.
+
+    Trois lectures, un constat par motif :
+
+    - une page de contenu epinglee sans ligne d'index est un constat de `MOTIF_COUVERTURE_INDEX` ;
+    - une cible du tableau qui n'est pas une page epinglee est un constat de `MOTIF_INDEX_EN_TROP` ;
+    - une cible portee par plusieurs lignes est un constat de `MOTIF_COUVERTURE_INDEX` (elle et les
+      autres cibles ne sont pas disjointes) ;
+    - le nombre de lignes du tableau doit egaler le nombre de pages de contenu epinglees, sans quoi le
+      constat de `MOTIF_NOMBRE_INDEX` **nomme les deux nombres**.
+
+    Ce controle ne verifie ni le libelle des entrees, ni le titre de niveau 1 du sommaire, ni la prose de
+    la page : ce sont les controles de la phase 1, et le module ne les reprend pas (`D-12`).
+    """
+    sommaire = docs_dir / SOMMAIRE
+    if not sommaire.is_file():
+        return [
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_COUVERTURE_INDEX} : {sommaire.as_posix()} absent ; "
+            f"attendu le sommaire portant le tableau « {TITRE_INDEX} », la couverture etant lue sur lui "
+            f"(GARD-03, D-95)"
+        ]
+    try:
+        texte = sommaire.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return [
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_COUVERTURE_INDEX} : {sommaire.as_posix()} non decodable "
+            f"en UTF-8 strict ; attendu un sommaire lisible, la couverture etant lue sur son texte "
+            f"(GARD-03, D-11)"
+        ]
+
+    corps = _corps_index(texte)
+    if not corps.strip():
+        return [
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_COUVERTURE_INDEX} : le titre « {TITRE_INDEX} » est absent "
+            f"de {sommaire.as_posix()} ; attendu le tableau d'index ou sont lues les cibles des pages "
+            f"livrees (GARD-03, D-95)"
+        ]
+
+    lignes = [ligne for ligne in corps.splitlines() if MOTIF_LIGNE_INDEX.match(ligne)]
+    cibles = [MOTIF_LIGNE_INDEX.match(ligne).group("cible") for ligne in lignes]
+    uniques = set(cibles)
+    attendues = _pages_contenu_epinglees()
+    constats: list[str] = []
+
+    for cible in sorted(attendues - uniques):
+        constats.append(
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_COUVERTURE_INDEX} : la page epinglee "
+            f"{DOSSIER_DOCS}/{cible} n'est la cible d'aucune ligne du tableau « {TITRE_INDEX} » ; attendu "
+            f"une ligne d'index pointant vers {cible} pour chaque page de contenu epinglee (D-95, D-96)"
+        )
+    for cible in sorted(uniques - attendues):
+        constats.append(
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_INDEX_EN_TROP} : la cible « {cible} » du tableau "
+            f"« {TITRE_INDEX} » n'est pas une page epinglee ; attendu chaque cible du tableau presente "
+            f"dans PAGES_EPINGLEES, la constante etant la source unique du contrat (D-95, D-14)"
+        )
+    for cible in sorted({cible for cible in cibles if cibles.count(cible) > 1}):
+        constats.append(
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_COUVERTURE_INDEX} : la cible « {cible} » est portee par "
+            f"{cibles.count(cible)} lignes du tableau « {TITRE_INDEX} » ; attendu au plus une ligne par "
+            f"cible, l'egalite d'ensembles de la phase 1 ne voyant pas une ligne dupliquee (D-95, D-96)"
+        )
+    if len(lignes) != len(attendues):
+        constats.append(
+            f"{DOSSIER_DOCS}/{SOMMAIRE} : {MOTIF_NOMBRE_INDEX} : le tableau « {TITRE_INDEX} » porte "
+            f"{len(lignes)} ligne(s) ; attendu {len(attendues)} pages de contenu epinglees, autant de "
+            f"lignes que de pages livrees (D-95, D-96)"
+        )
+
+    return constats
+
+
 # --- Tests de la tranche verticale ---
 
 
@@ -569,4 +702,89 @@ def test_le_controle_du_readme_mord_sur_un_texte_synthetique() -> None:
         f"{', '.join(absentes) or 'aucune'} ; attendu les trois familles (avertissement manquant, renvoi "
         f"manquant, jeton disparu) sur trois textes prives successivement de l'avertissement, du renvoi "
         f"et de tous les jetons conserves (D-100, D-84)"
+    )
+
+
+# --- Cloture de completude : la couverture de l'index et son compte (plan 06-03, tache 3) ---
+
+
+def test_couverture_de_l_index(docs_dir: Path, section) -> None:
+    """Chaque page epinglee est une cible du tableau d'index, et aucune cible n'est hors de la liste.
+
+    Une seule assertion, tous constats accumules (`D-13`) : les deux axes neufs du controle sont exerces
+    ensemble — l'egalite d'ensembles **dans les deux sens** entre les cibles du tableau `## Index` et les
+    pages de contenu de `PAGES_EPINGLEES`, avec au plus une ligne par cible. La fixture partagee `section`
+    localise d'abord le tableau : la mesure a donc un objet, et le helper n'est jamais recopie (`D-12`).
+    """
+    texte = (docs_dir / SOMMAIRE).read_text(encoding="utf-8")
+    section(texte, TITRE_INDEX, SOMMAIRE)
+    constats = problemes_couverture_index(docs_dir)
+
+    assert not constats, (
+        f"{MOTIF_COUVERTURE_INDEX} — constats de couverture du tableau « {TITRE_INDEX} » : "
+        + " ; ".join(constats)
+        + f" ; attendu chaque page de contenu epinglee atteignable par une ligne d'index unique, et "
+        f"aucune cible hors de PAGES_EPINGLEES (GARD-03, D-95, D-96)"
+    )
+
+
+def test_les_deux_pages_de_la_phase_sont_epinglees_et_indexees(docs_dir: Path, section) -> None:
+    """Les deux pages de la phase sont epinglees **et** indexees, sans seconde enumeration de l'inventaire.
+
+    Les chemins viennent de `PAGES_DE_LA_PHASE`, et leur appartenance est derivee de `PAGES_EPINGLEES` :
+    aucune liste de pages n'est recopiee, donc aucune seconde source de verite (`D-14`). Le controle
+    exerce exactement ce que le plan ferme — la page livree par cette phase est du contrat **et** de
+    l'index — sans rejouer l'egalite index <-> disque de la phase 1 (`D-12`).
+    """
+    texte = (docs_dir / SOMMAIRE).read_text(encoding="utf-8")
+    corps = section(texte, TITRE_INDEX, SOMMAIRE)
+    cibles = {
+        trouve.group("cible")
+        for ligne in corps.splitlines()
+        if (trouve := MOTIF_LIGNE_INDEX.match(ligne)) is not None
+    }
+    declarees = {chemin for chemin, _ in PAGES_EPINGLEES}
+
+    constats: list[str] = []
+    for chemin in PAGES_DE_LA_PHASE:
+        cible = Path(chemin).relative_to(DOSSIER_DOCS).as_posix()
+        if chemin not in declarees:
+            constats.append(
+                f"{chemin} : {MOTIF_COUVERTURE_INDEX} : la page livree par cette phase n'est pas une page "
+                f"epinglee ; attendu une entree dans PAGES_EPINGLEES, la constante etant la source unique "
+                f"du contrat (GARD-03, D-95, D-14)"
+            )
+        if cible not in cibles:
+            constats.append(
+                f"{chemin} : {MOTIF_COUVERTURE_INDEX} : la page livree par cette phase n'est la cible "
+                f"d'aucune ligne du tableau « {TITRE_INDEX} » ; attendu une ligne d'index pointant vers "
+                f"{cible} (GARD-03, D-95, D-96)"
+            )
+
+    assert not constats, (
+        f"{MOTIF_COUVERTURE_INDEX} — constats sur les pages de la phase : " + " ; ".join(constats)
+        + f" ; attendu {', '.join(PAGES_DE_LA_PHASE)} epinglees et atteignables depuis "
+        f"« {TITRE_INDEX} » du sommaire, les chemins etant derives des constantes du module "
+        f"(GARD-03, D-95)"
+    )
+
+
+def test_le_nombre_d_entrees_d_index_est_le_nombre_de_pages(docs_dir: Path, section) -> None:
+    """Le tableau d'index porte autant de lignes que de pages de contenu epinglees.
+
+    Le point (b) est exerce **seul**, isole de l'egalite d'ensembles : le constat de compte est donc
+    diagnosticable sans lire les autres, et il nomme les deux nombres. Le tableau est d'abord localise
+    par la fixture partagee `section`, sans quoi la mesure n'aurait pas d'objet (`D-12`).
+    """
+    texte = (docs_dir / SOMMAIRE).read_text(encoding="utf-8")
+    section(texte, TITRE_INDEX, SOMMAIRE)
+    constats = [
+        constat
+        for constat in problemes_couverture_index(docs_dir)
+        if MOTIF_NOMBRE_INDEX in constat
+    ]
+
+    assert not constats, (
+        f"{MOTIF_NOMBRE_INDEX} — constats de compte du tableau « {TITRE_INDEX} » : " + " ; ".join(constats)
+        + f" ; attendu autant de lignes d'index que de pages de contenu epinglees (GARD-03, D-95)"
     )
