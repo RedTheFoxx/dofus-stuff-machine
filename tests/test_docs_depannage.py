@@ -149,6 +149,12 @@ MOTIF_MESSAGE_NON_PRODUIT = "message non produit par le code"
 MOTIF_MECANISME = "mecanisme du clavier"
 MOTIF_CHAMP_PRESENT = "champ de saisie inattendu"
 MOTIF_PAGINATION = "formes de la pagination"
+
+# Deux familles de constats propres a la portee de la pagination : la surface que la
+# rubrique ne nomme pas, et l'absolu de portee qui range deux comportements distincts
+# sous une seule regle (D-19).
+MOTIF_PAGINATION_SURFACE = "surface de pagination non declaree"
+MOTIF_PAGINATION_ABSOLU = "absolu de pagination non borne"
 MOTIF_VOLATILES = "valeur volatile"
 MOTIF_CHEMIN_ABSOLU = "chemin absolu"
 MOTIF_PROMESSE_DUREE = "promesse de duree"
@@ -210,6 +216,52 @@ MOTIF_MESSAGE_CITE = re.compile(r"^\|\s*`(?P<message>[^`]+)`\s*\|", re.MULTILINE
 # Un motif de pagination COMPOSE (`PAGE 3/3`), jamais une position : la ligne de corps de l'ecran de
 # liste comme celle de l'ecran a page unique le portent.
 MOTIF_PAGE_COMPOSE = re.compile(r"\bPAGE\s+\d+\s*/\s*\d+")
+
+# Les deux surfaces qui composent une ligne de statut, et le procede de chacune lu dans son fichier
+# producteur, avec le nombre d'occurrences attendu. La surface servie par l'application garde sa
+# composition (`routes.py:144-145`) et compose toujours sa ligne de corps (`routes.py:477`, `:543`) ;
+# celle des deux ecrans de sauvegardes compose son statut sans aucune garde (`terminal.js:370`, `:400`)
+# et n'ecrit aucune ligne de pagination dans son corps. C'est cette asymetrie que la page doit dire,
+# surface par surface (D-19).
+MOTIF_GARDE_STATUT_ROUTES = re.compile(
+    r'if\s+total\s*>\s*1:\s*indicators\.append\(f"PAGE \{page\}/\{total\}"\)'
+)
+MOTIF_CORPS_ROUTES = re.compile(r'f"PAGE \{page\}/\{total_pages\}')
+MOTIF_STATUT_JS = re.compile(r'"PAGE "\s*\+\s*page\s*\+\s*"/"\s*\+\s*total')
+MOTIF_ECRITURE_STATUT_JS = "setStatus("
+MOTIF_GARDE_PAGINATION = re.compile(r"total\s*>\s*1")
+
+SURFACES_PAGINATION = (
+    (
+        "application",
+        SOURCE_ROUTES,
+        (MOTIF_GARDE_STATUT_ROUTES, 1),
+        (MOTIF_CORPS_ROUTES, 2),
+        True,
+        ("plus d'une page", "porte toujours"),
+    ),
+    (
+        "sauvegardes",
+        SOURCE_TERMINAL_JS,
+        (MOTIF_STATUT_JS, 2),
+        None,
+        False,
+        ("une seule page", "aucune ligne de pagination"),
+    ),
+)
+
+# Marques d'absolu de portee : elles disent d'un seul tenant ce que le produit fait surface par
+# surface. Le controle ne refuse que ces marques, jamais une formulation bornee (D-19).
+ABSOLUS_PAGINATION = (
+    "aucun motif a son statut",
+    "n'ajoute aucun motif",
+    "ne porte jamais le motif",
+    "le motif n'apparait jamais",
+    "sur n'importe quel ecran",
+    "quelle que soit la surface",
+    "quel que soit l'ecran",
+    "sans exception de surface",
+)
 
 # Jeton entre accents graves du bloc « Source de verite » ; un jeton est lu comme un chemin s'il
 # ressemble a un chemin de fichier, et il est alors exige sur disque depuis la racine du depot.
@@ -853,6 +905,110 @@ def problemes_page(docs_dir: Path, sections, normalize) -> list[str]:
     return constats
 
 
+def problemes_pagination(docs_dir: Path, sections, normalize) -> list[str]:
+    """La portee de la pagination est bornee a chacune des deux surfaces qui la compose.
+
+    La page livree par le plan 06-01 affirmait la regle de la ligne de statut pour tout
+    ecran. C'est vrai des ecrans que l'application sert elle-meme
+    (`dofus_stuff/web/routes.py:144-145`, composition sous la garde `total > 1`) et faux
+    des deux ecrans de sauvegardes, ou le script compose le motif des la premiere page
+    (`dofus_stuff/web/static/js/terminal.js:370` et `:400`, sans aucune garde). Chaque
+    surface de `SURFACES_PAGINATION` est donc nommee par la rubrique et porte la
+    condition mesuree dans son fichier producteur, et une marque d'absolu de portee
+    rougit : la page dit ce que le fichier fait, surface par surface (D-19).
+
+    Limite nommee : le controle est statique. Il lit les deux fichiers producteurs, il
+    n'execute pas le JavaScript et ne rend pas les deux ecrans de sauvegardes ; c'est
+    `test_pagination_a_deux_formes` qui mesure le rendu des ecrans servis par
+    l'application, et la liste des marques d'absolu est finie et declaree, si bien qu'une
+    generalisation formulee autrement reste hors de son atteinte (D-85).
+    """
+    texte = _texte_page(docs_dir)
+    titre = dict(RUBRIQUES)["pagination"]
+    corps = _corps_par_titre(texte, sections).get(titre)
+    if corps is None:
+        return [
+            f"{MOTIF_PAGINATION} : la rubrique « {titre} » est absente de {PAGE} ; attendu la rubrique "
+            f"des deux formes de la pagination, adossee a ses deux producteurs ({SOURCE_ROUTES}, "
+            f"{SOURCE_TERMINAL_JS}, D-19)"
+        ]
+    normalise = normalize(corps)
+    constats: list[str] = []
+    inconditionnel_mesure = False
+
+    for cle, fichier, statut, corps_mesure, conditionnel, jetons in SURFACES_PAGINATION:
+        source = RACINE_DEPOT / fichier
+        contenu = source.read_bytes().decode("utf-8") if source.is_file() else ""
+        motif, attendues = statut
+        occurrences = len(motif.findall(contenu))
+        if occurrences != attendues:
+            constats.append(
+                f"{MOTIF_PAGINATION} : le procede de la surface « {cle} » n'est plus mesure dans "
+                f"{fichier} ({occurrences} occurrence(s), attendu {attendues}) ; attendu le procede lu "
+                f"dans le fichier producteur, la page decrivant ce que ce fichier fait ({fichier}, D-19)"
+            )
+            continue
+        if corps_mesure is not None:
+            motif_corps, attendues_corps = corps_mesure
+            occurrences_corps = len(motif_corps.findall(contenu))
+            if occurrences_corps != attendues_corps:
+                constats.append(
+                    f"{MOTIF_PAGINATION} : la ligne de corps de la surface « {cle} » n'est plus composee "
+                    f"dans {fichier} ({occurrences_corps} occurrence(s), attendu {attendues_corps}) ; "
+                    f"attendu le corps des deux ecrans servis par l'application, toujours pagine "
+                    f"({fichier}, D-19)"
+                )
+                continue
+        else:
+            garde = MOTIF_GARDE_PAGINATION.search(contenu)
+            if garde:
+                constats.append(
+                    f"{MOTIF_PAGINATION} : la surface « {cle} » porte « {garde.group(0)} » dans {fichier} ; "
+                    f"attendu une composition du motif sans garde sur le nombre de pages, la page "
+                    f"decrivant ce comportement ({fichier}, D-19)"
+                )
+                continue
+            deplacees = [
+                occurrence
+                for occurrence in motif.finditer(contenu)
+                if MOTIF_ECRITURE_STATUT_JS not in contenu[max(0, occurrence.start() - 80):occurrence.start()]
+            ]
+            if deplacees:
+                constats.append(
+                    f"{MOTIF_PAGINATION} : la composition du motif de la surface « {cle} » n'est plus "
+                    f"adossee a « {MOTIF_ECRITURE_STATUT_JS} » dans {fichier} ({len(deplacees)} "
+                    f"occurrence(s)) ; attendu la composition ecrite sur la ligne de statut, ce fichier "
+                    f"portant les seules compositions lues par la page ({fichier}, D-19)"
+                )
+                continue
+            inconditionnel_mesure = True
+
+        noms = (fichier.lower(), Path(fichier).name.lower())
+        if not any(nom in normalise for nom in noms):
+            constats.append(
+                f"{MOTIF_PAGINATION_SURFACE} : la rubrique « {titre} » de {PAGE} ne nomme pas la surface "
+                f"« {cle} » ({fichier}) ; attendu le fichier qui compose la ligne de statut, la regle "
+                f"dependant de la surface qui l'ecrit (D-19)"
+            )
+        for jeton in jetons:
+            if jeton not in normalise:
+                constats.append(
+                    f"{MOTIF_PAGINATION_SURFACE} : la rubrique « {titre} » de {PAGE} ne porte pas "
+                    f"« {jeton} » pour la surface « {cle} » ; attendu la condition mesuree de cette "
+                    f"surface ({fichier}, D-19)"
+                )
+
+    if inconditionnel_mesure:
+        for marque in ABSOLUS_PAGINATION:
+            if marque in normalise:
+                constats.append(
+                    f"{MOTIF_PAGINATION_ABSOLU} : la rubrique « {titre} » de {PAGE} porte « {marque} » ; "
+                    f"attendu une formulation bornee a la surface mesuree, la surface sans garde "
+                    f"ecrivant le motif sur une seule page ({SOURCE_TERMINAL_JS}, D-19)"
+                )
+    return constats
+
+
 def _imports_du_module(arbre: ast.AST) -> set[str]:
     """Modules importes par le module d'ancrage, imports imbriques compris dans les fonctions."""
     importes: set[str] = set()
@@ -1162,6 +1318,27 @@ def test_pagination_a_deux_formes(docs_dir: Path, client, sections) -> None:
         + " ; ".join(constats)
         + f" ; attendu le motif du statut dependant de l'ecran et celui du corps ne dependant pas de "
         f"lui ({SOURCE_ROUTES}, D-19)"
+    )
+
+
+def test_pagination_bornee_a_ses_deux_producteurs(docs_dir: Path, sections, normalize) -> None:
+    """La rubrique de la pagination borne la ligne de statut a chacune de ses deux surfaces.
+
+    Le controle est lie aux deux comportements mesures : la composition de
+    `dofus_stuff/web/routes.py:144-145`, gardee par `total > 1`, avec sa ligne de corps
+    toujours composee (`:477` et `:543`) ; et celle de
+    `dofus_stuff/web/static/js/terminal.js:370` et `:400`, ecrite sans aucune garde et
+    adossee a `setStatus(`. Un absolu de portee — celui qui rangeait les deux surfaces
+    sous une seule phrase — rougit, et le rendu des ecrans reste la mesure de
+    `test_pagination_a_deux_formes` (D-19, D-97).
+    """
+    constats = problemes_pagination(docs_dir, sections, normalize)
+    assert not constats, (
+        f"{PAGE} : constats sur la portee de la pagination : "
+        + " ; ".join(constats)
+        + f" ; attendu la rubrique nommant les deux producteurs de la ligne de statut et "
+        f"portant la condition de chacun, sans aucune marque d'absolu ({SOURCE_ROUTES}, "
+        f"{SOURCE_TERMINAL_JS}, D-19)"
     )
 
 
