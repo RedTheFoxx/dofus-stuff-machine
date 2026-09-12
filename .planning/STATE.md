@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 6
 current_phase_name: Dépannage, glossaire, complétude et preuve finale
 status: executing
-stopped_at: "Phase 6 plan 06-03 complete : tests/test_docs_completude.py (8 tests, 5/5 morsures detectees) — la liste epinglee des huit pages de docs/ confrontee au disque dans les deux sens avec refus du vidage, la couverture d'index (7 lignes pour 7 pages) et le README.md dont la commande de nettoyage est encadree par son avertissement et le renvoi vers docs/base-locale.md (D-100) ; 243 passed, base du depot intacte ; reste 06-04"
-last_updated: "2026-09-12T00:22:40.792Z"
+stopped_at: "Phase 6 plan 06-04 complete : tests/test_docs_mutation.py (6 tests, 1035 lignes, 14/14 morsures detectees sur copie verte avant mutation) — la preuve de morsure en processus sur une copie sous tmp_path, la racine des trois modules d'ancrage redirigee vers elle, la fermeture du trou museliere par la sonde, l'empreinte en lecture seule de .data/dofus.sqlite3, la couverture des livrables par les mutations declarees, la suite entiere 249 passed in 6.01s et la suite sous le greffon de refus reseau et de piege main() 249 passed in 6.12s ; les quatre plans de la phase 6 sont livres, la verification de phase reste a jouer"
+last_updated: "2026-09-12T00:52:23.000Z"
 last_activity: 2026-09-12
-last_activity_desc: "Phase 6 plan 06-02 complete (le glossaire du vocabulaire est livre et garde : 27 termes tries, 22 renvois vers la page qui les definit deja, 5 definitions propres, une ligne d'index ajoutee, le parcours conseille du sommaire rendu verifiable par permutation des libelles d'index et refus des liens Markdown ; 7 tests dont la garde de cloture auto-analysee, 7/7 morsures detectees ; 235 passed, base du depot intacte)"
-state_head: 215c3842bfcdf289f3e6b2d8c155e99808c7d613
+last_activity_desc: "Phase 6 plan 06-04 complete (la preuve que les gardes mordent : quatorze derives en cinq familles injectees sur une copie du depot sous tmp_path, la racine des modules d'ancrage redirigee vers elle, la copie mesuree verte avant chaque mutation ; 14/14 morsures avec leur motif, dont la fermeture du trou museliere par la sonde ; empreinte de .data/dofus.sqlite3 identique avant et apres les deux executions finales ; audit de perimetre rendu contre les huit chemins declares et le jeu tolere nomme ; 249 passed in 6.01s, puis 249 passed in 6.12s sous le greffon de refus reseau et de piege main())"
+state_head: 9cd7de27bdca63b830b0aaee7ed6fe17b8c90af8
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
   percent: 83
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-09-10)
 ## Current Position
 
 Phase: 6 — Dépannage, glossaire, complétude et preuve finale
-Plan: 3 of 4 — plan 06-03 livré (`tests/test_docs_completude.py` : la liste épinglée des huit pages de `docs/` avec un seuil de lignes non vides par page, confrontée au disque dans les deux sens, la couverture d'index — 7 lignes de tableau pour 7 pages de contenu — et la garde de clôture auto-analysée ; `README.md` dont la commande de nettoyage reste documentée mais gagne, dans son bloc, l'avertissement qui dit qu'elle détruit la base locale et le renvoi vers `docs/base-locale.md`, `D-100` — 8 tests, 5/5 morsures détectées). Reste 06-04 (preuve finale).
-Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01, 06-02 et 06-03 livrés
-Last activity: 2026-09-12 — 06-03 complete (3 commits, 5/5 morsures détectées sur copie verte avant mutation, 243 passed, `.data/dofus.sqlite3` intacte)
+Plan: 4 of 4 — plan 06-04 livré (`tests/test_docs_mutation.py` : la preuve que les gardes **mordent** — une copie du dépôt sous `tmp_path`, la racine des trois modules d'ancrage redirigée vers elle, la copie mesurée verte avant chaque mutation, **quatorze dérives en cinq familles** injectées sur la copie dont la fermeture du trou muselière par la sonde, 14/14 morsures avec leur motif lu dans le module d'ancrage, l'empreinte en lecture seule de `.data/dofus.sqlite3` intacte avant et après les deux exécutions finales, et l'audit de périmètre rendu contre les huit chemins déclarés et le jeu toléré nommé — `249 passed in 6.01s`, puis `249 passed in 6.12s` sous le greffon de refus réseau et de piège `main()`). **Les quatre plans de la phase 6 sont livrés** ; la vérification de phase reste à jouer.
+Status: Executing — la phase 5 a ses 4 plans livrés et sa vérification passée (`05-VERIFICATION.md`, `status: passed`), la phase 6 a ses plans 06-01, 06-02, 06-03 et 06-04 livrés (vérification de phase à venir)
+Last activity: 2026-09-12 — 06-04 complete (3 commits de tâche + le commit de métadonnées, 14/14 morsures détectées sur copie verte avant mutation, `249 passed in 6.01s` et `249 passed in 6.12s` sous greffon, `.data/dofus.sqlite3` intacte)
 
-Progress: [████████░░] 83% (22/23 plans exécutés ; 5 phases closes, la 6e est entamée — 06-01, 06-02 et 06-03 livrés, 06-04 restant)
+Progress: [█████████░] plans : 23/23 ; phases closes et vérifiées : 5/6 (83 %) — 06-01, 06-02, 06-03 et 06-04 livrés, la vérification de la phase 6 reste à jouer
 
 ## Performance Metrics
 
@@ -85,7 +85,7 @@ Progress: [████████░░] 83% (22/23 plans exécutés ; 5 phase
 | Phase 6 P01 | 4min | 3 tasks | 3 files |
 | Phase 6 P02 | 5min | 3 tasks | 3 files |
 | Phase 6 P03 | 5min | 3 tasks | 2 files |
-| Phase 6 P03 | 5min | 3 tasks | 2 files |
+| Phase 6 P04 | 22min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -193,6 +193,11 @@ Recent decisions affecting current work:
 - [Phase 6]: 06-03 : D-100 est tranchee par l'ENCADREMENT, jamais par la suppression — la ligne de nettoyage de la base locale reste dans le README.md, et ce qui manquait (l'avertissement qui dit qu'elle detruit la base et le renvoi vers docs/base-locale.md) est ajoute dans le MEME bloc que l'occurrence (2 insertions, 0 suppression, CRLF preserve). La justification complete est ecrite dans la docstring du module avant tout code : la ligne est un contenu livre, une suppression ne prouverait rien du besoin (aucune assertion ne distingue « information absente » de « information jamais livree »), les regles de la phase interdisent de supprimer de la documentation livree, et l'encadrement est verifiable par deux constats automatiques.
 - [Phase 6]: 06-03 : la completude est prouvee par une LISTE EPINGLEE (PAGES_EPINGLEES : les huit pages de docs/ avec un seuil de lignes non vides lu sur le disque a l'ecriture) confrontee au disque dans les deux sens, et par la couverture de l'index limitee aux deux axes qu'aucune garde livree ne porte (au plus une ligne par cible, et le compte des lignes) — la non-duplication avec tests/test_docs_structure.py (index <-> disque, H1, unicite des libelles) et la transitivite de la couverture epinglee sont ecrites dans la docstring du module. Mesure : le tableau ## Index porte 7 lignes pour 7 pages de contenu epinglees.
 - [Phase 6]: 06-03 : mesures de la passe de plan — .venv/Scripts/python.exe -m pytest -q -> 238 passed (tache 1, 235 avant ce plan), 240 passed (tache 2), 243 passed in 4.50s (tache 3, 8 tests dans le module) ; 5/5 morsures du plan detectees sur copie verte avant mutation (page supprimee, page videe, renvoi retire, avertissement retire, ligne d'index retiree), aucune corrigee pour mordre ; une correction a porte sur le TEST de la morsure « les deux pages de la phase » (MOTIF_LIGNE_INDEX est ancre sans re.MULTILINE : la lecture du tableau se fait desormais ligne a ligne, comme dans problemes_couverture_index) ; .data/dofus.sqlite3 identique avant, apres chaque tache et apres chaque batterie (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; dofus_stuff/** et docs/** non modifies, 2 fichiers, 792 insertions, aucun fichier supprime. Bookkeeping : progress.completed_plans portee de 21 a 22, la ligne 06-03 des plans de la phase 6 cochee et son compteur porte a 3/4, GARD-03 marquee Complete dans REQUIREMENTS.md.
+
+- [Phase 6]: 06-04 : la preuve de morsure se fait EN PROCESSUS, sur une copie du depot sous tmp_path dont la racine lue par les trois modules d'ancrage est REDIRIGEE (module.RACINE_DEPOT = copie) — sans cette redirection, un controle lirait le depot reel, la mutation porterait sur une copie que personne ne lit, et la morsure serait un faux vert. Les trois modules livres (06-01, 06-02, 06-03) lisaient deja RACINE_DEPOT : aucune adaptation d'un module d'ancrage n'a ete necessaire, et files_modified reste tests/test_docs_mutation.py.
+- [Phase 6]: 06-04 : la batterie est INTOLEANTE, et sa tolerance a ete MESUREE — un temoin negatif hors livrable (une copie du module dont la mutation de la page videe a ete videe de son effet) rend `1 failed` avec « morsure(s) non observee(s) sur une copie pourtant mesuree verte avant mutation : page_livree (docs/glossaire.md) : ... constats reellement produits : aucun ». Le fichier temoin a ete supprime dans la meme passe. Aucun `skip`, aucun `xfail` (controle par ast), et chaque mutation refuse d'etre un no-op silencieux (`MOTIF_MUTATION_SANS_OBJET` si son ancre a disparu).
+- [Phase 6]: 06-04 : le trou museliere est ferme par un CONTROLE — la mutation `ecran_muet_declare` deplace une declaration de `source_literal` vers `web_render` dans la copie de tests/test_docs_depannage.py, et la sonde du module d'ancrage refuse (`message non produit par le code`, constat nommant les dix-neuf routes sondees et le message). Le refus d'une sonde est converti en constat cherchable (try/except AssertionError dans `_mesure`), jamais en erreur de collecte : sans cela, la mutation qui ferme le trou aurait ete comptee comme non mordante sur un controle qui mord.
+- [Phase 6]: 06-04 : mesures de la passe de plan — `.venv/Scripts/python.exe -m pytest -q` -> `246 passed` (tache 1), `247 passed` (tache 2), `249 passed in 6.01s` (suite entiere finale), et `249 passed in 6.12s` sous le greffon de refus reseau et de piege main() (six pieges armes AVANT la collecte, verifie_arme() verifiant par identite, jamais par un appel) ; 14/14 morsures detectees sur copie verte avant mutation, aucune corrigee pour mordre ; `.data/dofus.sqlite3` identique avant et apres les deux executions (24989696:1788730056843137500:e3793d64cb7939ad1a51837b075b6b95e03d64c878fcb9cc07f86c00bb8fef7b) ; `dofus_stuff/**`, `docs/**`, `README.md` et `pyproject.toml` non modifies, 1 fichier cree, 1035 insertions, aucun fichier supprime. Bookkeeping : `progress.completed_plans` portee de 22 a 23 (23/23 plans livres ; `percent` reste 83 % car la phase 6 n'est pas encore verifiee), la ligne 06-04 des plans de la phase 6 cochee, `**Plans**: 4/4`, `GARD-04` marquee Complete dans REQUIREMENTS.md, et la ligne `Phase 6 P03` dupliquee du tableau Per-Plan Metrics remplacee par la ligne `Phase 6 P04` (22min, 3 tasks, 1 fichier).
 
 ### Pending Todos
 
